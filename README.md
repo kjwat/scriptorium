@@ -17,8 +17,7 @@ It installs the core Scriptorium programs, installs SimpleSuite dependencies, cl
 - simplestats
 - simplever
 - simplegame
-- neomutt/mutt
-- newsboat
+- mutt
 - calcurse
 - links
 - git
@@ -28,8 +27,6 @@ It installs the core Scriptorium programs, installs SimpleSuite dependencies, cl
 
 - `~/.muttrc`
 - `~/.mutt/`
-- `~/.newsboat/config`
-- `~/.newsboat/urls`
 - `~/.config/calcurse/`
 - `~/.links/`
 - `~/.config/simplefiles/config`
