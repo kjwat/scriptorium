@@ -76,7 +76,31 @@ rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"
 rm -rf "$HOME/.local/share/simplefiles"
 
-# Remove only kjwat GitHub credential traces, not the whole Git identity.
+# Remove only KJWat-installed Git identity.
+if command -v git >/dev/null 2>&1; then
+    git_name="$(git config --global user.name 2>/dev/null || true)"
+    git_email="$(git config --global user.email 2>/dev/null || true)"
+
+    case "$git_name" in
+        "kjwat"|"Keelan Watlington")
+            git config --global --unset user.name || true
+            ;;
+    esac
+
+    case "$git_email" in
+        "kjwat@protonmail.com")
+            git config --global --unset user.email || true
+            ;;
+    esac
+fi
+
+# Remove Scriptorium PATH additions.
+if [ -f "$HOME/.bashrc" ]; then
+    sed -i '/# Scriptorium user binaries/d' "$HOME/.bashrc"
+    sed -i '/export PATH="\$HOME\/.local\/bin:\$PATH"/d' "$HOME/.bashrc"
+fi
+
+# Remove only kjwat GitHub credential traces.
 clean_kjwat_credentials
 
 # Remove the Scriptorium repo itself last.
