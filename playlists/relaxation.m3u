@@ -1,0 +1,25 @@
+#EXTM3U
+#EXTINF:-1,Calm Relaxation Radio
+https://drive.uber.radio/uber/calmrelaxation/icecast.audio
+
+#EXTINF:-1,Relaxation Radio
+http://79.120.39.202:8004/relaxation
+
+#EXTINF:-1,Party Vibe Radio - Relaxation
+http://partyviberadio.com:8056/stream3
+
+#EXTINF:-1,Positively Relaxation
+https://streaming.positivity.radio/pr/relaxation/icecast.audio
+
+#EXTINF:-1,Nature Radio
+https://nature-rex.radioca.st/;
+
+#EXTINF:-1,Multi Radio Relaxation
+https://stream1.multi-radio.com/relaxation
+
+#EXTINF:-1,Relaxation Stream
+https://c32.radioboss.fm:8338/stream
+
+#EXTINF:-1,Mother Earth Radio
+http://mediaradio.com/earth1
+

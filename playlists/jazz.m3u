@@ -1,0 +1,39 @@
+#EXTM3U
+#EXTINF:-1,Live365 Jazz Stream
+https://streaming.live365.com/a45189_2
+
+#EXTINF:-1,Hard Bop Radio 2
+http://79.111.14.76:8002/hardbop
+
+#EXTINF:-1,WALM Radio Jazz
+https://icecast.walmradio.com:8443/jazz
+
+#EXTINF:-1,JFM Jazz
+https://jfm1.hostingradio.ru:14536/ijstream.mp3
+
+#EXTINF:-1,TorontoCast Jazz Stream
+https://cast1.torontocast.com:4640/stream
+
+#EXTINF:-1,Jazz Radio - Jazz & World
+http://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3
+
+#EXTINF:-1,Canstream Jazz Radio
+http://radio.canstream.co.uk:8075/live.mp3
+
+#EXTINF:-1,Radio.co Jazz Stream
+http://streaming.radio.co/s297e618a7/listen
+
+#EXTINF:-1,ABC Jazz
+https://mediaserviceslive.akamaized.net/hls/live/2038319/abcjazz/index.m3u8
+
+#EXTINF:-1,Hard Bop Radio
+http://streams.greenhost.nl:8080/hardbop
+
+#EXTINF:-1,Jazz Radio - Jazz & Classique
+http://jazzradio.ice.infomaniak.ch/jazzradio-high.mp3
+
+#EXTINF:-1,FIP Jazz
+http://icecast.radiofrance.fr/fipjazz-hifi.aac
+
+#EXTINF:-1,181.FM BeBop Jazz
+http://www.181.fm/stream/pls/181-bebop.pls
