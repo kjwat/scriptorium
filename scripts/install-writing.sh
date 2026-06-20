@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${WRITING_REPO_URL:-git@github.com:kjwat/writing.git}"
+REPO_URL="${WRITING_REPO_URL:-https://github.com/kjwat/writing.git}"
 DEST="${WRITING_DIR:-$HOME/writing}"
 
 if [ -d "$DEST/.git" ]; then

@@ -1,4 +1,3 @@
-
 # never commit private SSH keys
 dotfiles/ssh/id_ed25519
 dotfiles/ssh/id_rsa
