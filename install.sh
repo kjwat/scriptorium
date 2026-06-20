@@ -8,6 +8,19 @@ warn() { printf '\n!! %s\n' "$*" >&2; }
 
 say "Scriptorium installer"
 
+# Configure Git identity if missing
+if ! git config --global user.name >/dev/null 2>&1; then
+    printf "Enter your Git name: "
+    read -r git_name
+    git config --global user.name "$git_name"
+fi
+
+if ! git config --global user.email >/dev/null 2>&1; then
+    printf "Enter your Git email: "
+    read -r git_email
+    git config --global user.email "$git_email"
+fi
+
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
 
