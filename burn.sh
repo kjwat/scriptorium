@@ -41,6 +41,7 @@ for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis si
     rm -f "$HOME/.local/bin/$bin"
 done
 
+rm -f "$HOME/.mutt/account.local"
 rm -rf "$HOME/.mutt"
 rm -rf "$HOME/.newsboat"
 rm -rf "$HOME/.config/calcurse"

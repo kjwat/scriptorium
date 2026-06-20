@@ -1,4 +1,4 @@
 base-devel pkg-config ncurses-devel libcurl-devel
 git mpv poppler-utils pandoc
 nano zip unzip xdg-utils file less pulseaudio-utils
-neomutt calcurse links curl ca-certificates rsync
+mutt calcurse links curl ca-certificates rsync

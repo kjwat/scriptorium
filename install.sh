@@ -37,6 +37,39 @@ if [ -n "$github_user" ] && [ -n "$github_pat" ]; then
     chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
 fi
 
+
+say "Configuring Mutt"
+
+printf "Do you want to configure Gmail for Mutt? [y/N] "
+read -r setup_gmail
+
+case "$setup_gmail" in
+    y|Y|yes|YES)
+
+        mkdir -p "$HOME/.mutt"
+
+        printf "Gmail address: "
+        read -r gmail_addr
+
+        printf "Gmail app password: "
+        stty -echo
+        read -r gmail_pass
+        stty echo
+        printf '\n'
+
+        cat > "$HOME/.mutt/account.local" <<EOF
+set imap_user="$gmail_addr"
+set smtp_url="smtp://$gmail_addr@smtp.gmail.com:587/"
+set smtp_pass="$gmail_pass"
+set folder="imaps://imap.gmail.com/"
+set spoolfile="+INBOX"
+EOF
+
+        chmod 600 "$HOME/.mutt/account.local"
+        ;;
+esac
+
+
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
 
@@ -78,7 +111,7 @@ say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis; do
+for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1

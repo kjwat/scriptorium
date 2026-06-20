@@ -2,3 +2,7 @@
 # Do not commit passwords or app tokens here.
 set editor="simplewords"
 set pager=less
+
+
+# Local machine mail settings
+source ~/.mutt/account.local
