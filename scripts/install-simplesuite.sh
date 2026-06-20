@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${SIMPLESUITE_REPO_URL:-git@github.com:kjwat/simplesuite.git}"
+REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
 DEST="${SIMPLESUITE_DIR:-$HOME/src/simplesuite}"
 
 mkdir -p "$(dirname "$DEST")"

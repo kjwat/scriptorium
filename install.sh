@@ -8,9 +8,6 @@ warn() { printf '\n!! %s\n' "$*" >&2; }
 
 say "Scriptorium installer"
 
-say "Installing SSH keys"
-"$ROOT/scripts/install-ssh.sh"
-
 say "Installing package dependencies"
 "$ROOT/scripts/install-packages.sh"
 
