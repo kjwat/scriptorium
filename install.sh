@@ -57,3 +57,5 @@ for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod si
 done
 
 say "Done. The Scriptorium is installed and on PATH."
+
+exec bash -l
