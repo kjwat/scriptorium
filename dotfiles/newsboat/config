@@ -1,0 +1,6 @@
+# Newsboat config placeholder.
+# Replace this with your real ~/.newsboat/config.
+browser "links %u"
+editor "simplewords"
+reload-time 60
+show-read-feeds no

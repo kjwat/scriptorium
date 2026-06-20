@@ -1,0 +1,4 @@
+build-base pkgconf ncurses-dev curl-dev
+git mpv poppler-utils pandoc
+nano zip unzip xdg-utils file less pulseaudio-utils
+neomutt newsboat calcurse links ca-certificates rsync

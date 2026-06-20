@@ -1,0 +1,4 @@
+base-devel pkgconf ncurses curl
+git mpv poppler pandoc-cli
+nano zip unzip xdg-utils file less libpulse
+neomutt newsboat calcurse links ca-certificates rsync

@@ -1,0 +1,28 @@
+# SimpleFiles config
+# Installed to ~/.config/simplefiles/config
+
+OPEN_MODE=terminal
+EDITOR_COMMAND=simplewords
+
+TEXT_EXTENSIONS=.txt,.md,.markdown,.tex,.c,.h,.cpp,.hpp,.cc,.py,.sh,.conf,.ini,.log
+
+PREVIEW=true
+PREVIEW_LINES=80
+
+START_DIR=~
+TRASH_DIR=~/.local/share/simplefiles/trash
+CONFIRM_DELETE=true
+
+# File associations
+OPEN_.pdf=simplepdf
+OPEN_.epub=simplepdf
+OPEN_.djvu=simplepdf
+OPEN_.mobi=simplepdf
+
+OPEN_.flac=simpleflac
+OPEN_.ape=simpleflac
+OPEN_.cue=simpleflac
+
+OPEN_.m3u=simpleradio
+OPEN_.m3u8=simpleradio
+OPEN_.pls=simpleradio
