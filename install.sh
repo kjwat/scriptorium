@@ -30,6 +30,22 @@ grep -qxF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null || {
     printf '\n# Scriptorium user binaries\n%s\n' "$PATH_LINE" >> "$HOME/.bashrc"
 }
 
+grep -q "^# SimpleSuite aliases$" "$HOME/.bashrc" 2>/dev/null || cat >> "$HOME/.bashrc" <<'ALIASES'
+
+# SimpleSuite aliases
+alias words='simplewords'
+alias files='simplefiles'
+alias flac='simpleflac'
+alias radio='simpleradio'
+alias pod='simplepod'
+alias vis='simplevis'
+alias clock='simpleclock'
+alias stats='simplestats'
+alias ver='simplever'
+alias game='simplegame'
+alias pdf='simplepdf'
+ALIASES
+
 export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
@@ -45,17 +61,13 @@ say "Linking dotfiles"
 say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
-export PATH="$HOME/.local/bin:$PATH"
-hash -r
-
 say "Verifying commands"
 for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
+    command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1
-    fi
+    }
 done
 
-say "Done. The Scriptorium is installed and on PATH."
-
+say "Done. The Scriptorium is installed."
 exec bash -l
