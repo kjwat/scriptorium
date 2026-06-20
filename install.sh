@@ -17,13 +17,10 @@ say "Installing package dependencies"
 say "Installing SimpleSuite"
 "$ROOT/scripts/install-simplesuite.sh"
 
-say "Installing writing repo"
-"$ROOT/scripts/install-writing.sh"
-
 say "Linking dotfiles"
 "$ROOT/scripts/link-dotfiles.sh"
 
 say "Creating standard directories"
-mkdir -p "$HOME/writing" "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
+mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 say "Done. The Scriptorium is installed."
