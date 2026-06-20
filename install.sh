@@ -57,12 +57,22 @@ case "$setup_gmail" in
         stty echo
         printf '\n'
 
+        clean_gmail_pass="$(printf '%s' "$gmail_pass" | tr -d '[:space:]')"
+
         cat > "$HOME/.mutt/account.local" <<EOF
 set imap_user="$gmail_addr"
+set imap_pass="$clean_gmail_pass"
+
 set smtp_url="smtp://$gmail_addr@smtp.gmail.com:587/"
-set smtp_pass="$gmail_pass"
+set smtp_pass="$clean_gmail_pass"
+
 set folder="imaps://imap.gmail.com/"
 set spoolfile="+INBOX"
+set record="+[Gmail]/Sent Mail"
+set postponed="+[Gmail]/Drafts"
+
+set ssl_starttls=yes
+set ssl_force_tls=yes
 EOF
 
         chmod 600 "$HOME/.mutt/account.local"
