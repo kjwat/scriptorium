@@ -85,6 +85,17 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i "/alias pdf='simplepdf'/d" "$HOME/.bashrc"
 fi
 
+# Remove credential helper if Scriptorium enabled it.
+if command -v git >/dev/null 2>&1; then
+    helper="$(git config --global credential.helper 2>/dev/null || true)"
+
+    if [ "$helper" = "store" ]; then
+        git config --global --unset credential.helper || true
+    fi
+fi
+
+rm -f "$HOME/.git-credentials"
+
 clean_kjwat_credentials
 
 cd "$HOME"

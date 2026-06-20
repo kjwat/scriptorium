@@ -21,6 +21,10 @@ if ! git config --global user.email >/dev/null 2>&1; then
     git config --global user.email "$git_email"
 fi
 
+# Remember HTTPS GitHub/PAT credentials after first successful push.
+# This stores credentials in ~/.git-credentials.
+git config --global credential.helper store
+
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
 
