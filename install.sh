@@ -8,7 +8,6 @@ warn() { printf '\n!! %s\n' "$*" >&2; }
 
 say "Scriptorium installer"
 
-# Configure Git identity if missing
 if ! git config --global user.name >/dev/null 2>&1; then
     printf "Enter your Git name: "
     read -r git_name
@@ -21,9 +20,22 @@ if ! git config --global user.email >/dev/null 2>&1; then
     git config --global user.email "$git_email"
 fi
 
-# Remember HTTPS GitHub/PAT credentials after first successful push.
-# This stores credentials in ~/.git-credentials.
+say "Configuring GitHub credentials"
 git config --global credential.helper store
+
+printf "Enter your GitHub username: "
+read -r github_user
+
+printf "Paste your GitHub PAT: "
+stty -echo
+read -r github_pat
+stty echo
+printf '\n'
+
+if [ -n "$github_user" ] && [ -n "$github_pat" ]; then
+    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' "$github_user" "$github_pat" | git credential approve
+    chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+fi
 
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
