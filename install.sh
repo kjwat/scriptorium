@@ -6,6 +6,47 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
+install_newsboat_snap_optional() {
+    printf "\nDo you want to install Newsboat via snap? [y/N] "
+    read -r install_newsboat
+
+    case "$install_newsboat" in
+        y|Y|yes|YES)
+            if ! command -v snap >/dev/null 2>&1; then
+                if command -v apt >/dev/null 2>&1; then
+                    sudo apt update
+                    sudo apt install -y snapd
+                elif command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y snapd
+                    sudo systemctl enable --now snapd.socket || true
+                    sudo ln -sf /var/lib/snapd/snap /snap || true
+                else
+                    warn "snap not found, and this installer does not know how to install snapd here"
+                    return 0
+                fi
+            fi
+
+            sudo snap install newsboat || true
+
+            mkdir -p "$HOME/snap/newsboat/current/.newsboat"
+
+            if [ -f "$ROOT/dotfiles/newsboat/urls" ]; then
+                cp "$ROOT/dotfiles/newsboat/urls" "$HOME/snap/newsboat/current/.newsboat/urls"
+            fi
+
+            if [ -f "$ROOT/dotfiles/newsboat/config" ]; then
+                cp "$ROOT/dotfiles/newsboat/config" "$HOME/snap/newsboat/current/.newsboat/config"
+            fi
+
+            mkdir -p "$HOME/.config/scriptorium"
+            touch "$HOME/.config/scriptorium/newsboat-snap-installed"
+
+            say "Newsboat installed. Run it with: snap run newsboat"
+            ;;
+    esac
+}
+
+
 say "Scriptorium installer"
 
 if ! git config --global user.name >/dev/null 2>&1; then
@@ -119,6 +160,8 @@ say "Linking dotfiles"
 
 say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
+
+install_newsboat_snap_optional
 
 say "Verifying commands"
 for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv fzf; do
