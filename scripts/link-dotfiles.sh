@@ -52,6 +52,9 @@ link_dir "$DOT/links" "$HOME/.links"
 
 link_file "$DOT/simplefiles/config" "$HOME/.config/simplefiles/config"
 
+link_file "$DOT/simplenews/config" "$HOME/.config/simplenews/config"
+link_file "$DOT/simplenews/urls" "$HOME/.config/simplenews/urls"
+
 if [ -d "$BACKUP" ]; then
     echo "Backups saved in $BACKUP"
 fi

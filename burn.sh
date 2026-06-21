@@ -59,6 +59,8 @@ fi
 rm -rf "$HOME/.config/calcurse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
+rm -rf "$HOME/.config/simplenews"
+rm -rf "$HOME/.cache/simplenews"
 rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"
 rm -rf "$HOME/.local/share/simplefiles"
