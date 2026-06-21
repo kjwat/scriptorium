@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
-DEST="${WRITING_DIR:-$HOME/writing}"
-REPO="${WRITING_REPO_URL:-https://github.com/kjwat/writing.git}"
+TARGET="$HOME/writing"
+REPO="https://github.com/kjwat/writing.git"
+TMP="$HOME/.writing-clone-tmp"
 
-if [ -d "$DEST/.git" ]; then
-    echo "Writing repo already exists at $DEST"
-    git -C "$DEST" pull --ff-only
-    exit 0
+rm -rf "$TMP"
+
+if [ -d "$TARGET/.git" ]; then
+  echo "Updating existing writing repo..."
+  git -C "$TARGET" pull
+  exit 0
 fi
 
-if [ -e "$DEST" ]; then
-    echo "Refusing to overwrite existing non-git path: $DEST" >&2
-    exit 1
-fi
+mkdir -p "$TARGET"
 
-git clone "$REPO" "$DEST"
+echo "Cloning writing repo into temporary directory..."
+git clone "$REPO" "$TMP"
+
+echo "Copying repo into $TARGET while preserving existing autosaves..."
+rsync -a --ignore-existing "$TMP"/ "$TARGET"/
+
+rm -rf "$TMP"
+
+echo "Done. Existing files were preserved."
