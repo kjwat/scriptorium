@@ -2,8 +2,7 @@
 
 A reproducible command-line writing environment.
 
-It installs the core Scriptorium programs, installs All `simple*` tools are part of [Simplesuite](https://github.com/kjwat/simplesuite) dependencies, clones/builds SimpleSuite, then links only the dotfiles that actually exist as config files.
-
+It installs the core Scriptorium programs, installs [Simplesuite](https://github.com/kjwat/simplesuite) and its dependencies, builds SimpleSuite, and then links only dotfiles that exist as configuration files.
 ## Included programs
 
 - simplewords
