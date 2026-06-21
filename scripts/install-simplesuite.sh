@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
-DEST="${SIMPLESUITE_DIR:-$HOME/src/simplesuite}"
+DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 
 mkdir -p "$(dirname "$DEST")"
 
