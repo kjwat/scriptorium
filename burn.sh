@@ -47,14 +47,20 @@ rm -rf "$HOME/.newsboat"
 
 # Remove optional Newsboat snap install only if Scriptorium installed it.
 if [ -f "$HOME/.config/scriptorium/newsboat-snap-installed" ]; then
+    rm -rf "$HOME/snap/newsboat"
+
     if command -v snap >/dev/null 2>&1; then
         if snap list newsboat >/dev/null 2>&1; then
             sudo snap remove newsboat || true
+            if snap list newsboat >/dev/null 2>&1; then
+                sudo snap remove newsboat || true
+            fi
         fi
     fi
-    rm -rf "$HOME/snap/newsboat"
+
     rm -f "$HOME/.config/scriptorium/newsboat-snap-installed"
 fi
+
 rm -rf "$HOME/.config/calcurse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
