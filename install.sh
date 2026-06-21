@@ -117,6 +117,18 @@ say "Installing SimpleSuite"
 say "Linking dotfiles"
 "$ROOT/scripts/link-dotfiles.sh"
 
+
+say "Installing SimpleNews dotfiles"
+mkdir -p "$HOME/.config/simplenews"
+
+if [ -f "$ROOT/dotfiles/simplenews/urls" ]; then
+    cp "$ROOT/dotfiles/simplenews/urls" "$HOME/.config/simplenews/urls"
+fi
+
+if [ -f "$ROOT/dotfiles/simplenews/config" ]; then
+    cp "$ROOT/dotfiles/simplenews/config" "$HOME/.config/simplenews/config"
+fi
+
 say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
