@@ -61,6 +61,18 @@ if [ -f "$HOME/.config/scriptorium/newsboat-snap-installed" ]; then
     rm -f "$HOME/.config/scriptorium/newsboat-snap-installed"
 fi
 
+# Remove snapd itself only if Scriptorium installed it.
+if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
+    if command -v apt >/dev/null 2>&1; then
+        sudo apt purge -y snapd || true
+        sudo apt autoremove -y || true
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf remove -y snapd || true
+    fi
+    rm -rf "$HOME/snap"
+    rm -f "$HOME/.config/scriptorium/snapd-installed"
+fi
+
 rm -rf "$HOME/.config/calcurse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"

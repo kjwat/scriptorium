@@ -16,8 +16,12 @@ install_newsboat_snap_optional() {
                 if command -v apt >/dev/null 2>&1; then
                     sudo apt update
                     sudo apt install -y snapd
+                    mkdir -p "$HOME/.config/scriptorium"
+                    touch "$HOME/.config/scriptorium/snapd-installed"
                 elif command -v dnf >/dev/null 2>&1; then
                     sudo dnf install -y snapd
+                    mkdir -p "$HOME/.config/scriptorium"
+                    touch "$HOME/.config/scriptorium/snapd-installed"
                     sudo systemctl enable --now snapd.socket || true
                     sudo ln -sf /var/lib/snapd/snap /snap || true
                 else
