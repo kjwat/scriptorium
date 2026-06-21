@@ -25,7 +25,7 @@ It installs the core Scriptorium programs, installs SimpleSuite dependencies, cl
 
 ## Dotfiles currently managed
 
-~/.mutt/muttrc
+- ~/.mutt/muttrc
 - `~/.mutt/`
 - `~/.config/calcurse/`
 - `~/.links/`
