@@ -11,6 +11,7 @@ It installs the core Scriptorium programs, installs SimpleSuite dependencies, cl
 - simpleflac
 - simpleradio
 - simplepod
+- simplenews
 - simplevis
 - simplepdf
 - simpleclock
