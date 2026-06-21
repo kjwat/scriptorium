@@ -32,6 +32,7 @@ dep_hint() {
         unzip) echo "used by simplefiles :extract" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
+        fzf) echo "used by simplepdf fuzzy file selection" ;;
         *) echo "provided by $1" ;;
     esac
 }
@@ -124,61 +125,81 @@ detect_platform() {
     fi
 }
 
+pkg_for_dep() {
+    case "$family:$1" in
+        *:fzf) echo "fzf" ;;
+        *:zip) echo "zip" ;;
+        *:unzip) echo "unzip" ;;
+        *:file) echo "file" ;;
+        *:less) echo "less" ;;
+        *:xdg-open) echo "xdg-utils" ;;
+        *:pactl|*:parec)
+            case "$family" in
+                arch) echo "libpulse" ;;
+                macos) echo "pulseaudio" ;;
+                *) echo "pulseaudio-utils" ;;
+            esac
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+
 packages_for_family() {
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
         debian)
             INSTALL="sudo apt update && sudo apt install -y"
             PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses curl"
             PKG_RUNTIME="git mpv poppler pandoc-cli"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less libpulse"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
         macos)
             INSTALL="brew install"
             PKG_REQUIRED="pkg-config ncurses curl make"
             PKG_RUNTIME="git mpv poppler pandoc"
-            PKG_OPTIONAL="nano zip unzip file less pulseaudio"
+            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
             PKG_REQUIRED="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ncurses mingw-w64-x86_64-curl"
             PKG_RUNTIME="git mingw-w64-x86_64-mpv mingw-w64-x86_64-poppler pandoc"
-            PKG_OPTIONAL="nano zip unzip file less"
+            PKG_OPTIONAL="nano zip unzip file less fzf"
             ;;
         *)
             INSTALL="# install manually:"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
             ;;
     esac
 }
@@ -215,6 +236,7 @@ check_cmd optional zip "zip"
 check_cmd optional unzip "unzip"
 check_cmd optional file "file"
 check_cmd optional less "less"
+check_cmd optional fzf "fzf"
 
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
@@ -260,9 +282,18 @@ if [ "${#missing_optional[@]}" -gt 0 ]; then
     echo "Missing OPTIONAL / feature dependencies:"
     printf "  - %s\n" "${missing_optional[@]}"
     echo
-    echo "Install optional packages:"
-    echo "  $INSTALL $PKG_OPTIONAL"
-    echo
+
+    opt_pkgs=""
+    for dep in "${missing_optional[@]}"; do
+        pkg="$(pkg_for_dep "$dep")"
+        [ -n "$pkg" ] && opt_pkgs="$opt_pkgs $pkg"
+    done
+
+    if [ -n "$opt_pkgs" ]; then
+        echo "Install optional packages:"
+        echo "  $INSTALL$(printf "%s" "$opt_pkgs" | xargs)"
+        echo
+    fi
 fi
 
 echo "One-shot install for this platform:"
