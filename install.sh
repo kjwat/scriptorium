@@ -121,7 +121,7 @@ say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv; do
+for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv fzf; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1
