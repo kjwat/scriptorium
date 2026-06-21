@@ -46,8 +46,6 @@ mkdir -p "$HOME/.config"
 
 link_file "$DOT/mutt/muttrc" "$HOME/.mutt/muttrc"
 
-link_file "$DOT/newsboat/config" "$HOME/.newsboat/config"
-link_file "$DOT/newsboat/urls" "$HOME/.newsboat/urls"
 
 link_dir "$DOT/calcurse" "$HOME/.config/calcurse"
 link_dir "$DOT/links" "$HOME/.links"

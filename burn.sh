@@ -43,23 +43,6 @@ done
 
 rm -f "$HOME/.mutt/account.local"
 rm -rf "$HOME/.mutt"
-rm -rf "$HOME/.newsboat"
-
-# Remove optional Newsboat snap install only if Scriptorium installed it.
-if [ -f "$HOME/.config/scriptorium/newsboat-snap-installed" ]; then
-    rm -rf "$HOME/snap/newsboat"
-
-    if command -v snap >/dev/null 2>&1; then
-        if snap list newsboat >/dev/null 2>&1; then
-            sudo snap remove newsboat || true
-            if snap list newsboat >/dev/null 2>&1; then
-                sudo snap remove newsboat || true
-            fi
-        fi
-    fi
-
-    rm -f "$HOME/.config/scriptorium/newsboat-snap-installed"
-fi
 
 # Remove snapd itself only if Scriptorium installed it.
 if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then

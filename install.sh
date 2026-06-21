@@ -6,52 +6,6 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
-install_newsboat_snap_optional() {
-    printf "\nDo you want to install Newsboat via snap? [y/N] "
-    read -r install_newsboat
-
-    case "$install_newsboat" in
-        y|Y|yes|YES)
-            if ! command -v snap >/dev/null 2>&1; then
-                if command -v apt >/dev/null 2>&1; then
-                    sudo apt update
-                    sudo apt install -y snapd
-                    mkdir -p "$HOME/.config/scriptorium"
-                    touch "$HOME/.config/scriptorium/snapd-installed"
-                elif command -v dnf >/dev/null 2>&1; then
-                    sudo dnf install -y snapd
-                    mkdir -p "$HOME/.config/scriptorium"
-                    touch "$HOME/.config/scriptorium/snapd-installed"
-                    sudo systemctl enable --now snapd.socket || true
-                    sudo ln -sf /var/lib/snapd/snap /snap || true
-                else
-                    warn "snap not found, and this installer does not know how to install snapd here"
-                    return 0
-                fi
-            fi
-
-            sudo snap install newsboat || true
-
-            newsboat_snap_dir="$HOME/snap/newsboat/$(snap list newsboat | awk 'NR==2 {print $3}')/.newsboat"
-            mkdir -p "$newsboat_snap_dir"
-
-            if [ -f "$ROOT/dotfiles/newsboat/urls" ]; then
-                cp "$ROOT/dotfiles/newsboat/urls" "$newsboat_snap_dir/urls"
-            fi
-
-            if [ -f "$ROOT/dotfiles/newsboat/config" ]; then
-                cp "$ROOT/dotfiles/newsboat/config" "$newsboat_snap_dir/config"
-            fi
-
-            mkdir -p "$HOME/.config/scriptorium"
-            touch "$HOME/.config/scriptorium/newsboat-snap-installed"
-
-            say "Newsboat installed. Run it with: snap run newsboat"
-            ;;
-    esac
-}
-
-
 say "Scriptorium installer"
 
 if ! git config --global user.name >/dev/null 2>&1; then
@@ -166,7 +120,6 @@ say "Linking dotfiles"
 say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
-install_newsboat_snap_optional
 
 say "Verifying commands"
 for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv fzf; do
