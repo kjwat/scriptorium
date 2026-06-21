@@ -28,14 +28,15 @@ install_newsboat_snap_optional() {
 
             sudo snap install newsboat || true
 
-            mkdir -p "$HOME/snap/newsboat/current/.newsboat"
+            newsboat_snap_dir="$HOME/snap/newsboat/$(snap list newsboat | awk 'NR==2 {print $3}')/.newsboat"
+            mkdir -p "$newsboat_snap_dir"
 
             if [ -f "$ROOT/dotfiles/newsboat/urls" ]; then
-                cp "$ROOT/dotfiles/newsboat/urls" "$HOME/snap/newsboat/current/.newsboat/urls"
+                cp "$ROOT/dotfiles/newsboat/urls" "$newsboat_snap_dir/urls"
             fi
 
             if [ -f "$ROOT/dotfiles/newsboat/config" ]; then
-                cp "$ROOT/dotfiles/newsboat/config" "$HOME/snap/newsboat/current/.newsboat/config"
+                cp "$ROOT/dotfiles/newsboat/config" "$newsboat_snap_dir/config"
             fi
 
             mkdir -p "$HOME/.config/scriptorium"
