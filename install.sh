@@ -203,6 +203,9 @@ stty -echo
 read -r github_pat
 stty echo
 printf '\n'
+github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
+stty echo
+printf '\n'
 
 if [ -n "$github_user" ] && [ -n "$github_pat" ]; then
     printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' "$github_user" "$github_pat" |
