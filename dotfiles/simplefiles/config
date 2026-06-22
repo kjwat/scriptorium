@@ -20,6 +20,12 @@ OPEN_.djvu=simplepdf
 OPEN_.mobi=simplepdf
 
 OPEN_.flac=simpleflac
+OPEN_.mp3=simpleflac
+OPEN_.ogg=simpleflac
+OPEN_.wav=simpleflac
+OPEN_.m4a=simpleflac
+OPEN_.aac=simpleflac
+OPEN_.opus=simpleflac
 OPEN_.ape=simpleflac
 OPEN_.cue=simpleflac
 

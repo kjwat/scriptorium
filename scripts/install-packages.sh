@@ -3,6 +3,260 @@ set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 family="$("$ROOT/scripts/detect-platform.sh")"
+package_log=
+package_status_file=
+
+cleanup_package_files() {
+    [ -z "$package_log" ] || rm -f -- "$package_log"
+    [ -z "$package_status_file" ] || rm -f -- "$package_status_file"
+}
+
+trap cleanup_package_files EXIT
+
+repository_help() {
+    repo_family=$1
+    repo_detail=${2-}
+
+    printf '\n!! Package repository configuration problem detected.\n' >&2
+    [ -z "$repo_detail" ] || printf '   %s\n' "$repo_detail" >&2
+
+    case "$repo_family" in
+        debian)
+            printf '%s\n' \
+                '   APT has no usable package sources.' \
+                '   Review /etc/apt/sources.list and the .list/.sources files in' \
+                '   /etc/apt/sources.list.d/.' \
+                '   Ubuntu: open "Software & Updates" and enable the official Main repository.' \
+                '   Debian: restore the official sources for the installed release.' \
+                '   Then run: sudo apt update' >&2
+            ;;
+        arch)
+            printf '%s\n' \
+                '   One or more enabled pacman repositories have no active Server entry.' \
+                '   EndeavourOS: open Welcome -> After Installation and run both mirror' \
+                '   update actions (EndeavourOS/eos-rankmirrors and Arch/Reflector).' \
+                '   If the EndeavourOS mirror list is missing or empty, run:' \
+                '     sudo touch /etc/pacman.d/endeavouros-mirrorlist' \
+                '     eos-rankmirrors' \
+                '   Arch: restore active Server entries in /etc/pacman.d/mirrorlist.' \
+                '   Then run: sudo pacman -Syu' >&2
+            ;;
+        fedora)
+            printf '%s\n' \
+                '   DNF has no enabled software repositories.' \
+                '   List the configured repositories with: sudo dnf repolist --all' \
+                '   Enable the official base and updates repositories in Software Repositories' \
+                '   or with dnf config-manager, then run: sudo dnf makecache' >&2
+            ;;
+        alpine)
+            printf '%s\n' \
+                '   APK has no active repository entries in /etc/apk/repositories.' \
+                '   Select an official mirror with: sudo setup-apkrepos' \
+                '   Then run: sudo apk update' >&2
+            ;;
+        void)
+            printf '%s\n' \
+                '   XBPS has no usable package repository.' \
+                '   Check the repository= entries in /etc/xbps.d and /usr/share/xbps.d.' \
+                "   Select an official mirror with xmirror, or restore Void's main repository" \
+                '   configuration for this architecture, then run: sudo xbps-install -S' >&2
+            ;;
+        suse)
+            printf '%s\n' \
+                '   Zypper has no enabled software repositories.' \
+                '   List them with: sudo zypper repos --uri' \
+                '   Enable the official repositories with YaST Software Repositories or:' \
+                '     sudo zypper modifyrepo --enable <repository-alias>' \
+                '   Then run: sudo zypper refresh' >&2
+            ;;
+        macos)
+            printf '%s\n' \
+                '   Homebrew cannot access its configured package source.' \
+                '   Inspect the configuration with: brew config' \
+                '   Repair Homebrew according to the reported remote/tap error, then run:' \
+                '     brew update' >&2
+            ;;
+    esac
+
+    printf '\n   After repairing the repositories, run ./install.sh again.\n' >&2
+}
+
+explain_repository_failure() {
+    error_family=$1
+    error_log=$2
+
+    case "$error_family" in
+        debian)
+            if grep -Eqi \
+                'list of sources could not be read|malformed entry .* (sources\.list|list file)|no active sources found' \
+                "$error_log"; then
+                repository_help debian
+                return 0
+            fi
+            ;;
+        arch)
+            if grep -Eqi \
+                'no servers configured for repository|no servers are configured for the repository' \
+                "$error_log"; then
+                repository_help arch
+                return 0
+            fi
+            ;;
+        fedora)
+            if grep -Eqi \
+                'there are no enabled repositories|no enabled repositories|no repositories available' \
+                "$error_log"; then
+                repository_help fedora
+                return 0
+            fi
+            ;;
+        alpine)
+            if grep -Eqi \
+                'repositories file unavailable|no active repository entries' \
+                "$error_log"; then
+                repository_help alpine
+                return 0
+            fi
+            ;;
+        void)
+            if grep -Eqi \
+                'xbps-bin: no repositories|no repositories available|no usable package repository' \
+                "$error_log"; then
+                repository_help void
+                return 0
+            fi
+            ;;
+        suse)
+            if grep -Eqi \
+                'there are no enabled repositories defined|no repositories defined|no enabled repositories' \
+                "$error_log"; then
+                repository_help suse
+                return 0
+            fi
+            ;;
+        macos)
+            if grep -Eqi \
+                'invalid value for HOMEBREW_.*_GIT_REMOTE|not a git repository.*Homebrew|no remote.*origin' \
+                "$error_log"; then
+                repository_help macos
+                return 0
+            fi
+            ;;
+    esac
+
+    return 1
+}
+
+run_package_command() {
+    command_family=$1
+    shift
+
+    cleanup_package_files
+    package_log=$(mktemp "${TMPDIR:-/tmp}/scriptorium-packages.XXXXXX")
+    package_status_file=$package_log.status
+    : > "$package_status_file"
+
+    # POSIX sh has no pipefail.  Record the package manager's status separately
+    # while tee keeps its output visible and available for diagnosis.
+    (
+        set +e
+        "$@"
+        command_status=$?
+        printf '%s\n' "$command_status" > "$package_status_file"
+        exit 0
+    ) 2>&1 | tee "$package_log"
+
+    command_status=
+    IFS= read -r command_status < "$package_status_file" || command_status=1
+
+    case "$command_status" in
+        0)
+            cleanup_package_files
+            package_log=
+            package_status_file=
+            return 0
+            ;;
+        '' | *[!0-9]*)
+            command_status=1
+            ;;
+    esac
+
+    explain_repository_failure "$command_family" "$package_log" ||
+        printf '\n!! Package installation failed; review the package-manager error above.\n' >&2
+
+    cleanup_package_files
+    package_log=
+    package_status_file=
+    return "$command_status"
+}
+
+check_repository_configuration() {
+    check_family=$1
+
+    case "$check_family" in
+        debian)
+            if ! apt-get indextargets --no-release-info --format '$(IDENTIFIER)' \
+                2>/dev/null | grep -q .; then
+                repository_help debian
+                return 1
+            fi
+            ;;
+        arch)
+            if command -v pacman-conf >/dev/null 2>&1; then
+                configured_repos=$(pacman-conf --repo-list 2>/dev/null) || return 0
+                missing_repos=
+
+                if [ -z "$configured_repos" ]; then
+                    repository_help arch 'No pacman repositories are enabled.'
+                    return 1
+                fi
+
+                while IFS= read -r repo_name; do
+                    [ -n "$repo_name" ] || continue
+                    repo_servers=$(pacman-conf --repo "$repo_name" Server 2>/dev/null) ||
+                        repo_servers=
+                    if [ -z "$repo_servers" ]; then
+                        if [ -z "$missing_repos" ]; then
+                            missing_repos=$repo_name
+                        else
+                            missing_repos="$missing_repos, $repo_name"
+                        fi
+                    fi
+                done <<EOF
+$configured_repos
+EOF
+
+                if [ -n "$missing_repos" ]; then
+                    repository_help arch "Repositories without servers: $missing_repos"
+                    return 1
+                fi
+            fi
+            ;;
+        alpine)
+            if [ ! -r /etc/apk/repositories ] ||
+                ! grep -Eq '^[[:space:]]*[^#[:space:]]' /etc/apk/repositories; then
+                repository_help alpine
+                return 1
+            fi
+            ;;
+        void)
+            active_xbps_repo=0
+            for repo_file in /etc/xbps.d/*.conf /usr/share/xbps.d/*.conf; do
+                [ -f "$repo_file" ] || continue
+                if grep -Eq '^[[:space:]]*repository[[:space:]]*=' "$repo_file"; then
+                    active_xbps_repo=1
+                    break
+                fi
+            done
+            if [ "$active_xbps_repo" -eq 0 ]; then
+                repository_help void
+                return 1
+            fi
+            ;;
+    esac
+
+    return 0
+}
 
 if [ "$family" = unknown ]; then
     family_file=$HOME/.config/simplesuite/family
@@ -61,50 +315,54 @@ fi
 
 case "$family" in
     debian)
-        sudo apt update
-        sudo apt install -y \
+        check_repository_configuration debian
+        run_package_command debian sudo env LC_ALL=C apt update
+        run_package_command debian sudo env LC_ALL=C apt install -y \
             build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     void)
-        sudo xbps-install -Sy \
+        check_repository_configuration void
+        run_package_command void sudo env LC_ALL=C xbps-install -Sy \
             base-devel pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     arch)
-        sudo pacman -Syu --needed \
+        check_repository_configuration arch
+        run_package_command arch sudo env LC_ALL=C pacman -Syu --needed \
             base-devel pkgconf ncurses curl \
             git mpv poppler pandoc-cli \
             nano zip unzip xdg-utils file less fzf libpulse \
             mutt  calcurse links ca-certificates rsync
         ;;
     alpine)
-        sudo apk add \
+        check_repository_configuration alpine
+        run_package_command alpine sudo env LC_ALL=C apk add \
             build-base pkgconf ncurses-dev curl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils \
             mutt  calcurse links ca-certificates rsync
         ;;
     fedora)
-        sudo dnf install -y \
+        run_package_command fedora sudo env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     suse)
-        sudo zypper install -y \
+        run_package_command suse sudo env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-tools pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     macos)
-        brew install \
+        run_package_command macos env LC_ALL=C brew install \
             pkg-config ncurses curl make \
             git mpv poppler pandoc \
             nano zip unzip file less fzf \
