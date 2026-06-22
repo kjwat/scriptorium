@@ -33,12 +33,12 @@ repository_help() {
         arch)
             printf '%s\n' \
                 '   One or more enabled pacman repositories have no active Server entry.' \
-                '   EndeavourOS: open Welcome -> After Installation and run both mirror' \
-                '   update actions (EndeavourOS/eos-rankmirrors and Arch/Reflector).' \
-                '   If the EndeavourOS mirror list is missing or empty, run:' \
+                '   EndeavourOS live session: open Welcome and run an' \
+                '   "Update Mirrors (Arch, ...)" action (reflector-simple or rate-mirrors).' \
+                '   Save the generated list; this repairs /etc/pacman.d/mirrorlist.' \
+                '   If /etc/pacman.d/endeavouros-mirrorlist is also missing or empty, run:' \
                 '     sudo touch /etc/pacman.d/endeavouros-mirrorlist' \
                 '     eos-rankmirrors' \
-                '   Arch: restore active Server entries in /etc/pacman.d/mirrorlist.' \
                 '   Then run: sudo pacman -Syu' >&2
             ;;
         fedora)
