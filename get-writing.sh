@@ -16,7 +16,7 @@ fi
 mkdir -p "$TARGET"
 
 echo "Cloning writing repo into temporary directory..."
-git clone "$REPO" "$TMP"
+GIT_TERMINAL_PROMPT=1 git clone "$REPO" "$TMP"
 
 echo "Copying repo into $TARGET while preserving existing autosaves..."
 rsync -a --ignore-existing "$TMP"/ "$TARGET"/
