@@ -3,13 +3,16 @@ set -euo pipefail
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DOT="$ROOT/dotfiles"
-STAMP="$(date +%Y%m%d-%H%M%S)"
+STAMP="$(date +%Y%m%d-%H%M%S)-$$"
 BACKUP="$HOME/.scriptorium-backups/$STAMP"
 
 backup_path() {
     target="$1"
     [ -e "$target" ] || [ -L "$target" ] || return 0
     mkdir -p "$BACKUP/$(dirname "${target#$HOME/}")"
+    if [ -n "${SCRIPTORIUM_LINK_BACKUP_RECORD:-}" ]; then
+        printf '%s\n' "$BACKUP" > "$SCRIPTORIUM_LINK_BACKUP_RECORD"
+    fi
     mv "$target" "$BACKUP/${target#$HOME/}"
     echo "Backed up $target -> $BACKUP/${target#$HOME/}"
 }
