@@ -1,8 +1,63 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-family="$($ROOT/scripts/detect-platform.sh)"
+family="$("$ROOT/scripts/detect-platform.sh")"
+
+if [ "$family" = unknown ]; then
+    family_file=$HOME/.config/simplesuite/family
+
+    if [ -f "$family_file" ]; then
+        saved_family=
+        IFS= read -r saved_family < "$family_file" || true
+
+        case "$saved_family" in
+            debian | arch | fedora | alpine | void | suse)
+                family=$saved_family
+                ;;
+            *)
+                printf 'Invalid saved package family in %s\n' "$family_file" >&2
+                exit 1
+                ;;
+        esac
+    else
+        printf '\nUnknown system detected.\n\n'
+        while :; do
+            printf '%s\n' \
+                'Select package family:' \
+                '1) debian (apt)' \
+                '2) arch (pacman)' \
+                '3) fedora (dnf)' \
+                '4) alpine (apk)' \
+                '5) void (xbps)' \
+                '6) suse (zypper)'
+            printf '\nEnter choice: '
+
+            if ! IFS= read -r choice; then
+                printf '\nUnable to read package family selection.\n' >&2
+                exit 1
+            fi
+
+            case "$choice" in
+                1) family=debian ;;
+                2) family=arch ;;
+                3) family=fedora ;;
+                4) family=alpine ;;
+                5) family=void ;;
+                6) family=suse ;;
+                *)
+                    printf '\nInvalid choice. Enter a number from 1 to 6.\n\n' >&2
+                    continue
+                    ;;
+            esac
+            break
+        done
+
+        mkdir -p "$HOME/.config/simplesuite"
+        printf '%s\n' "$family" > "$family_file"
+        chmod 600 "$family_file"
+    fi
+fi
 
 case "$family" in
     debian)
