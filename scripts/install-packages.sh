@@ -81,6 +81,24 @@ repository_help() {
     printf '\n   After repairing the repositories, run ./install.sh again.\n' >&2
 }
 
+arch_partial_upgrade_help() {
+    printf '%s\n' \
+        '' \
+        '!! Arch/Cachy package state appears to be stale.' \
+        '' \
+        '   Scriptorium does not run a full system upgrade for you,' \
+        '   because that would be a surprise distro upgrade during setup.' \
+        '' \
+        '   Arch-based systems do not support partial upgrades. If pacman' \
+        '   reports dependency conflicts, missing package files, or library' \
+        '   version mismatches, update the system first:' \
+        '' \
+        '     sudo pacman -Syu' \
+        '' \
+        '   After that completes, run ./install.sh again.' \
+        '' >&2
+}
+
 explain_repository_failure() {
     error_family=$1
     error_log=$2
@@ -181,8 +199,13 @@ run_package_command() {
             ;;
     esac
 
-    explain_repository_failure "$command_family" "$package_log" ||
-        printf '\n!! Package installation failed; review the package-manager error above.\n' >&2
+    if ! explain_repository_failure "$command_family" "$package_log"; then
+        if [ "$command_family" = arch ]; then
+            arch_partial_upgrade_help
+        else
+            printf '\n!! Package installation failed; review the package-manager error above.\n' >&2
+        fi
+    fi
 
     cleanup_package_files
     package_log=
@@ -333,9 +356,14 @@ case "$family" in
         ;;
     arch)
         check_repository_configuration arch
-        run_package_command arch sudo env LC_ALL=C pacman -Syu --needed \
+        if pacman -Si cachyos-keyring >/dev/null 2>&1; then
+            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring cachyos-keyring
+        else
+            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring
+        fi
+        run_package_command arch sudo env LC_ALL=C pacman -S --needed \
             base-devel pkgconf ncurses curl \
-            git mpv poppler pandoc-cli \
+            git mpv poppler \
             nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel \
             mutt  calcurse links ca-certificates rsync
         ;;
