@@ -33,6 +33,10 @@ dep_hint() {
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
         fzf) echo "used by simplepdf fuzzy file selection" ;;
+        links) echo "default terminal browser used by simplenews; configurable" ;;
+        gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
+        wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;
+        xclip|xsel) echo "used by simplewords X11 clipboard" ;;
         *) echo "provided by $1" ;;
     esac
 }
@@ -40,7 +44,7 @@ dep_hint() {
 pc_hint() {
     case "$1" in
         ncursesw) echo "provided by ncurses development package" ;;
-        libcurl) echo "provided by libcurl/curl development package; used by simplepod" ;;
+        libcurl) echo "provided by libcurl/curl development package; used by simplepod and simplenews" ;;
     esac
 }
 
@@ -140,6 +144,18 @@ pkg_for_dep() {
                 *) echo "pulseaudio-utils" ;;
             esac
             ;;
+        *:links) echo "links" ;;
+        *:gio)
+            case "$family" in
+                debian) echo "libglib2.0-bin" ;;
+                arch|fedora) echo "glib2" ;;
+                suse) echo "glib2-tools" ;;
+                *) echo "glib" ;;
+            esac
+            ;;
+        *:wl-copy|*:wl-paste) echo "wl-clipboard" ;;
+        *:xclip) echo "xclip" ;;
+        *:xsel) echo "xsel" ;;
         *) echo "" ;;
     esac
 }
@@ -151,43 +167,43 @@ packages_for_family() {
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
         debian)
             INSTALL="sudo apt update && sudo apt install -y"
             PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel links"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses curl"
             PKG_RUNTIME="git mpv poppler pandoc-cli"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel links"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel links"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links"
             ;;
         macos)
             INSTALL="brew install"
             PKG_REQUIRED="pkg-config ncurses curl make"
             PKG_RUNTIME="git mpv poppler pandoc"
-            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio"
+            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
@@ -199,7 +215,7 @@ packages_for_family() {
             INSTALL="# install manually:"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
     esac
 }
@@ -237,6 +253,18 @@ check_cmd optional unzip "unzip"
 check_cmd optional file "file"
 check_cmd optional less "less"
 check_cmd optional fzf "fzf"
+
+if [ "$family" != "msys2" ]; then
+    check_cmd optional links "links"
+fi
+
+if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
+    check_cmd optional gio "gio"
+    check_cmd optional wl-copy "wl-copy"
+    check_cmd optional wl-paste "wl-paste"
+    check_cmd optional xclip "xclip"
+    check_cmd optional xsel "xsel"
+fi
 
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
