@@ -1,3 +1,4 @@
 browser=links %u
-timeout=20
+timeout=8
+feed_timeout=18
 max_articles=200
