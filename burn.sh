@@ -37,7 +37,7 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplestats simplever simplegame; do
+for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplestats simplever simplegame simplenews; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -98,6 +98,7 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i "/alias ver='simplever'/d" "$HOME/.bashrc"
     sed -i "/alias game='simplegame'/d" "$HOME/.bashrc"
     sed -i "/alias pdf='simplepdf'/d" "$HOME/.bashrc"
+    sed -i "/alias news='simplenews'/d" "$HOME/.bashrc"
 fi
 
 # Remove credential helper and stored PATs.

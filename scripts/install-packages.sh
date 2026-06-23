@@ -320,7 +320,7 @@ case "$family" in
         run_package_command debian sudo env LC_ALL=C apt install -y \
             build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     void)
@@ -328,7 +328,7 @@ case "$family" in
         run_package_command void sudo env LC_ALL=C xbps-install -Sy \
             base-devel pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     arch)
@@ -336,7 +336,7 @@ case "$family" in
         run_package_command arch sudo env LC_ALL=C pacman -Syu --needed \
             base-devel pkgconf ncurses curl \
             git mpv poppler pandoc-cli \
-            nano zip unzip xdg-utils file less fzf libpulse \
+            nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel \
             mutt  calcurse links ca-certificates rsync
         ;;
     alpine)
@@ -344,21 +344,21 @@ case "$family" in
         run_package_command alpine sudo env LC_ALL=C apk add \
             build-base pkgconf ncurses-dev curl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
             mutt  calcurse links ca-certificates rsync
         ;;
     fedora)
         run_package_command fedora sudo env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     suse)
         run_package_command suse sudo env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-tools pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel \
             mutt  calcurse links curl ca-certificates rsync
         ;;
     macos)
