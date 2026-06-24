@@ -252,6 +252,7 @@ alias ver='simplever'
 alias game='simplegame'
 alias pdf='simplepdf'
 alias news='simplenews'
+alias mail='simplemail'
 ALIASES
 
 export PATH="$HOME/.local/bin:$PATH"
