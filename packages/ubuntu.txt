@@ -1,4 +1,4 @@
 build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev
 git mpv poppler-utils pandoc
 nano zip unzip xdg-utils file less pulseaudio-utils
-mutt calcurse links curl ca-certificates rsync
+isync msmtp calcurse links curl ca-certificates rsync

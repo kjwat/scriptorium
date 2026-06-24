@@ -51,8 +51,9 @@ prepare_rollback() {
     track_path "$HOME/.git-credentials"
     track_path "$suite_dir"
     track_path "$HOME/.bashrc"
-    track_path "$HOME/.mutt/account.local"
-    track_path "$HOME/.mutt/muttrc"
+    track_path "$HOME/.config/simplemail/config"
+    track_path "$HOME/.msmtprc"
+    track_path "$HOME/.mbsyncrc"
     track_path "$HOME/.config/calcurse"
     track_path "$HOME/.links"
     track_path "$HOME/.config/simplefiles/config"
@@ -68,12 +69,12 @@ prepare_rollback() {
     done
 
     for path in \
-        "$HOME/.mutt" \
         "$HOME/.local" \
         "$HOME/.local/bin" \
         "$HOME/.config" \
         "$HOME/.config/simplefiles" \
         "$HOME/.config/simplenews" \
+        "$HOME/.config/simplemail" \
         "$HOME/Downloads" \
         "$HOME/Music" \
         "$HOME/Podcasts"; do
@@ -214,46 +215,17 @@ if [ -n "$github_user" ] && [ -n "$github_pat" ]; then
 fi
 
 
-say "Configuring Mutt"
-
-printf "Do you want to configure Gmail for Mutt? [y/N] "
+printf "\nDo you want to configure SimpleMail for Gmail IMAP/SMTP? [y/N] "
 read -r setup_gmail
 
 case "$setup_gmail" in
     y|Y|yes|YES)
-
-        mkdir -p "$HOME/.mutt"
-
-        printf "Gmail address: "
-        read -r gmail_addr
-
-        printf "Gmail app password: "
-        stty -echo
-        read -r gmail_pass
-        stty echo
-        printf '\n'
-
-        clean_gmail_pass="$(printf '%s' "$gmail_pass" | tr -d '[:space:]')"
-
-        cat > "$HOME/.mutt/account.local" <<EOF
-set imap_user="$gmail_addr"
-set imap_pass="$clean_gmail_pass"
-
-set smtp_url="smtp://$gmail_addr@smtp.gmail.com:587/"
-set smtp_pass="$clean_gmail_pass"
-
-set folder="imaps://imap.gmail.com/"
-set spoolfile="+INBOX"
-set record="+[Gmail]/Sent Mail"
-set postponed="+[Gmail]/Drafts"
-
-set ssl_starttls=yes
-set ssl_force_tls=yes
-EOF
-
-        chmod 600 "$HOME/.mutt/account.local"
+        "$ROOT/scripts/setup-simplemail-gmail.sh"
+        CHANGES_MADE=1
         ;;
 esac
+
+
 
 
 say "Preparing user PATH"
@@ -288,6 +260,8 @@ hash -r
 say "Installing package dependencies"
 "$ROOT/scripts/install-packages.sh"
 
+
+
 say "Installing SimpleSuite"
 "$ROOT/scripts/install-simplesuite.sh"
 
@@ -302,7 +276,7 @@ mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mutt calcurse links git mpv fzf; do
+for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mbsync msmtp calcurse links git mpv fzf; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1

@@ -344,7 +344,7 @@ case "$family" in
             build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
-            mutt  calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync
         ;;
     void)
         check_repository_configuration void
@@ -352,7 +352,7 @@ case "$family" in
             base-devel pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
-            mutt  calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync
         ;;
     arch)
         check_repository_configuration arch
@@ -365,7 +365,7 @@ case "$family" in
             base-devel pkgconf ncurses curl \
             git mpv poppler \
             nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel \
-            mutt  calcurse links ca-certificates rsync
+            isync msmtp calcurse links ca-certificates rsync
         ;;
     alpine)
         check_repository_configuration alpine
@@ -373,28 +373,28 @@ case "$family" in
             build-base pkgconf ncurses-dev curl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
-            mutt  calcurse links ca-certificates rsync
+            isync msmtp calcurse links ca-certificates rsync
         ;;
     fedora)
         run_package_command fedora sudo env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel \
-            mutt  calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync
         ;;
     suse)
         run_package_command suse sudo env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel \
             git mpv poppler-tools pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel \
-            mutt  calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync
         ;;
     macos)
         run_package_command macos env LC_ALL=C brew install \
             pkg-config ncurses curl make \
             git mpv poppler pandoc \
             nano zip unzip file less fzf \
-            mutt  calcurse links rsync
+            isync msmtp calcurse links rsync
         ;;
     *)
         echo "Unknown platform family: $family" >&2

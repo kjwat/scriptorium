@@ -17,7 +17,7 @@ It installs the core Scriptorium programs, installs [Simplesuite](https://github
 - simplestats
 - simplever
 - simplegame
-- mutt
+- simplemail + mbsync + msmtp
 - calcurse
 - links
 - git
@@ -25,8 +25,6 @@ It installs the core Scriptorium programs, installs [Simplesuite](https://github
 
 ## Dotfiles currently managed
 
-- `~/.mutt/muttrc`
-- `~/.mutt/`
 - `~/.config/calcurse/`
 - `~/.links/`
 - `~/.config/simplefiles/config`

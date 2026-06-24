@@ -41,8 +41,6 @@ for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis si
     rm -f "$HOME/.local/bin/$bin"
 done
 
-rm -f "$HOME/.mutt/account.local"
-rm -rf "$HOME/.mutt"
 
 # Remove snapd itself only if Scriptorium installed it.
 if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
@@ -61,6 +59,29 @@ rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
 rm -rf "$HOME/.config/simplenews"
 rm -rf "$HOME/.cache/simplenews"
+
+remove_scriptorium_mail_block() {
+    file=$1
+    begin=$2
+    end=$3
+
+    [ -f "$file" ] || return 0
+    tmp="$(mktemp)"
+    awk -v b="$begin" -v e="$end" '
+        $0 == b { skip=1; next }
+        $0 == e { skip=0; next }
+        !skip { print }
+    ' "$file" > "$tmp"
+    cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
+remove_scriptorium_mail_block "$HOME/.mbsyncrc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
+remove_scriptorium_mail_block "$HOME/.msmtprc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
+rm -rf "$HOME/.config/simplemail"
+
+
+
 rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"
 rm -rf "$HOME/.local/share/simplefiles"
@@ -76,7 +97,6 @@ if command -v git >/dev/null 2>&1; then
     esac
 
     case "$git_email" in
-        "kjwat@protonmail.com")
             git config --global --unset user.email || true
             ;;
     esac
