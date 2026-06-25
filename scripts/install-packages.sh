@@ -339,8 +339,14 @@ fi
 case "$family" in
     debian)
         check_repository_configuration debian
-        run_package_command debian sudo env LC_ALL=C apt update
-        run_package_command debian sudo env LC_ALL=C apt install -y \
+
+        if command -v debconf-set-selections >/dev/null 2>&1; then
+            printf '%s\n' 'msmtp msmtp/apparmor boolean false' |
+                sudo debconf-set-selections || true
+        fi
+
+        run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt update
+        run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt install -y \
             build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
