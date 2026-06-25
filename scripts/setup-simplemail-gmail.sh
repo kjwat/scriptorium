@@ -49,10 +49,15 @@ for box in Inbox Sent Drafts Archive Trash; do
 done
 
 mb="$HOME/.mbsyncrc"
+mb_xdg="$HOME/.config/isyncrc"
 ms="$HOME/.msmtprc"
+
+mkdir -p "$HOME/.config"
 
 touch "$mb" "$ms"
 chmod 600 "$mb" "$ms"
+rm -f "$mb_xdg"
+ln -s "$mb" "$mb_xdg"
 
 strip_block "$mb"
 strip_block "$ms"
