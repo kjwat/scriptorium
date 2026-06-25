@@ -28,6 +28,8 @@ It installs the core Scriptorium programs, installs [Simplesuite](https://github
 - `~/.config/calcurse/`
 - `~/.links/`
 - `~/.config/simplefiles/config`
+- `~/.config/simplenews/config`
+- `~/.config/simplenews/urls`
 
 Most SimpleSuite tools do not currently have config files. They are installed as programs, not linked as dotfiles.
 

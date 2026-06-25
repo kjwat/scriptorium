@@ -63,7 +63,7 @@ prepare_rollback() {
     track_path "$HOME/.config/simplenews/urls.example"
 
     for program in \
-        simpleclock simplefiles simpleflac simplegame simplepdf simplepod \
+        simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod \
         simpleradio simplenews simplestats simplever simplevis simplewords; do
         track_path "$HOME/.local/bin/$program"
     done
@@ -277,7 +277,7 @@ mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis mbsync msmtp calcurse links git mpv fzf; do
+for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis simplenews simplemail mbsync msmtp calcurse links git mpv fzf; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1

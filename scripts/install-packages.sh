@@ -363,7 +363,7 @@ case "$family" in
         fi
         run_package_command arch sudo env LC_ALL=C pacman -S --needed \
             base-devel pkgconf ncurses curl \
-            git mpv poppler \
+            git mpv poppler pandoc-cli \
             nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel \
             isync msmtp calcurse links ca-certificates rsync
         ;;

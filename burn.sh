@@ -37,7 +37,7 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplestats simplever simplegame simplenews; do
+for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -97,6 +97,7 @@ if command -v git >/dev/null 2>&1; then
     esac
 
     case "$git_email" in
+        *kjwat*)
             git config --global --unset user.email || true
             ;;
     esac
@@ -119,6 +120,7 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i "/alias game='simplegame'/d" "$HOME/.bashrc"
     sed -i "/alias pdf='simplepdf'/d" "$HOME/.bashrc"
     sed -i "/alias news='simplenews'/d" "$HOME/.bashrc"
+    sed -i "/alias mail='simplemail'/d" "$HOME/.bashrc"
 fi
 
 # Remove credential helper and stored PATs.

@@ -26,6 +26,7 @@ printf 'Gmail address: '
 read -r gmail_addr
 
 from_addr="$gmail_addr"
+maildir="$HOME/.local/share/simplemail/mail"
 
 printf 'Gmail app password: '
 stty -echo
@@ -39,12 +40,12 @@ if [ -z "$gmail_addr" ] || [ -z "$gmail_pass" ]; then
 fi
 
 mkdir -p "$HOME/.config/simplemail"
-mkdir -p "$HOME/.local/share/simplemail/mail"
+mkdir -p "$maildir"
 
 for box in Inbox Sent Drafts Archive Trash; do
-    mkdir -p "$HOME/.local/share/simplemail/mail/$box/cur" \
-             "$HOME/.local/share/simplemail/mail/$box/new" \
-             "$HOME/.local/share/simplemail/mail/$box/tmp"
+    mkdir -p "$maildir/$box/cur" \
+             "$maildir/$box/new" \
+             "$maildir/$box/tmp"
 done
 
 mb="$HOME/.mbsyncrc"
@@ -71,8 +72,8 @@ IMAPStore gmail-remote
 Account gmail
 
 MaildirStore gmail-local
-Path ~/.local/share/simplemail/mail/
-Inbox ~/.local/share/simplemail/mail/Inbox
+Path $maildir/
+Inbox $maildir/Inbox
 SubFolders Verbatim
 
 Channel gmail-inbox
@@ -129,6 +130,7 @@ $block_end
 EOF
 
 cat > "$HOME/.config/simplemail/config" <<EOF
+maildir=$maildir
 sync_cmd=mbsync gmail
 send_cmd=msmtp -a gmail -t
 from=$from_addr
