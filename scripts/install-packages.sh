@@ -169,48 +169,62 @@ run_package_command() {
     command_family=$1
     shift
 
-    cleanup_package_files
-    package_log=$(mktemp "${TMPDIR:-/tmp}/scriptorium-packages.XXXXXX")
-    package_status_file=$package_log.status
-    : > "$package_status_file"
+    attempt=1
+    while :; do
+        cleanup_package_files
+        package_log=$(mktemp "${TMPDIR:-/tmp}/scriptorium-packages.XXXXXX")
+        package_status_file=$package_log.status
+        : > "$package_status_file"
 
-    # POSIX sh has no pipefail.  Record the package manager's status separately
-    # while tee keeps its output visible and available for diagnosis.
-    (
-        set +e
-        "$@"
-        command_status=$?
-        printf '%s\n' "$command_status" > "$package_status_file"
-        exit 0
-    ) 2>&1 | tee "$package_log"
+        # POSIX sh has no pipefail. Record the package manager's status separately
+        # while tee keeps its output visible and available for diagnosis.
+        (
+            set +e
+            "$@"
+            command_status=$?
+            printf '%s\n' "$command_status" > "$package_status_file"
+            exit 0
+        ) 2>&1 | tee "$package_log"
 
-    command_status=
-    IFS= read -r command_status < "$package_status_file" || command_status=1
+        command_status=
+        IFS= read -r command_status < "$package_status_file" || command_status=1
 
-    case "$command_status" in
-        0)
+        case "$command_status" in
+            0)
+                cleanup_package_files
+                package_log=
+                package_status_file=
+                return 0
+                ;;
+            '' | *[!0-9]*)
+                command_status=1
+                ;;
+        esac
+
+        if [ "$attempt" -eq 1 ]; then
+            printf '\n!! Package installation failed. This may be a temporary network or mirror hiccup.\n' >&2
+            printf '!! Retrying once in 5 seconds...\n' >&2
             cleanup_package_files
             package_log=
             package_status_file=
-            return 0
-            ;;
-        '' | *[!0-9]*)
-            command_status=1
-            ;;
-    esac
-
-    if ! explain_repository_failure "$command_family" "$package_log"; then
-        if [ "$command_family" = arch ]; then
-            arch_partial_upgrade_help
-        else
-            printf '\n!! Package installation failed; review the package-manager error above.\n' >&2
+            sleep 5
+            attempt=2
+            continue
         fi
-    fi
 
-    cleanup_package_files
-    package_log=
-    package_status_file=
-    return "$command_status"
+        if ! explain_repository_failure "$command_family" "$package_log"; then
+            if [ "$command_family" = arch ]; then
+                arch_partial_upgrade_help
+            else
+                printf '\n!! Package installation failed; review the package-manager error above.\n' >&2
+            fi
+        fi
+
+        cleanup_package_files
+        package_log=
+        package_status_file=
+        return "$command_status"
+    done
 }
 
 check_repository_configuration() {
