@@ -1,4 +1,4 @@
 base-devel pkgconf ncurses curl
 git mpv poppler pandoc-cli
-nano zip unzip xdg-utils file less libpulse
-isync msmtp calcurse links ca-certificates rsync
+nano zip unzip xdg-utils file less libpulse pipewire-jack
+mutt calcurse links ca-certificates rsync
