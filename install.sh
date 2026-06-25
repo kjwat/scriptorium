@@ -54,6 +54,7 @@ prepare_rollback() {
     track_path "$HOME/.config/simplemail/config"
     track_path "$HOME/.msmtprc"
     track_path "$HOME/.mbsyncrc"
+    track_path "$HOME/.config/isyncrc"
     track_path "$HOME/.config/calcurse"
     track_path "$HOME/.links"
     track_path "$HOME/.config/simplefiles/config"
