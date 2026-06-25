@@ -341,8 +341,10 @@ case "$family" in
         check_repository_configuration debian
 
         if command -v debconf-set-selections >/dev/null 2>&1; then
-            printf '%s\n' 'msmtp msmtp/apparmor boolean false' |
-                sudo debconf-set-selections || true
+            {
+                printf '%s\n' 'msmtp msmtp/apparmor boolean false'
+                printf '%s\n' 'msmtp msmtp/apparmor seen true'
+            } | sudo debconf-set-selections || true
         fi
 
         run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt update
