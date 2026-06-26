@@ -49,6 +49,7 @@ mkdir -p "$HOME/.config"
 
 link_dir "$DOT/calcurse" "$HOME/.config/calcurse"
 link_dir "$DOT/links" "$HOME/.links"
+link_dir "$DOT/simplecal" "$HOME/.config/simplecal"
 
 link_file "$DOT/simplefiles/config" "$HOME/.config/simplefiles/config"
 

@@ -6,6 +6,62 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
+config_has_key() {
+    local file=$1 key=$2
+    [[ -f "$file" ]] || return 1
+    awk -F= -v key="$key" '
+        /^[[:space:]]*#/ { next }
+        NF >= 2 {
+            k = $1
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
+            if (k == key) found = 1
+        }
+        END { exit found ? 0 : 1 }
+    ' "$file"
+}
+
+set_config_key() {
+    local file=$1 key=$2 value=$3 tmp
+
+    mkdir -p "$(dirname "$file")"
+    if [[ ! -e "$file" ]]; then
+        : > "$file"
+        CHANGES_MADE=1
+    fi
+
+    tmp="$(mktemp "${file}.tmp.XXXXXX")"
+    awk -F= -v key="$key" -v value="$value" '
+        BEGIN { found = 0 }
+        /^[[:space:]]*#/ { print; next }
+        NF >= 2 {
+            k = $1
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
+            if (k == key) {
+                if (!found) print key "=" value
+                found = 1
+                next
+            }
+        }
+        { print }
+        END {
+            if (!found) print key "=" value
+        }
+    ' "$file" > "$tmp"
+
+    if cmp -s "$file" "$tmp"; then
+        rm -f "$tmp"
+    else
+        mv "$tmp" "$file"
+        CHANGES_MADE=1
+    fi
+}
+
+ensure_config_key() {
+    local file=$1 key=$2 value=$3
+
+    config_has_key "$file" "$key" || set_config_key "$file" "$key" "$value"
+}
+
 ROLLBACK_DIR=
 ROLLBACK_ACTIVE=0
 CHANGES_MADE=0
@@ -278,6 +334,17 @@ say "Installing package dependencies"
 
 say "Installing SimpleSuite"
 "$ROOT/scripts/install-simplesuite.sh"
+
+say "Configuring SimpleCal"
+mkdir -p "$ROOT/dotfiles/simplecal/data"
+set_config_key "$ROOT/dotfiles/simplecal/config" "data_dir" '$HOME/.config/simplecal/data'
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "default_reminder_lead_times" "10,30,60"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "theme" "default"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "today_color" "yellow"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "first_day_of_week" "sunday"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "clock" "24h"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "reminders_auto_install_attempted" "0"
+ensure_config_key "$ROOT/dotfiles/simplecal/config" "legacy_migration_warned" "0"
 
 say "Linking dotfiles"
 SCRIPTORIUM_LINK_BACKUP_RECORD="$LINK_BACKUP_RECORD" \

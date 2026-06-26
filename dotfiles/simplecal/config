@@ -1,0 +1,8 @@
+data_dir=$HOME/.config/simplecal/data
+default_reminder_lead_times=10,30,60
+theme=default
+today_color=yellow
+first_day_of_week=sunday
+clock=24h
+reminders_auto_install_attempted=0
+legacy_migration_warned=0
