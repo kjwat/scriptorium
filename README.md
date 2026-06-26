@@ -32,9 +32,7 @@ It installs the core Scriptorium programs, installs [Simplesuite](https://github
 - `~/.config/simplenews/config`
 - `~/.config/simplenews/urls`
 
-SimpleCal stores its calendar in a user-selected data directory on first launch (default: `~/.config/simplecal`). Scriptorium configures SimpleCal to use its portable calendar directory automatically during installation and installs the background reminder service.
-
-Most SimpleSuite tools do not currently have config files. They are installed as programs, not linked as dotfiles.
+Most SimpleSuite applications do not currently use configuration files. They are installed as programs; only applications with user-editable configuration are managed by Scriptorium.
 
 ## First run
 
@@ -42,16 +40,16 @@ Most SimpleSuite tools do not currently have config files. They are installed as
 git clone https://github.com/kjwat/scriptorium.git
 cd scriptorium
 ./install.sh
-```
+````
 
 ## Safety
 
-Existing config files are backed up before links are created.
+Existing configuration files are backed up before links are created.
 
-Backups go to:
+Backups are stored in:
 
 ```text
 ~/.scriptorium-backups/YYYYMMDD-HHMMSS/
 ```
 
-This installer does not store mail passwords, API keys, SSH keys, private writing manuscripts, or calendar data outside the directory you choose for SimpleCal.
+Scriptorium installs software and manages configuration files. It does not store passwords, SSH keys, API keys, or the contents of your writing projects.
