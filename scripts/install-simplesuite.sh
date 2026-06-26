@@ -29,3 +29,9 @@ else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1
 fi
+
+if [ -x "$HOME/.local/bin/simplecal" ]; then
+    "$HOME/.local/bin/simplecal" --install-reminders || echo "Warning: SimpleCal reminder setup failed; run simplecal --install-reminders later." >&2
+elif command -v simplecal >/dev/null 2>&1; then
+    simplecal --install-reminders || echo "Warning: SimpleCal reminder setup failed; run simplecal --install-reminders later." >&2
+fi
