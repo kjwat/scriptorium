@@ -199,9 +199,14 @@ if ! git config --global user.email >/dev/null 2>&1; then
     git config --global user.email "$git_email"
 fi
 
-say "Configuring GitHub credentials"
+say "Configuring Git"
 CHANGES_MADE=1
 git config --global credential.helper store
+git config --global pull.rebase true
+git config --global rebase.autoStash true
+printf 'Git pull mode: rebase with autostash\n'
+
+say "Configuring GitHub credentials"
 
 printf "Enter your GitHub username: "
 read -r github_user
