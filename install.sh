@@ -337,7 +337,7 @@ say "Installing SimpleSuite"
 
 say "Configuring SimpleCal"
 mkdir -p "$ROOT/dotfiles/simplecal/data"
-set_config_key "$ROOT/dotfiles/simplecal/config" "data_dir" '$HOME/.config/simplecal/data'
+set_config_key "$ROOT/dotfiles/simplecal/config" "data_dir" "data"
 ensure_config_key "$ROOT/dotfiles/simplecal/config" "default_reminder_lead_times" "10,30,60"
 ensure_config_key "$ROOT/dotfiles/simplecal/config" "theme" "default"
 ensure_config_key "$ROOT/dotfiles/simplecal/config" "today_color" "yellow"
