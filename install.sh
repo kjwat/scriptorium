@@ -52,6 +52,10 @@ prepare_rollback() {
     track_path "$suite_dir"
     track_path "$HOME/.bashrc"
     track_path "$HOME/.config/simplemail/config"
+    track_path "$HOME/.config/simplecal"
+    track_path "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
+    track_path "$HOME/.config/systemd/user/simplecal-reminders.service"
+    track_path "$HOME/.config/systemd/user/simplecal-reminders.timer"
     track_path "$HOME/.msmtprc"
     track_path "$HOME/.mbsyncrc"
     track_path "$HOME/.config/isyncrc"
@@ -64,7 +68,7 @@ prepare_rollback() {
     track_path "$HOME/.config/simplenews/urls.example"
 
     for program in \
-        simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod \
+        simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod \
         simpleradio simplenews simplestats simplever simplevis simplewords; do
         track_path "$HOME/.local/bin/$program"
     done
@@ -72,6 +76,8 @@ prepare_rollback() {
     for path in \
         "$HOME/.local" \
         "$HOME/.local/bin" \
+        "$HOME/.local/share" \
+        "$HOME/.local/share/simplesuite" \
         "$HOME/.config" \
         "$HOME/.config/simplefiles" \
         "$HOME/.config/simplenews" \
@@ -248,6 +254,7 @@ alias radio='simpleradio'
 alias pod='simplepod'
 alias vis='simplevis'
 alias clock='simpleclock'
+alias cal='simplecal'
 alias stats='simplestats'
 alias ver='simplever'
 alias game='simplegame'
@@ -278,7 +285,7 @@ mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplegame simplevis simplenews simplemail mbsync msmtp calcurse links git mpv fzf; do
+for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplecal simplegame simplevis simplenews simplemail mbsync msmtp calcurse links git mpv fzf; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1

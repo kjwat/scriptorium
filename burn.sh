@@ -37,7 +37,7 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -57,6 +57,21 @@ fi
 rm -rf "$HOME/.config/calcurse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
+rm -rf "$HOME/.config/simplecal"
+rm -rf "$HOME/.local/state/simplecal"
+rm -f "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user disable --now simplecal-reminders.timer >/dev/null 2>&1 || true
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+fi
+rm -f "$HOME/.config/systemd/user/simplecal-reminders.service"
+rm -f "$HOME/.config/systemd/user/simplecal-reminders.timer"
+if command -v crontab >/dev/null 2>&1; then
+    tmp_cron="$(mktemp)"
+    crontab -l 2>/dev/null | grep -v "simplecal --check-reminders" > "$tmp_cron" || true
+    crontab "$tmp_cron" 2>/dev/null || true
+    rm -f "$tmp_cron"
+fi
 rm -rf "$HOME/.config/simplenews"
 rm -rf "$HOME/.cache/simplenews"
 
@@ -115,6 +130,7 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i "/alias pod='simplepod'/d" "$HOME/.bashrc"
     sed -i "/alias vis='simplevis'/d" "$HOME/.bashrc"
     sed -i "/alias clock='simpleclock'/d" "$HOME/.bashrc"
+    sed -i "/alias cal='simplecal'/d" "$HOME/.bashrc"
     sed -i "/alias stats='simplestats'/d" "$HOME/.bashrc"
     sed -i "/alias ver='simplever'/d" "$HOME/.bashrc"
     sed -i "/alias game='simplegame'/d" "$HOME/.bashrc"
