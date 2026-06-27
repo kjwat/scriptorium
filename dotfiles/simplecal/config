@@ -5,4 +5,5 @@ today_color=yellow
 first_day_of_week=sunday
 clock=24h
 reminders_auto_install_attempted=0
-legacy_migration_warned=0
+legacy_migration_warned=1
+data_dir=data
