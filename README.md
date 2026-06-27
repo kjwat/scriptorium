@@ -1,55 +1,214 @@
 # Scriptorium
 
-A reproducible command-line writing environment.
+A reproducible command-line writing environment for SimpleSuite and related
+terminal tools.
 
-It installs the core Scriptorium programs, installs [Simplesuite](https://github.com/kjwat/simplesuite) and its dependencies, builds SimpleSuite, and then links only dotfiles that exist as configuration files.
+`install.sh` installs package dependencies, clones or updates
+[SimpleSuite](https://github.com/kjwat/simplesuite), builds it, installs the
+binaries into `~/.local/bin`, links Scriptorium-managed dotfiles, and prepares
+the local shell environment.
 
-## Included programs
-
-- simplewords
-- simplefiles
-- simpleflac
-- simpleradio
-- simplepod
-- simplenews
-- simplevis
-- simplepdf
-- simpleclock
-- simplestats
-- simplever
-- simplegame
-- simplemail (+ mbsync + msmtp)
-- simplecal
-- links
-- git
-- mpv
-
-## Dotfiles currently managed
-
-- `~/.config/calcurse/`
-- `~/.links/`
-- `~/.config/simplefiles/config`
-- `~/.config/simplenews/config`
-- `~/.config/simplenews/urls`
-
-Most SimpleSuite applications do not currently use configuration files. They are installed as programs; only applications with user-editable configuration are managed by Scriptorium.
-
-## First run
+## First Run
 
 ```sh
 git clone https://github.com/kjwat/scriptorium.git
 cd scriptorium
 ./install.sh
-````
+```
+
+The installer finishes by starting a fresh login shell so the new
+`~/.local/bin` PATH entry and aliases are available immediately.
+
+## What It Installs
+
+SimpleSuite programs:
+
+- `simplewords`
+- `simplefiles`
+- `simplemail`
+- `simplecal`
+- `simpleclock`
+- `simpleflac`
+- `simplegame`
+- `simplepdf`
+- `simplepod`
+- `simpleradio`
+- `simplenews`
+- `simplestats`
+- `simplever`
+- `simplevis`
+
+Runtime and workflow tools installed by the package script include, depending
+on platform availability:
+
+- build tools, `pkg-config`, ncurses, and libcurl headers
+- `git`, `mpv`, `links`, `fzf`, `calcurse`
+- `isync`/`mbsync` and `msmtp` for SimpleMail
+- `pdftotext`/poppler and `pandoc` for SimplePDF
+- `zip`, `unzip`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
+- clipboard, desktop-open, trash, and audio helper packages where available
+
+Supported package families are Debian/Ubuntu, Arch, Fedora, Alpine, Void,
+openSUSE/SUSE, and macOS/Homebrew. If platform detection is unknown,
+`scripts/install-packages.sh` asks for a package family and stores the choice in
+`~/.config/simplesuite/family`.
+
+## SimpleSuite Checkout
+
+SimpleSuite is cloned to:
+
+```text
+~/simplesuite
+```
+
+Override this with:
+
+```sh
+SIMPLESUITE_DIR=/path/to/simplesuite ./install.sh
+SIMPLESUITE_REPO_URL=https://example/repo.git ./install.sh
+```
+
+If the checkout already exists, Scriptorium updates it with `git pull
+--ff-only`. The SimpleSuite build installs binaries to `~/.local/bin` and
+installs the SimpleCal alarm asset to:
+
+```text
+~/.local/share/simplesuite/simplecal-alarm.mp3
+```
+
+## Managed Dotfiles
+
+Scriptorium currently links these paths into the checkout:
+
+- `~/.config/calcurse/` -> `dotfiles/calcurse/`
+- `~/.links/` -> `dotfiles/links/`
+- `~/.config/simplecal/` -> `dotfiles/simplecal/`
+- `~/.config/simplefiles/config` -> `dotfiles/simplefiles/config`
+- `~/.config/simplenews/config` -> `dotfiles/simplenews/config`
+- `~/.config/simplenews/urls` -> `dotfiles/simplenews/urls`
+
+The SimpleCal dotfile directory includes both configuration and local calendar
+data:
+
+```text
+dotfiles/simplecal/config
+dotfiles/simplecal/data/events/
+dotfiles/simplecal/data/reminders.db
+```
+
+Scriptorium writes the current SimpleCal config with `data_dir=data`, plus
+defaults for reminder lead times, theme, today color, first day of week, clock
+format, reminder auto-install state, and legacy migration state. Older
+installations may still contain a legacy `DATA_DIR` line; SimpleCal accepts it,
+but the lower-case `data_dir` key is the current form.
+
+Most other SimpleSuite applications either use default local state paths or
+create their own config files on first run. Scriptorium only links files that
+exist in this repo.
+
+## Generated Local Files
+
+The installer may create or modify:
+
+- `~/.bashrc`
+- `~/.gitconfig`
+- `~/.git-credentials`
+- `~/.config/simplemail/config`
+- `~/.mbsyncrc`
+- `~/.msmtprc`
+- `~/.config/isyncrc`
+- `~/.config/systemd/user/simplecal-reminders.service`
+- the user's crontab, if systemd user services are unavailable
+- `~/Downloads`, `~/Music`, and `~/Podcasts`
+
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases:
+
+```sh
+alias words='simplewords'
+alias files='simplefiles'
+alias flac='simpleflac'
+alias radio='simpleradio'
+alias pod='simplepod'
+alias vis='simplevis'
+alias clock='simpleclock'
+alias cal='simplecal'
+alias stats='simplestats'
+alias ver='simplever'
+alias game='simplegame'
+alias pdf='simplepdf'
+alias news='simplenews'
+alias mail='simplemail'
+```
+
+## Mail and Credentials
+
+Scriptorium configures Git with:
+
+```text
+credential.helper=store
+pull.rebase=true
+rebase.autoStash=true
+```
+
+During install it prompts for a GitHub username and personal access token. If
+provided, the token is stored by Git's credential store in `~/.git-credentials`
+with mode `600`.
+
+If you choose Gmail setup, `scripts/setup-simplemail-gmail.sh` writes Gmail
+IMAP/SMTP settings for `mbsync` and `msmtp`, creates local Maildir folders under
+`~/.local/share/simplemail/mail`, and writes:
+
+```text
+~/.mbsyncrc
+~/.msmtprc
+~/.config/simplemail/config
+```
+
+The Gmail app password is stored in those local mail config files. The files
+are chmodded to `600`, but they are still plaintext local secrets.
+
+## SimpleCal Reminders
+
+After SimpleSuite is built, Scriptorium runs:
+
+```sh
+simplecal --install-reminders
+```
+
+SimpleCal prefers a persistent systemd user service:
+
+```text
+~/.config/systemd/user/simplecal-reminders.service
+```
+
+If systemd user services are unavailable, it falls back to a cron entry that
+runs `simplecal --check-reminders` once per minute.
 
 ## Safety
 
-Existing configuration files are backed up before links are created.
-
-Backups are stored in:
+Before linking dotfiles, existing targets are moved into:
 
 ```text
-~/.scriptorium-backups/YYYYMMDD-HHMMSS/
+~/.scriptorium-backups/YYYYMMDD-HHMMSS-PID/
 ```
 
-Scriptorium installs software and manages configuration files. It does not store passwords, SSH keys, API keys, or the contents of your writing projects.
+The main installer also prepares a temporary rollback copy of Git config,
+SimpleSuite files, linked dotfiles, mail config, SimpleCal config/state, and
+installed binaries. If installation fails after user-file changes, it asks
+whether to roll those changes back. Package-manager changes are not rolled back.
+
+This repo includes destructive cleanup scripts:
+
+- `burn-writing.sh` removes the writing checkout and related writing
+  credentials after confirmation.
+- `burn.sh` removes Scriptorium-managed binaries, configs, SimpleSuite,
+  SimpleCal reminder services, SimpleMail setup, and the Scriptorium checkout
+  itself after confirmation.
+
+Do not run either script unless you intend that cleanup.
+
+Scriptorium does not manage SSH keys or writing project contents during normal
+installation, but it can store GitHub and Gmail credentials locally if you
+choose those setup paths. The managed SimpleCal dotfiles may include local
+calendar/reminder data, so treat this checkout as private unless that data has
+been removed.
