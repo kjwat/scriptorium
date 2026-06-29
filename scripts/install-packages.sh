@@ -392,7 +392,7 @@ case "$family" in
     alpine)
         check_repository_configuration alpine
         run_package_command alpine sudo env LC_ALL=C apk add \
-            build-base pkgconf ncurses-dev curl-dev \
+            build-base pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
             isync msmtp calcurse links ca-certificates rsync
