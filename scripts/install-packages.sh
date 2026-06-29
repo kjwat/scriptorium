@@ -39,7 +39,7 @@ repository_help() {
                 '   If /etc/pacman.d/endeavouros-mirrorlist is also missing or empty, run:' \
                 '     sudo touch /etc/pacman.d/endeavouros-mirrorlist' \
                 '     eos-rankmirrors' \
-                '   Then run: sudo pacman -Syu' >&2
+                '   Then run: sudo pacman -Syu' >&2 openssl
             ;;
         fedora)
             printf '%s\n' \
@@ -59,7 +59,7 @@ repository_help() {
                 '   XBPS has no usable package repository.' \
                 '   Check the repository= entries in /etc/xbps.d and /usr/share/xbps.d.' \
                 "   Select an official mirror with xmirror, or restore Void's main repository" \
-                '   configuration for this architecture, then run: sudo xbps-install -S' >&2
+                '   configuration for this architecture, then run: sudo xbps-install -S' >&2 openssl-devel
             ;;
         suse)
             printf '%s\n' \
@@ -93,7 +93,7 @@ arch_partial_upgrade_help() {
         '   reports dependency conflicts, missing package files, or library' \
         '   version mismatches, update the system first:' \
         '' \
-        '     sudo pacman -Syu' \
+        '     sudo pacman -Syu' \ openssl
         '' \
         '   After that completes, run ./install.sh again.' \
         '' >&2
@@ -363,7 +363,7 @@ case "$family" in
 
         run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt update
         run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt install -y \
-            build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev \
+            build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
             isync msmtp calcurse links curl ca-certificates rsync
@@ -371,19 +371,19 @@ case "$family" in
     void)
         check_repository_configuration void
         run_package_command void sudo env LC_ALL=C xbps-install -Sy \
-            base-devel pkg-config ncurses-devel libcurl-devel \
+            base-devel pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     arch)
         check_repository_configuration arch
-        if pacman -Si cachyos-keyring >/dev/null 2>&1; then
-            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring cachyos-keyring
+        if pacman -Si cachyos-keyring >/dev/null 2>&1; then openssl
+            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring cachyos-keyring openssl
         else
-            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring
+            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring openssl
         fi
-        run_package_command arch sudo env LC_ALL=C pacman -S --needed \
+        run_package_command arch sudo env LC_ALL=C pacman -S --needed \ openssl
             base-devel pkgconf ncurses curl \
             git mpv poppler pandoc-cli \
             nano zip unzip xdg-utils file less fzf libpulse pipewire-jack glib2 wl-clipboard xclip xsel \
@@ -399,20 +399,20 @@ case "$family" in
         ;;
     fedora)
         run_package_command fedora sudo env LC_ALL=C dnf install -y \
-            gcc make pkgconf-pkg-config ncurses-devel libcurl-devel \
+            gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     suse)
         run_package_command suse sudo env LC_ALL=C zypper install -y \
-            gcc make pkg-config ncurses-devel libcurl-devel \
+            gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     macos)
-        run_package_command macos env LC_ALL=C brew install \
+        run_package_command macos env LC_ALL=C brew install \ openssl@3
             pkg-config ncurses curl make \
             git mpv poppler pandoc \
             nano zip unzip file less fzf \

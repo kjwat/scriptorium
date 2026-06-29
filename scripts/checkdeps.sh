@@ -165,55 +165,55 @@ packages_for_family() {
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
-            PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel"
+            PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
         debian)
             INSTALL="sudo apt update && sudo apt install -y"
-            PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev"
+            PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel links"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
-            PKG_REQUIRED="base-devel pkgconf ncurses curl"
+            PKG_REQUIRED="base-devel pkgconf ncurses curl openssl"
             PKG_RUNTIME="git mpv poppler pandoc-cli"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel links"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
-            PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel"
+            PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel links"
             ;;
         alpine)
             INSTALL="sudo apk add"
-            PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev"
+            PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
         suse)
-            INSTALL="sudo zypper install"
-            PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
+            INSTALL="sudo zypper install" libopenssl-devel
+            PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links"
             ;;
         macos)
-            INSTALL="brew install"
+            INSTALL="brew install" openssl@3
             PKG_REQUIRED="pkg-config ncurses curl make"
             PKG_RUNTIME="git mpv poppler pandoc"
             PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links"
             ;;
         msys2)
-            INSTALL="pacman -S --needed"
+            INSTALL="pacman -S --needed" openssl
             PKG_REQUIRED="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ncurses mingw-w64-x86_64-curl"
             PKG_RUNTIME="git mingw-w64-x86_64-mpv mingw-w64-x86_64-poppler pandoc"
             PKG_OPTIONAL="nano zip unzip file less fzf"
             ;;
         *)
             INSTALL="# install manually:"
-            PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel"
+            PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
@@ -330,3 +330,11 @@ echo "  $INSTALL $PKG_REQUIRED $PKG_RUNTIME $PKG_OPTIONAL"
 [ "${#missing_required[@]}" -gt 0 ] && exit 2
 [ "${#missing_runtime[@]}" -gt 0 ] && exit 1
 exit 0
+
+
+# OpenSSL compile header required by simplepod
+if [ ! -f /usr/include/openssl/sha.h ] && ! echo '#include <openssl/sha.h>' | cc -E - >/dev/null 2>&1; then
+    echo "MISSING: OpenSSL development headers (openssl/sha.h)"
+    echo "Install package: libssl-dev on Debian/Ubuntu, openssl-devel on Fedora/Void, openssl-dev on Alpine"
+    exit 1
+fi

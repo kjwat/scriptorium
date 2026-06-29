@@ -1,4 +1,4 @@
-build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev
+build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev
 git mpv poppler-utils pandoc
 nano zip unzip xdg-utils file less pulseaudio-utils
 isync msmtp calcurse links curl ca-certificates rsync
