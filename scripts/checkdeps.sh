@@ -194,19 +194,19 @@ packages_for_family() {
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
             ;;
         suse)
-            INSTALL="sudo zypper install" libopenssl-devel
+            INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links"
             ;;
         macos)
-            INSTALL="brew install" openssl@3
-            PKG_REQUIRED="pkg-config ncurses curl make"
+            INSTALL="brew install"
+            PKG_REQUIRED="pkg-config ncurses curl make openssl@3"
             PKG_RUNTIME="git mpv poppler pandoc"
             PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links"
             ;;
         msys2)
-            INSTALL="pacman -S --needed" openssl
+            INSTALL="pacman -S --needed"
             PKG_REQUIRED="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ncurses mingw-w64-x86_64-curl"
             PKG_RUNTIME="git mingw-w64-x86_64-mpv mingw-w64-x86_64-poppler pandoc"
             PKG_OPTIONAL="nano zip unzip file less fzf"
@@ -330,11 +330,3 @@ echo "  $INSTALL $PKG_REQUIRED $PKG_RUNTIME $PKG_OPTIONAL"
 [ "${#missing_required[@]}" -gt 0 ] && exit 2
 [ "${#missing_runtime[@]}" -gt 0 ] && exit 1
 exit 0
-
-
-# OpenSSL compile header required by simplepod
-if [ ! -f /usr/include/openssl/sha.h ] && ! echo '#include <openssl/sha.h>' | cc -E - >/dev/null 2>&1; then
-    echo "MISSING: OpenSSL development headers (openssl/sha.h)"
-    echo "Install package: libssl-dev on Debian/Ubuntu, openssl-devel on Fedora/Void, openssl-dev on Alpine"
-    exit 1
-fi

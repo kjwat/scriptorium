@@ -39,7 +39,7 @@ repository_help() {
                 '   If /etc/pacman.d/endeavouros-mirrorlist is also missing or empty, run:' \
                 '     sudo touch /etc/pacman.d/endeavouros-mirrorlist' \
                 '     eos-rankmirrors' \
-                '   Then run: sudo pacman -Syu' >&2 openssl
+                '   Then run: sudo pacman -Syu' >&2
             ;;
         fedora)
             printf '%s\n' \
@@ -59,7 +59,7 @@ repository_help() {
                 '   XBPS has no usable package repository.' \
                 '   Check the repository= entries in /etc/xbps.d and /usr/share/xbps.d.' \
                 "   Select an official mirror with xmirror, or restore Void's main repository" \
-                '   configuration for this architecture, then run: sudo xbps-install -S' >&2 openssl-devel
+                '   configuration for this architecture, then run: sudo xbps-install -S' >&2
             ;;
         suse)
             printf '%s\n' \
@@ -93,7 +93,7 @@ arch_partial_upgrade_help() {
         '   reports dependency conflicts, missing package files, or library' \
         '   version mismatches, update the system first:' \
         '' \
-        '     sudo pacman -Syu' \ openssl
+        '     sudo pacman -Syu' \
         '' \
         '   After that completes, run ./install.sh again.' \
         '' >&2
@@ -378,13 +378,13 @@ case "$family" in
         ;;
     arch)
         check_repository_configuration arch
-        if pacman -Si cachyos-keyring >/dev/null 2>&1; then openssl
+        if pacman -Si cachyos-keyring >/dev/null 2>&1; then
             run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring cachyos-keyring openssl
         else
             run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring openssl
         fi
-        run_package_command arch sudo env LC_ALL=C pacman -S --needed \ openssl
-            base-devel pkgconf ncurses curl \
+        run_package_command arch sudo env LC_ALL=C pacman -S --needed \
+            base-devel pkgconf ncurses curl openssl \
             git mpv poppler pandoc-cli \
             nano zip unzip xdg-utils file less fzf libpulse pipewire-jack glib2 wl-clipboard xclip xsel \
             isync msmtp calcurse links ca-certificates rsync
@@ -412,8 +412,8 @@ case "$family" in
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     macos)
-        run_package_command macos env LC_ALL=C brew install \ openssl@3
-            pkg-config ncurses curl make \
+        run_package_command macos env LC_ALL=C brew install \
+            pkg-config ncurses curl make openssl@3 \
             git mpv poppler pandoc \
             nano zip unzip file less fzf \
             isync msmtp calcurse links rsync
