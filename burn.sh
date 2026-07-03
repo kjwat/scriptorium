@@ -11,7 +11,8 @@ clean_kjwat_credentials() {
         chmod 600 "$HOME/.git-credentials"
     fi
 
-    if command -v git >/dev/null 2>&1; then
+    
+if command -v git >/dev/null 2>&1; then
         printf 'protocol=https\nhost=github.com\nusername=kjwat\n\n' | git credential reject || true
         printf 'protocol=https\nhost=github.com\npath=kjwat/scriptorium\n\n' | git credential reject || true
         printf 'protocol=https\nhost=github.com\npath=kjwat/simplesuite\n\n' | git credential reject || true
@@ -100,6 +101,8 @@ rm -rf "$HOME/.config/simplemail"
 rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"
 rm -rf "$HOME/.local/share/simplefiles"
+rm -rf "$HOME/.local/state/simplewords"
+rm -f "$HOME/.simplewords-session"
 
 if command -v git >/dev/null 2>&1; then
     git_name="$(git config --global user.name 2>/dev/null || true)"
