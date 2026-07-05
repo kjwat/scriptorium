@@ -2,7 +2,7 @@
 # Installed to ~/.config/simplefiles/config
 
 OPEN_MODE=terminal
-EDITOR_COMMAND=nvim
+EDITOR_COMMAND=simplewords
 
 TEXT_EXTENSIONS=.txt,.md,.markdown,.tex,.c,.h,.cpp,.hpp,.cc,.py,.sh,.conf,.ini,.log
 

@@ -44,7 +44,7 @@ dep_hint() {
 pc_hint() {
     case "$1" in
         ncursesw) echo "provided by ncurses development package" ;;
-        libcurl) echo "provided by libcurl/curl development package; used by simplepod and simplenews" ;;
+        libcurl) echo "provided by libcurl/curl development package; used by simplebrowse, simplepod, and simplenews" ;;
     esac
 }
 

@@ -38,7 +38,7 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplefiles simplebrowse simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -56,6 +56,7 @@ if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
 fi
 
 rm -rf "$HOME/.config/calcurse"
+rm -rf "$HOME/.config/simplebrowse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
 rm -rf "$HOME/.config/simplecal"
@@ -128,6 +129,7 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i '/# SimpleSuite aliases/d' "$HOME/.bashrc"
     sed -i "/alias words='simplewords'/d" "$HOME/.bashrc"
     sed -i "/alias files='simplefiles'/d" "$HOME/.bashrc"
+    sed -i "/alias browse='simplebrowse'/d" "$HOME/.bashrc"
     sed -i "/alias flac='simpleflac'/d" "$HOME/.bashrc"
     sed -i "/alias radio='simpleradio'/d" "$HOME/.bashrc"
     sed -i "/alias pod='simplepod'/d" "$HOME/.bashrc"

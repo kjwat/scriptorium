@@ -23,6 +23,7 @@ The installer finishes by starting a fresh login shell so the new
 
 SimpleSuite programs:
 
+- `simplebrowse`
 - `simplewords`
 - `simplefiles`
 - `simplemail`
@@ -104,7 +105,8 @@ but the lower-case `data_dir` key is the current form.
 
 Most other SimpleSuite applications either use default local state paths or
 create their own config files on first run. Scriptorium only links files that
-exist in this repo.
+exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
+creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
 
 ## Generated Local Files
 
@@ -126,6 +128,7 @@ The installer may create or modify:
 ```sh
 alias words='simplewords'
 alias files='simplefiles'
+alias browse='simplebrowse'
 alias flac='simpleflac'
 alias radio='simpleradio'
 alias pod='simplepod'

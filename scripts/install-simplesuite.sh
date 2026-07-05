@@ -3,6 +3,23 @@ set -euo pipefail
 
 REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
+SIMPLESUITE_PROGRAMS="
+simplebrowse
+simplecal
+simpleclock
+simplefiles
+simpleflac
+simplegame
+simplemail
+simplepdf
+simplepod
+simpleradio
+simplenews
+simplestats
+simplever
+simplevis
+simplewords
+"
 
 mkdir -p "$(dirname "$DEST")"
 
@@ -27,6 +44,22 @@ elif [ -f "$DEST/Makefile" ]; then
     (cd "$DEST" && make install)
 else
     echo "No build.sh or Makefile found in $DEST" >&2
+    exit 1
+fi
+
+echo "Verifying SimpleSuite binaries in $HOME/.local/bin"
+missing=0
+for program in $SIMPLESUITE_PROGRAMS; do
+    if [ -x "$HOME/.local/bin/$program" ]; then
+        printf '  ok: %s\n' "$program"
+    else
+        printf '  missing: %s\n' "$HOME/.local/bin/$program" >&2
+        missing=1
+    fi
+done
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite build/install did not produce every expected binary." >&2
     exit 1
 fi
 

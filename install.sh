@@ -62,6 +62,62 @@ ensure_config_key() {
     config_has_key "$file" "$key" || set_config_key "$file" "$key" "$value"
 }
 
+ensure_simplesuite_aliases() {
+    local bashrc=$HOME/.bashrc
+    local alias_line tmp insert_line
+    local aliases=(
+        "alias words='simplewords'"
+        "alias files='simplefiles'"
+        "alias browse='simplebrowse'"
+        "alias flac='simpleflac'"
+        "alias radio='simpleradio'"
+        "alias pod='simplepod'"
+        "alias vis='simplevis'"
+        "alias clock='simpleclock'"
+        "alias cal='simplecal'"
+        "alias stats='simplestats'"
+        "alias ver='simplever'"
+        "alias game='simplegame'"
+        "alias pdf='simplepdf'"
+        "alias news='simplenews'"
+        "alias mail='simplemail'"
+    )
+
+    touch "$bashrc"
+
+    if ! grep -qxF "# SimpleSuite aliases" "$bashrc" 2>/dev/null; then
+        {
+            printf '\n# SimpleSuite aliases\n'
+            printf '%s\n' "${aliases[@]}"
+        } >> "$bashrc"
+        CHANGES_MADE=1
+        return
+    fi
+
+    insert_line=
+    for alias_line in "${aliases[@]}"; do
+        if ! grep -qxF "$alias_line" "$bashrc" 2>/dev/null; then
+            insert_line+="${alias_line}"$'\n'
+        fi
+    done
+
+    [[ -n "$insert_line" ]] || return
+
+    tmp="$(mktemp "${bashrc}.tmp.XXXXXX")"
+    awk -v insert="$insert_line" '
+        {
+            print
+            if ($0 == "# SimpleSuite aliases" && !inserted) {
+                printf "%s", insert
+                inserted = 1
+            }
+        }
+    ' "$bashrc" > "$tmp"
+    cat "$tmp" > "$bashrc"
+    rm -f "$tmp"
+    CHANGES_MADE=1
+}
+
 ROLLBACK_DIR=
 ROLLBACK_ACTIVE=0
 CHANGES_MADE=0
@@ -124,7 +180,7 @@ prepare_rollback() {
     track_path "$HOME/.config/simplenews/urls.example"
 
     for program in \
-        simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod \
+        simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod \
         simpleradio simplenews simplestats simplever simplevis simplewords; do
         track_path "$HOME/.local/bin/$program"
     done
@@ -303,26 +359,10 @@ PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 
 grep -qxF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null || {
     printf '\n# Scriptorium user binaries\n%s\n' "$PATH_LINE" >> "$HOME/.bashrc"
+    CHANGES_MADE=1
 }
 
-grep -q "^# SimpleSuite aliases$" "$HOME/.bashrc" 2>/dev/null || cat >> "$HOME/.bashrc" <<'ALIASES'
-
-# SimpleSuite aliases
-alias words='simplewords'
-alias files='simplefiles'
-alias flac='simpleflac'
-alias radio='simpleradio'
-alias pod='simplepod'
-alias vis='simplevis'
-alias clock='simpleclock'
-alias cal='simplecal'
-alias stats='simplestats'
-alias ver='simplever'
-alias game='simplegame'
-alias pdf='simplepdf'
-alias news='simplenews'
-alias mail='simplemail'
-ALIASES
+ensure_simplesuite_aliases
 
 export PATH="$HOME/.local/bin:$PATH"
 hash -r
@@ -357,11 +397,16 @@ mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
 say "Verifying commands"
-for cmd in simplewords simplefiles simplever simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplecal simplegame simplevis simplenews simplemail mbsync msmtp calcurse links git mpv fzf; do
+for cmd in simplewords simplefiles simplever simplebrowse simpleflac simpleradio simplepod simplepdf simplestats simpleclock simplecal simplegame simplevis simplenews simplemail mbsync msmtp calcurse links git mpv fzf; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1
     }
+done
+
+say "Installed SimpleSuite tools"
+for cmd in simplebrowse simplewords simplefiles simplemail simplecal simpleclock simpleflac simplegame simplepdf simplepod simpleradio simplenews simplestats simplever simplevis; do
+    printf '  %s\n' "$cmd"
 done
 
 say "Done. The Scriptorium is installed."
