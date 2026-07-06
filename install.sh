@@ -101,7 +101,7 @@ ensure_simplesuite_aliases() {
         fi
     done
 
-    [[ -n "$insert_line" ]] || return
+    [[ -n "$insert_line" ]] || return 0
 
     tmp="$(mktemp "${bashrc}.tmp.XXXXXX")"
     awk -v insert="$insert_line" '
@@ -126,6 +126,23 @@ KEEP_ROLLBACK_BACKUP=0
 declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
+declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
+    simplebrowse
+    simplecal
+    simpleclock
+    simplefiles
+    simpleflac
+    simplegame
+    simplemail
+    simplepdf
+    simplepod
+    simpleradio
+    simplenews
+    simplestats
+    simplever
+    simplevis
+    simplewords
+)
 
 track_path() {
     local path=$1
@@ -396,6 +413,7 @@ mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
 say "Verifying commands"
+for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do
     command -v "$cmd" >/dev/null 2>&1 || {
         warn "$cmd was installed but is not available on PATH"
         exit 1
@@ -403,7 +421,7 @@ say "Verifying commands"
 done
 
 say "Installed SimpleSuite tools"
-for cmd in simplebrowse simplewords simplefiles simplemail simplecal simpleclock simpleflac simplegame simplepdf simplepod simpleradio simplenews simplestats simplever simplevis; do
+for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do
     printf '  %s\n' "$cmd"
 done
 

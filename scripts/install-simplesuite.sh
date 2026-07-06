@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
+SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-}"
 SIMPLESUITE_PROGRAMS="
 simplebrowse
 simplecal
@@ -64,7 +65,7 @@ if [ "$missing" -ne 0 ]; then
     exit 1
 fi
 
-if [ -n "${SIMPLESUITE_SCRIPTS:-}" ]; then
+if [ -n "$SIMPLESUITE_SCRIPTS" ]; then
     echo "Verifying SimpleSuite helper scripts in $HOME/.local/bin"
     for program in $SIMPLESUITE_SCRIPTS; do
         if [ -x "$HOME/.local/bin/$program" ]; then

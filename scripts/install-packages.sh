@@ -13,6 +13,60 @@ cleanup_package_files() {
 
 trap cleanup_package_files EXIT
 
+have_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+have_pkgconfig() {
+    pkg-config --exists "$1" >/dev/null 2>&1
+}
+
+have_any_editor() {
+    have_cmd nano || have_cmd vim || have_cmd nvim || have_cmd emacs || have_cmd micro
+}
+
+have_simplebrowse_js() {
+    have_cmd python3 || return 1
+
+    python3 - <<'PY' >/dev/null 2>&1
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("WebKit2", "4.1")
+from gi.repository import Gtk, WebKit2
+PY
+}
+
+dependencies_already_present() {
+    for dependency_command in \
+        cc make pkg-config git mpv pdftotext pandoc \
+        zip unzip file less fzf links python3 \
+        mbsync msmtp calcurse curl rsync; do
+        have_cmd "$dependency_command" || return 1
+    done
+
+    have_any_editor || return 1
+    have_pkgconfig ncursesw || return 1
+    have_pkgconfig libcurl || return 1
+    have_pkgconfig openssl || return 1
+    have_simplebrowse_js || return 1
+
+    case "$family" in
+        macos)
+            have_cmd open || return 1
+            ;;
+        msys2)
+            ;;
+        *)
+            for dependency_command in \
+                xdg-open gio wl-copy wl-paste xclip xsel pactl parec; do
+                have_cmd "$dependency_command" || return 1
+            done
+            ;;
+    esac
+
+    return 0
+}
+
 repository_help() {
     repo_family=$1
     repo_detail=${2-}
@@ -348,6 +402,11 @@ if [ "$family" = unknown ]; then
         printf '%s\n' "$family" > "$family_file"
         chmod 600 "$family_file"
     fi
+fi
+
+if dependencies_already_present; then
+    printf 'Package dependencies already present; skipping package manager install.\n'
+    exit 0
 fi
 
 case "$family" in
