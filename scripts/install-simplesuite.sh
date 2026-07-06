@@ -20,7 +20,7 @@ simplever
 simplevis
 simplewords
 
-SIMPLESUITE_SCRIPTS="
+"
 
 mkdir -p "$(dirname "$DEST")"
 
