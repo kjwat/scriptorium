@@ -43,6 +43,8 @@ Runtime and workflow tools installed by the package script include, depending
 on platform availability:
 
 - build tools, `pkg-config`, ncurses, and libcurl headers
+- Python GI, GTK 3 introspection, and WebKit2GTK 4.1 for SimpleBrowse v4
+  JavaScript mode
 - `git`, `mpv`, `links`, `fzf`, `calcurse`
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - `pdftotext`/poppler and `pandoc` for SimplePDF
@@ -107,6 +109,9 @@ Most other SimpleSuite applications either use default local state paths or
 create their own config files on first run. Scriptorium only links files that
 exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
 creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
+SimpleBrowse v4 also installs the `simplebrowse-jsdump` helper so `--js`, the
+`J` reload key, and JavaScript form replay can render JavaScript-required pages
+through WebKitGTK.
 
 ## Generated Local Files
 

@@ -20,6 +20,7 @@ dep_hint() {
     case "$1" in
         cc) echo "provided by gcc or clang" ;;
         make) echo "provided by make/build tools" ;;
+        python3) echo "used by simplebrowse JavaScript mode helper" ;;
         pkg-config) echo "provided by pkg-config or pkgconf" ;;
         xdg-open) echo "Linux desktop helper; provided by xdg-utils; used by simplefiles external-open" ;;
         open) echo "macOS built-in external-open helper" ;;
@@ -46,6 +47,40 @@ pc_hint() {
         ncursesw) echo "provided by ncurses development package" ;;
         libcurl) echo "provided by libcurl/curl development package; used by simplebrowse, simplepod, and simplenews" ;;
     esac
+}
+
+js_pkg_hint() {
+    case "$family" in
+        debian) echo "python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1" ;;
+        arch) echo "python python-gobject webkit2gtk-4.1" ;;
+        fedora) echo "python3 python3-gobject webkit2gtk4.1" ;;
+        alpine) echo "python3 py3-gobject3 webkit2gtk-4.1" ;;
+        void) echo "python3 python3-gobject webkit2gtk" ;;
+        suse) echo "python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1" ;;
+        macos) echo "python3 pygobject3 gtk+3 webkitgtk" ;;
+        *) echo "python3 python3-gobject WebKit2GTK-4.1 introspection" ;;
+    esac
+}
+
+check_simplebrowse_js() {
+    if ! have_cmd python3; then
+        printf "MISSING: %-16s (%s; %s)\n" "SimpleBrowse JS" "python3" "$(dep_hint python3)"
+        add_missing optional "SimpleBrowse JS: $(js_pkg_hint)"
+        return
+    fi
+
+    if python3 - <<'PY' >/dev/null 2>&1
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("WebKit2", "4.1")
+from gi.repository import Gtk, WebKit2
+PY
+    then
+        printf "FOUND:   %-16s (%s)\n" "SimpleBrowse JS" "WebKitGTK 4.1 via Python GI"
+    else
+        printf "MISSING: %-16s (%s)\n" "SimpleBrowse JS" "$(js_pkg_hint)"
+        add_missing optional "SimpleBrowse JS: $(js_pkg_hint)"
+    fi
 }
 
 check_cmd() {
@@ -156,6 +191,7 @@ pkg_for_dep() {
         *:wl-copy|*:wl-paste) echo "wl-clipboard" ;;
         *:xclip) echo "xclip" ;;
         *:xsel) echo "xsel" ;;
+        *:"SimpleBrowse JS:"*) js_pkg_hint ;;
         *) echo "" ;;
     esac
 }
@@ -167,43 +203,43 @@ packages_for_family() {
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 python3-gobject webkit2gtk"
             ;;
         debian)
             INSTALL="sudo apt update && sudo apt install -y"
             PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel links python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses curl openssl"
             PKG_RUNTIME="git mpv poppler pandoc-cli"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel links python python-gobject webkit2gtk-4.1"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel links python3 python3-gobject webkit2gtk4.1"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 py3-gobject3 webkit2gtk-4.1"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1"
             ;;
         macos)
             INSTALL="brew install"
             PKG_REQUIRED="pkg-config ncurses curl make openssl@3"
             PKG_RUNTIME="git mpv poppler pandoc"
-            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links"
+            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links python3 pygobject3 gtk+3 webkitgtk"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
@@ -215,7 +251,7 @@ packages_for_family() {
             INSTALL="# install manually:"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links"
+            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 python3-gobject WebKit2GTK-4.1"
             ;;
     esac
 }
@@ -257,6 +293,7 @@ check_cmd optional fzf "fzf"
 if [ "$family" != "msys2" ]; then
     check_cmd optional links "links"
 fi
+check_simplebrowse_js
 
 if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
     check_cmd optional gio "gio"

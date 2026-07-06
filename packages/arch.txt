@@ -1,4 +1,5 @@
 base-devel pkgconf ncurses curl
 git mpv poppler pandoc-cli
 nano zip unzip xdg-utils file less libpulse pipewire-jack
+python python-gobject webkit2gtk-4.1
 mutt calcurse links ca-certificates rsync

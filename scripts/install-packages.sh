@@ -366,6 +366,7 @@ case "$family" in
             build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
+            python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     void)
@@ -374,6 +375,7 @@ case "$family" in
             base-devel pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
+            python3 python3-gobject webkit2gtk \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     arch)
@@ -387,6 +389,7 @@ case "$family" in
             base-devel pkgconf ncurses curl openssl \
             git mpv poppler pandoc-cli \
             nano zip unzip xdg-utils file less fzf libpulse pipewire-jack glib2 wl-clipboard xclip xsel \
+            python python-gobject webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync
         ;;
     alpine)
@@ -395,6 +398,7 @@ case "$family" in
             build-base pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
+            python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync
         ;;
     fedora)
@@ -402,6 +406,7 @@ case "$family" in
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel \
+            python3 python3-gobject webkit2gtk4.1 \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     suse)
@@ -409,6 +414,7 @@ case "$family" in
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel \
+            python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
     macos)
@@ -416,6 +422,7 @@ case "$family" in
             pkg-config ncurses curl make openssl@3 \
             git mpv poppler pandoc \
             nano zip unzip file less fzf \
+            python3 pygobject3 gtk+3 webkitgtk \
             isync msmtp calcurse links rsync
         ;;
     *)

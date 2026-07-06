@@ -20,6 +20,9 @@ simplever
 simplevis
 simplewords
 "
+SIMPLESUITE_SCRIPTS="
+simplebrowse-jsdump
+"
 
 mkdir -p "$(dirname "$DEST")"
 
@@ -60,6 +63,21 @@ done
 
 if [ "$missing" -ne 0 ]; then
     echo "SimpleSuite build/install did not produce every expected binary." >&2
+    exit 1
+fi
+
+echo "Verifying SimpleSuite helper scripts in $HOME/.local/bin"
+for program in $SIMPLESUITE_SCRIPTS; do
+    if [ -x "$HOME/.local/bin/$program" ]; then
+        printf '  ok: %s\n' "$program"
+    else
+        printf '  missing: %s\n' "$HOME/.local/bin/$program" >&2
+        missing=1
+    fi
+done
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite build/install did not produce every expected helper script." >&2
     exit 1
 fi
 
