@@ -11,7 +11,6 @@ clean_kjwat_credentials() {
         chmod 600 "$HOME/.git-credentials"
     fi
 
-    
 if command -v git >/dev/null 2>&1; then
         printf 'protocol=https\nhost=github.com\nusername=kjwat\n\n' | git credential reject || true
         printf 'protocol=https\nhost=github.com\npath=kjwat/scriptorium\n\n' | git credential reject || true
@@ -38,10 +37,9 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simplebrowse simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplefiles simplebrowse  simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
-
 
 # Remove snapd itself only if Scriptorium installed it.
 if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
@@ -96,8 +94,6 @@ remove_scriptorium_mail_block() {
 remove_scriptorium_mail_block "$HOME/.mbsyncrc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
 remove_scriptorium_mail_block "$HOME/.msmtprc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
 rm -rf "$HOME/.config/simplemail"
-
-
 
 rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"

@@ -19,10 +19,8 @@ simplestats
 simplever
 simplevis
 simplewords
-"
+
 SIMPLESUITE_SCRIPTS="
-simplebrowse-jsdump
-"
 
 mkdir -p "$(dirname "$DEST")"
 

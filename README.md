@@ -109,7 +109,7 @@ Most other SimpleSuite applications either use default local state paths or
 create their own config files on first run. Scriptorium only links files that
 exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
 creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
-SimpleBrowse v4 also installs the `simplebrowse-jsdump` helper so `--js`, the
+SimpleBrowse v4 also installs the `` helper so `--js`, the
 `J` reload key, and JavaScript form replay can render JavaScript-required pages
 through WebKitGTK.
 
