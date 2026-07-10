@@ -7,6 +7,83 @@ say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
 
+configure_mbsync_apparmor() {
+    local profile local_file tmp enabled
+
+    # Nothing to do on systems without AppArmor tooling.
+    command -v apparmor_parser >/dev/null 2>&1 || return 0
+    [[ -d /etc/apparmor.d ]] || return 0
+
+    enabled=
+    if [[ -r /sys/module/apparmor/parameters/enabled ]]; then
+        enabled="$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null || true)"
+        [[ "$enabled" == Y* ]] || return 0
+    elif command -v aa-status >/dev/null 2>&1; then
+        aa-status --enabled >/dev/null 2>&1 || return 0
+    else
+        return 0
+    fi
+
+    # Prefer the conventional packaged profile, then fall back to locating it.
+    profile=/etc/apparmor.d/mbsync
+    if [[ ! -f "$profile" ]]; then
+        profile="$(
+            grep -RIlE '(^|[[:space:]])profile[[:space:]]+mbsync|/usr/bin/mbsync' \
+                /etc/apparmor.d 2>/dev/null | head -n 1 || true
+        )"
+    fi
+
+    [[ -n "$profile" && -f "$profile" ]] || return 0
+
+    say "Allowing mbsync to use the SimpleMail Maildir under AppArmor"
+
+    local_file=/etc/apparmor.d/local/mbsync
+    sudo mkdir -p /etc/apparmor.d/local
+    tmp="$(mktemp)"
+
+    if sudo test -f "$local_file"; then
+        sudo cat "$local_file" > "$tmp"
+    fi
+
+    if ! grep -Fqx 'owner @{HOME}/.local/share/simplemail/mail/ r,' "$tmp"; then
+        printf '%s\n' 'owner @{HOME}/.local/share/simplemail/mail/ r,' >> "$tmp"
+    fi
+    if ! grep -Fqx 'owner @{HOME}/.local/share/simplemail/mail/** rwk,' "$tmp"; then
+        printf '%s\n' 'owner @{HOME}/.local/share/simplemail/mail/** rwk,' >> "$tmp"
+    fi
+
+    sudo install -m 0644 "$tmp" "$local_file"
+    rm -f "$tmp"
+
+    # Packaged Ubuntu profiles normally include this already. Add the include
+    # only when a distro ships the profile without a local override hook.
+    if ! sudo grep -Eq '^[[:space:]]*#include[[:space:]]+(if exists[[:space:]]+)?<local/mbsync>' "$profile"; then
+        tmp="$(mktemp)"
+        sudo awk '
+            /^[[:space:]]*}[[:space:]]*$/ && !added {
+                print "  #include if exists <local/mbsync>"
+                added = 1
+            }
+            { print }
+            END {
+                if (!added)
+                    exit 1
+            }
+        ' "$profile" > "$tmp" || {
+            rm -f "$tmp"
+            warn "Could not add the local AppArmor include to $profile"
+            return 0
+        }
+        sudo install -m 0644 "$tmp" "$profile"
+        rm -f "$tmp"
+    fi
+
+    if ! sudo apparmor_parser -r "$profile"; then
+        warn "Could not reload the mbsync AppArmor profile; mail sync may remain blocked"
+        return 0
+    fi
+}
+
 disable_stale_apt_cdrom_sources() {
     command -v apt-get >/dev/null 2>&1 || return 0
 
@@ -442,7 +519,7 @@ say "Installing package dependencies"
 disable_stale_apt_cdrom_sources
 "$ROOT/scripts/install-packages.sh"
 
-
+configure_mbsync_apparmor
 
 say "Installing SimpleSuite"
 "$ROOT/scripts/install-simplesuite.sh"
