@@ -6,6 +6,61 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
+
+disable_stale_apt_cdrom_sources() {
+    command -v apt-get >/dev/null 2>&1 || return 0
+
+    local file changed=0 tmp
+    local -a apt_source_files=()
+
+    while IFS= read -r -d '' file; do
+        apt_source_files+=("$file")
+    done < <(
+        sudo find /etc/apt -maxdepth 3 -type f \
+            \( -name '*.list' -o -name '*.sources' \) -print0 2>/dev/null
+    )
+
+    for file in "${apt_source_files[@]}"; do
+        case "$file" in
+            *.list)
+                if sudo grep -Eq '^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:' "$file"; then
+                    say "Disabling stale installation-media repository in $file"
+                    sudo sed -Ei \
+                        '/^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:/ s/^/# disabled by Scriptorium: /' \
+                        "$file"
+                    changed=1
+                fi
+                ;;
+            *.sources)
+                if sudo grep -Eqi '^[[:space:]]*URIs:[[:space:]]*cdrom:' "$file"; then
+                    say "Disabling stale installation-media repository in $file"
+                    tmp="$(mktemp)"
+                    sudo awk '
+                        BEGIN { RS=""; ORS="\n\n" }
+                        {
+                            stanza=$0
+                            if (stanza ~ /(^|\n)[[:space:]]*URIs:[[:space:]]*cdrom:/ &&
+                                stanza !~ /(^|\n)[[:space:]]*Enabled:[[:space:]]*no([[:space:]]|$)/) {
+                                print "Enabled: no\n" stanza
+                            } else {
+                                print stanza
+                            }
+                        }
+                    ' "$file" > "$tmp"
+                    sudo install -m 0644 "$tmp" "$file"
+                    rm -f "$tmp"
+                    changed=1
+                fi
+                ;;
+        esac
+    done
+
+    if (( changed )); then
+        say "Refreshing APT package lists after repository repair"
+        sudo apt-get update
+    fi
+}
+
 config_has_key() {
     local file=$1 key=$2
     [[ -f "$file" ]] || return 1
@@ -384,6 +439,7 @@ export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
 say "Installing package dependencies"
+disable_stale_apt_cdrom_sources
 "$ROOT/scripts/install-packages.sh"
 
 
