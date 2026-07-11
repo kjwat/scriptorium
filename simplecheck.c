@@ -44,7 +44,7 @@ typedef struct {
 static Repo repos[REPO_COUNT];
 static int button_y, button_x, button_w;
 static int scroll_offset;
-static char footer[MAX_STATUS] = "P: push all three   R: refresh   Q: quit";
+static char footer[MAX_STATUS] = "P: push   L: pull   C: check remotes   R: refresh   Q: quit";
 
 static void draw(void);
 
@@ -210,6 +210,7 @@ static void refresh_repo(Repo *r)
     }
     if (run_capture(r->path, status, out, sizeof(out)) == 0)
         parse_porcelain(r, out);
+
     if (run_capture(r->path, counts, out, sizeof(out)) == 0)
         sscanf(out, "%d\t%d", &r->behind, &r->ahead);
 }
@@ -218,7 +219,7 @@ static void refresh_all(void)
 {
     for (int i = 0; i < REPO_COUNT; i++) refresh_repo(&repos[i]);
     scroll_offset = 0;
-    set_footer("Refreshed. P: push all three   R: refresh   Q: quit");
+    set_footer("Refreshed. P: push   L: pull   C: check remotes   R: refresh   Q: quit");
 }
 
 static int prompt_line(const char *label, char *buf, size_t size)
@@ -321,8 +322,132 @@ static int run_git(Repo *r, char *const argv[], const char *verb)
     return RUN_FAILED;
 }
 
+static void check_remotes(void)
+{
+    char out[MAX_OUTPUT];
+
+    set_footer("Checking remotes...");
+    draw();
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        Repo *r = &repos[i];
+
+        if (!r->is_repo)
+            continue;
+
+        char *fetch[] = {
+            "git", "fetch", "--quiet", "--prune", NULL
+        };
+
+        int rc = run_capture(r->path, fetch, out, sizeof(out));
+
+        if (rc != 0) {
+            trim_newline(out);
+            snprintf(r->last_action, sizeof(r->last_action),
+                     "remote check failed: %.180s",
+                     out[0] ? out : "unknown Git error");
+        }
+    }
+
+    /*
+     * Fetch updated the remote-tracking refs. This second pass is local
+     * and recalculates ahead/behind without touching the network.
+     */
+    refresh_all();
+}
+
+static int any_repo_behind(void)
+{
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (repos[i].is_repo && repos[i].behind > 0)
+            return 1;
+    }
+    return 0;
+}
+
+static void restore_normal_footer(void)
+{
+    set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+}
+
+static void show_temporary_footer(const char *message)
+{
+    set_footer("%s", message);
+    draw();
+    napms(5000);
+    restore_normal_footer();
+}
+
+static void pull_all(void)
+{
+    int found = 0;
+    int failed = 0;
+    int cancelled = 0;
+
+    /*
+     * Network access happens only after the user explicitly presses L.
+     */
+    check_remotes();
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        Repo *r = &repos[i];
+
+        if (!r->is_repo || r->behind <= 0)
+            continue;
+
+        found = 1;
+        r->last_action[0] = '\0';
+
+        /*
+         * Autostash protects local working changes while rebasing the
+         * incoming commits. Git restores them afterward.
+         */
+        char *pull[] = {
+            "git", "pull", "--rebase", "--autostash", NULL
+        };
+
+        int rc = run_git(r, pull, "pull");
+
+        if (rc == RUN_CANCELLED) {
+            cancelled = 1;
+            break;
+        }
+
+        if (rc != RUN_OK)
+            failed = 1;
+    }
+
+    refresh_all();
+
+    if (cancelled) {
+        show_temporary_footer("Pull cancelled.");
+        return;
+    }
+
+    if (!found) {
+        show_temporary_footer("Everything is already up to date.");
+        return;
+    }
+
+    if (failed)
+        show_temporary_footer("Pull finished with errors. Review the repository messages above.");
+    else
+        show_temporary_footer("Pull complete. All available updates were applied.");
+}
+
 static void push_all(void)
 {
+    /*
+     * Startup and ordinary refreshes remain instant. Network access
+     * occurs here only because the user explicitly requested a push.
+     */
+    check_remotes();
+
+    if (any_repo_behind()) {
+        show_temporary_footer("Push blocked: pull the available updates first with L.");
+        return;
+    }
+
     int dirty_count = 0;
     char message[512] = {0};
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].is_repo && repos[i].dirty) dirty_count++;
@@ -338,7 +463,7 @@ static void push_all(void)
             set_footer("Push cancelled.");
             draw();
             napms(5000);
-            set_footer("P: push all three   R: refresh   Q: quit");
+            set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
             return;
         }
 
@@ -384,7 +509,7 @@ static void push_all(void)
 
     draw();
     napms(5000);
-    set_footer("P: push all three   R: refresh   Q: quit");
+    set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
 }
 
 static int total_content_lines(void)
@@ -467,6 +592,14 @@ int main(void)
         int ch = getch();
         if (ch == 'q' || ch == 'Q') break;
         if (ch == 'r' || ch == 'R') refresh_all();
+        else if (ch == 'c' || ch == 'C') {
+            check_remotes();
+            set_footer("Remote check complete.");
+            draw();
+            napms(5000);
+            set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+        }
+        else if (ch == 'l' || ch == 'L') pull_all();
         else if (ch == 'p' || ch == 'P') push_all();
         else if (ch == KEY_UP || ch == 'k') { if (scroll_offset > 0) scroll_offset--; }
         else if (ch == KEY_DOWN || ch == 'j') {
