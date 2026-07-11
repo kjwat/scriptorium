@@ -448,19 +448,38 @@ prepare_rollback
 
 say "Scriptorium installer"
 
-if ! git config --global user.name >/dev/null 2>&1; then
-    printf "Enter your Git name: "
-    read -r git_name
-    CHANGES_MADE=1
-    git config --global user.name "$git_name"
+git_name="$(git config --global --get user.name 2>/dev/null || true)"
+git_email="$(git config --global --get user.email 2>/dev/null || true)"
+
+while [[ -z "${git_name//[[:space:]]/}" ]]; do
+    IFS= read -r -p "Enter your Git name: " git_name
+    if [[ -z "${git_name//[[:space:]]/}" ]]; then
+        warn "Git name cannot be blank."
+    fi
+done
+
+while [[ -z "${git_email//[[:space:]]/}" ]]; do
+    IFS= read -r -p "Enter your Git email: " git_email
+    if [[ -z "${git_email//[[:space:]]/}" ]]; then
+        warn "Git email cannot be blank."
+    elif [[ ! "$git_email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+        warn "That does not look like a complete email address."
+        git_email=
+    fi
+done
+
+git config --global user.name "$git_name"
+git config --global user.email "$git_email"
+CHANGES_MADE=1
+
+saved_git_name="$(git config --global --get user.name 2>/dev/null || true)"
+saved_git_email="$(git config --global --get user.email 2>/dev/null || true)"
+if [[ -z "${saved_git_name//[[:space:]]/}" || -z "${saved_git_email//[[:space:]]/}" ]]; then
+    warn "Git identity was not saved correctly. Installation cannot continue."
+    exit 1
 fi
 
-if ! git config --global user.email >/dev/null 2>&1; then
-    printf "Enter your Git email: "
-    read -r git_email
-    CHANGES_MADE=1
-    git config --global user.email "$git_email"
-fi
+printf 'Git identity: %s <%s>\n' "$saved_git_name" "$saved_git_email"
 
 say "Configuring Git"
 CHANGES_MADE=1
@@ -471,23 +490,63 @@ printf 'Git pull mode: rebase with autostash\n'
 
 say "Configuring GitHub credentials"
 
-printf "Enter your GitHub username: "
-read -r github_user
+while :; do
+    IFS= read -r -p "Enter your GitHub username: " github_user
+    github_user="${github_user#"${github_user%%[![:space:]]*}"}"
+    github_user="${github_user%"${github_user##*[![:space:]]}"}"
 
-printf "Paste your GitHub PAT: "
-stty -echo
-read -r github_pat
-stty echo
-printf '\n'
-github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
-stty echo
-printf '\n'
+    if [[ -z "$github_user" ]]; then
+        warn "GitHub username cannot be blank."
+        continue
+    fi
 
-if [ -n "$github_user" ] && [ -n "$github_pat" ]; then
-    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' "$github_user" "$github_pat" |
-        git credential-store --file "$HOME/.git-credentials" store
-    chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+    if [[ ! "$github_user" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]; then
+        warn "That is not a valid GitHub username."
+        continue
+    fi
+
+    break
+done
+
+while :; do
+    IFS= read -r -s -p "Paste your GitHub PAT: " github_pat
+    printf '\n'
+    github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
+
+    if [[ -z "$github_pat" ]]; then
+        warn "GitHub PAT cannot be blank."
+        continue
+    fi
+
+    break
+done
+
+if command -v curl >/dev/null 2>&1; then
+    github_login="$(
+        curl -fsS             -H "Authorization: Bearer $github_pat"             -H "Accept: application/vnd.github+json"             https://api.github.com/user 2>/dev/null |
+        sed -n 's/^[[:space:]]*"login":[[:space:]]*"\([^"]*\)".*/\1/p' |
+        head -n 1
+    )" || github_login=
+
+    if [[ -z "$github_login" ]]; then
+        unset github_pat
+        warn "GitHub rejected that PAT, or GitHub could not be reached."
+        exit 1
+    fi
+
+    if [[ "$github_login" != "$github_user" ]]; then
+        unset github_pat
+        warn "That PAT belongs to '$github_login', not '$github_user'."
+        exit 1
+    fi
+
+    printf 'Authenticated with GitHub as %s.\n' "$github_login"
 fi
+
+printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n'     "$github_user" "$github_pat" |
+    git credential-store --file "$HOME/.git-credentials" store
+chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+unset github_pat
 
 
 printf "\nDo you want to configure SimpleMail for Gmail IMAP/SMTP? [y/N] "
