@@ -377,8 +377,14 @@ static void push_all(void)
     }
     int ok = 0;
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].push_ok) ok++;
-    if (ok == REPO_COUNT) set_footer("All three repositories pushed successfully.");
-    else set_footer("Push finished. Review repository messages above.");
+    if (ok == REPO_COUNT)
+        set_footer("All three repositories pushed successfully.");
+    else
+        set_footer("Push finished. Review repository messages above.");
+
+    draw();
+    napms(2000);
+    set_footer("P: push all three   R: refresh   Q: quit");
 }
 
 static int total_content_lines(void)
