@@ -283,19 +283,6 @@ static int prompt_line(const char *label, char *buf, size_t size)
     }
 }
 
-static int confirm_push(void)
-{
-    int h = getmaxy(stdscr);
-    move(h - 2, 0);
-    clrtoeol();
-    attron(A_BOLD);
-    mvprintw(h - 2, 0, "Commit dirty repos and push writing, scriptorium, and simplesuite? [y/N]");
-    attroff(A_BOLD);
-    refresh();
-    int ch = getch();
-    return ch == 'y' || ch == 'Y';
-}
-
 static int run_git(Repo *r, char *const argv[], const char *verb)
 {
     char out[MAX_OUTPUT];
@@ -452,10 +439,6 @@ static void push_all(void)
     char message[512] = {0};
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].is_repo && repos[i].dirty) dirty_count++;
 
-    if (!confirm_push()) {
-        set_footer("Push cancelled.");
-        return;
-    }
     if (dirty_count) {
         int prompt_rc = prompt_line("Commit message: ", message, sizeof(message));
 
