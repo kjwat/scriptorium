@@ -23,3 +23,56 @@ https://c32.radioboss.fm:8338/stream
 #EXTINF:-1,Mother Earth Radio
 http://mediaradio.com/earth1
 
+#EXTINF:-1,Ambient Sleeping Pill
+https://radio.stereoscenic.com/asp-h
+
+#EXTINF:-1,Ambient Modern
+https://radio.stereoscenic.com/mod-h
+
+#EXTINF:-1,a.m. ambient
+https://radio.stereoscenic.com/ama-h
+
+#EXTINF:-1,SomaFM Drone Zone
+https://ice4.somafm.com/dronezone-128-mp3
+
+#EXTINF:-1,SomaFM Deep Space One
+https://ice6.somafm.com/deepspaceone-128-mp3
+
+#EXTINF:-1,SomaFM Space Station Soma
+https://ice5.somafm.com/spacestation-128-mp3
+
+#EXTINF:-1,SomaFM Synphaera Radio
+https://ice1.somafm.com/synphaera-256-mp3
+
+#EXTINF:-1,Nature Radio Sleep
+https://az1.mediacp.eu/listen/natureradiosleep/radio.mp3
+
+#EXTINF:-1,myNoise Pure Nature
+https://purenature-mynoise.radioca.st/stream
+
+#EXTINF:-1,myNoise Ocean Waves
+http://oceanwaves.radio.mynoise.net/
+
+#EXTINF:-1,myNoise Rainy Day
+http://rainyday.radio.mynoise.net/
+
+#EXTINF:-1,Costa del Mar - Zen
+http://stream.cdm-zen.com:8004/stream-mp3-Zen
+
+#EXTINF:-1,Positively Calm
+https://streaming.positivity.radio/pr/calm/icecast.audio
+
+#EXTINF:-1,Positively Sleep Relax
+https://streaming.positivity.radio/pr/sleeprelax/icecast.audio
+
+#EXTINF:-1,ambient.fm
+https://ambient.fm/live/
+
+#EXTINF:-1,AmbientRadio (MRG.fm)
+http://listen.mrg.fm:8888/stream
+
+#EXTINF:-1,Zero Beat Zone (MRG.fm)
+http://listen.mrg.fm:8800/stream
+
+#EXTINF:-1,Epic Lounge - Sleep & Meditation
+https://stream.epic-lounge.com/sleep-meditation

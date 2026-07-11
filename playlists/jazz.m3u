@@ -37,3 +37,48 @@ http://icecast.radiofrance.fr/fipjazz-hifi.aac
 
 #EXTINF:-1,181.FM BeBop Jazz
 http://www.181.fm/stream/pls/181-bebop.pls
+
+#EXTINF:-1,WBGO Jazz 88.3
+https://ais-sa8.cdnstream1.com/3629_128.mp3
+
+#EXTINF:-1,Jazz24
+https://knkx-live-a.edge.audiocdn.com/6285_256k
+
+#EXTINF:-1,WDCB Jazz
+https://wdcb-ice.streamguys1.com/wdcb128
+
+#EXTINF:-1,KCSM Jazz 91
+https://ice7.securenetsystems.net/KCSM2
+
+#EXTINF:-1,KSDS Jazz 88.3
+https://ksds-ice.streamguys1.com/ksds.mp3
+
+#EXTINF:-1,KUVO Jazz
+https://kuvo.streamguys1.com/kuvo-aac-128
+
+#EXTINF:-1,WWOZ New Orleans
+https://wwoz-sc.streamguys1.com/wwoz-hi.mp3
+
+#EXTINF:-1,TSF Jazz
+https://tsfjazz.ice.infomaniak.ch/tsfjazz-high.mp3
+
+#EXTINF:-1,Radio Swiss Jazz
+https://stream.srg-ssr.ch/m/rsj/mp3_128
+
+#EXTINF:-1,Jazz Sakura
+https://kathy.torontocast.com:3330/;
+
+#EXTINF:-1,SomaFM Sonic Universe
+https://ice5.somafm.com/sonicuniverse-256-mp3
+
+#EXTINF:-1,NRK Jazz
+https://cdn0-47115-liveicecast0.dna.contentdelivery.net/jazz_mp3_h
+
+#EXTINF:-1,101 Smooth Jazz
+https://jking.cdnstream1.com/b22139_128mp3
+
+#EXTINF:-1,WRTI Jazz
+https://wrti-live.streamguys1.com/jazz-mp3
+
+#EXTINF:-1,KCCK Jazz 88.3
+https://stream.kcck.org/jazz883kcck

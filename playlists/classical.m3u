@@ -50,3 +50,57 @@ https://icecast.teveo.cu/9Rnrbjzq
 
 #EXTINF:-1,DR P1
 http://live-icy.gss.dr.dk/A/A03H.mp3
+
+#EXTINF:-1,Rai Radio 3
+https://icestreaming.rai.it/3.mp3
+
+#EXTINF:-1,France Musique
+https://direct.francemusique.fr/live/francemusique-midfi.mp3
+
+#EXTINF:-1,Classic FM Calm
+https://media-ice.musicradio.com/ClassicFMCalmMP3
+
+#EXTINF:-1,BR-KLASSIK
+https://dispatcher.rndfnk.com/br/brklassik/live/mp3/high
+
+#EXTINF:-1,100 Greatest Classical Music
+https://az1.mediacp.eu/listen/100greatestclassicalmusic/radio.mp3
+
+#EXTINF:-1,France Musique La Baroque
+https://icecast.radiofrance.fr/francemusiquebaroque-hifi.aac
+
+#EXTINF:-1,NPO Klassiek
+https://icecast.omroep.nl/radio4-bb-mp3
+
+#EXTINF:-1,Classic FM Movies
+https://media-ice.musicradio.com/ClassicFMMoviesMP3
+
+#EXTINF:-1,YourClassical Relax
+https://relax.stream.publicradio.org/relax.mp3
+
+#EXTINF:-1,YourClassical Peaceful Piano
+https://peacefulpiano.stream.publicradio.org/peacefulpiano.mp3
+
+#EXTINF:-1,NDR Kultur
+https://icecast.ndr.de/ndr/ndrkultur/live/mp3/128/stream.mp3
+
+#EXTINF:-1,WDR 3
+https://wdr-wdr3-live.icecast.wdr.de/wdr/wdr3/live/mp3/128/stream.mp3
+
+#EXTINF:-1,Classical KING Evergreen Channel
+https://classicalking.streamguys1.com/evergreen-aac-128k
+
+#EXTINF:-1,Rai Radio Classica
+https://icestreaming.rai.it/5.mp3
+
+#EXTINF:-1,Ancient FM
+https://mediaserv73.live-streams.nl:18058/stream
+
+#EXTINF:-1,Ottava
+https://ottava2.out.airtime.pro:8000/ottava2_a
+
+#EXTINF:-1,1.FM Otto's Baroque Music Radio
+https://strm112.1.fm/baroque_mobile_mp3
+
+#EXTINF:-1,EPIC CLASSICAL - Classical Piano
+https://stream.epic-classical.com/classical-piano

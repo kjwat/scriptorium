@@ -41,3 +41,47 @@ https://stream.laut.fm/housemusicuniverse
 #EXTINF:-1,House Music Radio 2
 https://server7.streamserver24.com/proxy/housemus2?mp=%2Fstream&fbclid=IwAR0ie0H2Kq3iZ10Nlij6EIQgSbiILi3grQ1BXNkiHMXuRy0XRstaqaX
 
+#EXTINF:-1,House FM
+https://uksoutha.streaming.broadcast.radio:19920/housefm
+
+#EXTINF:-1,Select Radio UK
+https://streaming05.liveboxstream.uk/proxy/selectr1/stream
+
+#EXTINF:-1,Centreforce 883
+https://listen.centreforceradio.com/96
+
+#EXTINF:-1,54house.fm
+https://54house.fm:9013/stream
+
+#EXTINF:-1,MoveDaHouse
+https://uk7.internet-radio.com/proxy/movedahouse?mp=//stream
+
+#EXTINF:-1,BeachGrooves Radio
+https://stream.beachgrooves.com:9000/stream.mp3
+
+#EXTINF:-1,Ibiza Sonica Club
+https://ibizasonica.streaming-pro.com:8011/sonicaclub
+
+#EXTINF:-1,Pure Ibiza Radio
+https://pureibizaradio.clubbingradios.com:9518/PureIbizaRadio
+
+#EXTINF:-1,Deep Motion FM
+https://vm.motionfm.com/motionone_free
+
+#EXTINF:-1,House Nation UK
+https://streaming.radio.co/s06bd9d805/listen
+
+#EXTINF:-1,Soulful House by Vip-Radios
+https://radio4.vip-radios.fm:18057/stream-128kmp3-SoulfulHouse
+
+#EXTINF:-1,Deep House Radio Bucharest
+https://live.dancemusic.ro:7000/stream
+
+#EXTINF:-1,Dinamo.fm Deep
+https://channels.dinamo.fm/deep-mp3
+
+#EXTINF:-1,Ibiza Global Radio
+https://ibizaglobalradio.streaming-pro.com:8024/
+
+#EXTINF:-1,1.FM Deep House
+https://strm112.1.fm/deephouse_mobile_mp3
