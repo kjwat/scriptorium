@@ -337,7 +337,7 @@ static void push_all(void)
         if (prompt_rc < 0) {
             set_footer("Push cancelled.");
             draw();
-            napms(2000);
+            napms(5000);
             set_footer("P: push all three   R: refresh   Q: quit");
             return;
         }
@@ -383,7 +383,7 @@ static void push_all(void)
         set_footer("Push finished. Review repository messages above.");
 
     draw();
-    napms(2000);
+    napms(5000);
     set_footer("P: push all three   R: refresh   Q: quit");
 }
 
