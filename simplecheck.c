@@ -157,8 +157,7 @@ static void refresh_all(void)
 
 static int prompt_line(const char *label, char *buf, size_t size)
 {
-    int h, w;
-    getmaxyx(stdscr, h, w);
+    int h = getmaxy(stdscr);
     echo();
     curs_set(1);
     timeout(-1);
@@ -174,8 +173,7 @@ static int prompt_line(const char *label, char *buf, size_t size)
 
 static int confirm_push(void)
 {
-    int h, w;
-    getmaxyx(stdscr, h, w);
+    int h = getmaxy(stdscr);
     move(h - 2, 0);
     clrtoeol();
     attron(A_BOLD);
