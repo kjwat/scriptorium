@@ -4,6 +4,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
+#include <time.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -15,6 +19,11 @@
 #define MAX_FILES 256
 #define MAX_FILE_LINE 512
 #define MAX_STATUS 256
+#define COMMAND_TIMEOUT_SECONDS 45
+
+#define RUN_FAILED 0
+#define RUN_OK 1
+#define RUN_CANCELLED -1
 
 typedef struct {
     const char *name;
@@ -37,6 +46,8 @@ static int button_y, button_x, button_w;
 static int scroll_offset;
 static char footer[MAX_STATUS] = "P: push all three   R: refresh   Q: quit";
 
+static void draw(void);
+
 static void set_footer(const char *fmt, ...)
 {
     va_list ap;
@@ -45,12 +56,22 @@ static void set_footer(const char *fmt, ...)
     va_end(ap);
 }
 
+static void stop_child(pid_t pid)
+{
+    if (pid <= 0) return;
+    kill(-pid, SIGTERM);
+    napms(150);
+    kill(-pid, SIGKILL);
+    while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+}
+
 static int run_capture(const char *cwd, char *const argv[], char *out, size_t out_sz)
 {
     int pipefd[2];
     pid_t pid;
     size_t used = 0;
     int status = -1;
+    struct timespec started;
 
     if (out_sz) out[0] = '\0';
     if (pipe(pipefd) < 0) return -1;
@@ -62,25 +83,70 @@ static int run_capture(const char *cwd, char *const argv[], char *out, size_t ou
         return -1;
     }
     if (pid == 0) {
+        int nullfd;
+        setpgid(0, 0);
         if (cwd && chdir(cwd) < 0) _exit(126);
+        nullfd = open("/dev/null", O_RDONLY);
+        if (nullfd >= 0) {
+            dup2(nullfd, STDIN_FILENO);
+            if (nullfd > STDERR_FILENO) close(nullfd);
+        }
         dup2(pipefd[1], STDOUT_FILENO);
         dup2(pipefd[1], STDERR_FILENO);
         close(pipefd[0]);
         close(pipefd[1]);
+        setenv("GIT_TERMINAL_PROMPT", "0", 1);
+        setenv("GCM_INTERACTIVE", "Never", 1);
         execvp(argv[0], argv);
         _exit(127);
     }
 
+    setpgid(pid, pid);
     close(pipefd[1]);
+    fcntl(pipefd[0], F_SETFL, fcntl(pipefd[0], F_GETFL) | O_NONBLOCK);
+    clock_gettime(CLOCK_MONOTONIC, &started);
+
+    for (;;) {
+        char discard[1024];
+        char *dst = used + 1 < out_sz ? out + used : discard;
+        size_t room = used + 1 < out_sz ? out_sz - used - 1 : sizeof(discard);
+        ssize_t n = read(pipefd[0], dst, room);
+        if (n > 0 && dst != discard) used += (size_t)n;
+
+        pid_t done = waitpid(pid, &status, WNOHANG);
+        if (done == pid) break;
+        if (done < 0 && errno != EINTR) break;
+
+        nodelay(stdscr, TRUE);
+        int ch = getch();
+        nodelay(stdscr, FALSE);
+        if (ch == 'q' || ch == 'Q' || ch == 27) {
+            close(pipefd[0]);
+            stop_child(pid);
+            if (out_sz) out[used] = '\0';
+            return -2;
+        }
+
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        if (now.tv_sec - started.tv_sec >= COMMAND_TIMEOUT_SECONDS) {
+            close(pipefd[0]);
+            stop_child(pid);
+            if (out_sz) out[used] = '\0';
+            return -3;
+        }
+
+        struct pollfd pfd = { .fd = pipefd[0], .events = POLLIN | POLLHUP };
+        poll(&pfd, 1, 75);
+    }
+
     while (used + 1 < out_sz) {
         ssize_t n = read(pipefd[0], out + used, out_sz - used - 1);
         if (n > 0) used += (size_t)n;
-        else if (n == 0) break;
-        else if (errno != EINTR) break;
+        else break;
     }
     if (out_sz) out[used] = '\0';
     close(pipefd[0]);
-    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
@@ -157,18 +223,63 @@ static void refresh_all(void)
 
 static int prompt_line(const char *label, char *buf, size_t size)
 {
-    int h = getmaxy(stdscr);
-    echo();
+    size_t len = 0;
+
+    if (!buf || size < 2)
+        return 0;
+
+    buf[0] = '\0';
+    noecho();
     curs_set(1);
     timeout(-1);
-    move(h - 2, 0);
-    clrtoeol();
-    mvprintw(h - 2, 0, "%s", label);
-    refresh();
-    int rc = getnstr(buf, (int)size - 1);
-    noecho();
-    curs_set(0);
-    return rc == OK;
+
+    for (;;) {
+        int h, w;
+        getmaxyx(stdscr, h, w);
+
+        move(h - 2, 0);
+        clrtoeol();
+        mvprintw(h - 2, 0, "%s%s", label, buf);
+
+        move(h - 1, 0);
+        clrtoeol();
+        mvaddstr(h - 1, 1, "Enter: accept   Esc/Ctrl-C: cancel");
+
+        int cursor_x = (int)strlen(label) + (int)len;
+        if (cursor_x >= w)
+            cursor_x = w - 1;
+        move(h - 2, cursor_x);
+
+        refresh();
+
+        int ch = getch();
+
+        if (ch == 27 || ch == 3) {
+            buf[0] = '\0';
+            curs_set(0);
+            return -1;
+        }
+
+        if (ch == '\n' || ch == '\r' || ch == KEY_ENTER) {
+            buf[len] = '\0';
+            curs_set(0);
+            return 1;
+        }
+
+        if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+            if (len > 0)
+                buf[--len] = '\0';
+            continue;
+        }
+
+        if (ch == KEY_RESIZE)
+            continue;
+
+        if (ch >= 32 && ch <= 126 && len + 1 < size) {
+            buf[len++] = (char)ch;
+            buf[len] = '\0';
+        }
+    }
 }
 
 static int confirm_push(void)
@@ -187,17 +298,27 @@ static int confirm_push(void)
 static int run_git(Repo *r, char *const argv[], const char *verb)
 {
     char out[MAX_OUTPUT];
+    set_footer("%s: %s in progress... Q or Esc cancels", r->name, verb);
+    draw();
     int rc = run_capture(r->path, argv, out, sizeof(out));
     trim_newline(out);
     if (rc == 0) {
         snprintf(r->last_action, sizeof(r->last_action), "%s complete", verb);
-        return 1;
+        return RUN_OK;
+    }
+    if (rc == -2) {
+        snprintf(r->last_action, sizeof(r->last_action), "%s cancelled", verb);
+        return RUN_CANCELLED;
+    }
+    if (rc == -3) {
+        snprintf(r->last_action, sizeof(r->last_action), "%s stopped after %d-second timeout", verb, COMMAND_TIMEOUT_SECONDS);
+        return RUN_FAILED;
     }
     const char *last = strrchr(out, '\n');
     if (last && last[1]) last++;
     else last = out;
     snprintf(r->last_action, sizeof(r->last_action), "%s failed: %.190s", verb, last[0] ? last : "unknown Git error");
-    return 0;
+    return RUN_FAILED;
 }
 
 static void push_all(void)
@@ -211,13 +332,24 @@ static void push_all(void)
         return;
     }
     if (dirty_count) {
-        if (!prompt_line("Commit message for dirty repos: ", message, sizeof(message)) || !message[0]) {
+        int prompt_rc = prompt_line("Commit message: ", message, sizeof(message));
+
+        if (prompt_rc < 0) {
+            set_footer("Push cancelled.");
+            draw();
+            napms(2000);
+            set_footer("P: push all three   R: refresh   Q: quit");
+            return;
+        }
+
+        if (!message[0]) {
             set_footer("Push cancelled: no commit message.");
             return;
         }
     }
 
-    for (int i = 0; i < REPO_COUNT; i++) {
+    int cancelled = 0;
+    for (int i = 0; i < REPO_COUNT && !cancelled; i++) {
         Repo *r = &repos[i];
         r->push_ok = 0;
         r->last_action[0] = '\0';
@@ -225,14 +357,24 @@ static void push_all(void)
         if (r->dirty) {
             char *add[] = {"git", "add", "-A", NULL};
             char *commit[] = {"git", "commit", "-m", message, NULL};
-            if (!run_git(r, add, "stage")) continue;
-            if (!run_git(r, commit, "commit")) continue;
+            int rc = run_git(r, add, "stage");
+            if (rc == RUN_CANCELLED) { cancelled = 1; break; }
+            if (rc != RUN_OK) continue;
+            rc = run_git(r, commit, "commit");
+            if (rc == RUN_CANCELLED) { cancelled = 1; break; }
+            if (rc != RUN_OK) continue;
         }
         char *push[] = {"git", "push", NULL};
-        if (run_git(r, push, "push")) r->push_ok = 1;
+        int rc = run_git(r, push, "push");
+        if (rc == RUN_CANCELLED) { cancelled = 1; break; }
+        if (rc == RUN_OK) r->push_ok = 1;
     }
 
     refresh_all();
+    if (cancelled) {
+        set_footer("Operation cancelled. You are back in SimpleCheck.");
+        return;
+    }
     int ok = 0;
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].push_ok) ok++;
     if (ok == REPO_COUNT) set_footer("All three repositories pushed successfully.");
