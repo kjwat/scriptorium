@@ -44,6 +44,7 @@ typedef struct {
 static Repo repos[REPO_COUNT];
 static int button_y, button_x, button_w;
 static int scroll_offset;
+static int quit_requested;
 static char footer[MAX_STATUS] = "P: push   L: pull   C: check remotes   R: refresh   Q: quit";
 
 static void draw(void);
@@ -359,10 +360,30 @@ static void restore_normal_footer(void)
 
 static void show_temporary_footer(const char *message)
 {
+    const int step_ms = 50;
+    int elapsed = 0;
+
     set_footer("%s", message);
     draw();
-    napms(5000);
-    restore_normal_footer();
+
+    timeout(step_ms);
+    while (elapsed < 5000) {
+        int ch = getch();
+
+        if (ch == 'q' || ch == 'Q') {
+            quit_requested = 1;
+            break;
+        }
+
+        if (ch == KEY_RESIZE)
+            draw();
+
+        elapsed += step_ms;
+    }
+    timeout(-1);
+
+    if (!quit_requested)
+        restore_normal_footer();
 }
 
 static void pull_all(void)
@@ -443,10 +464,7 @@ static void push_all(void)
         int prompt_rc = prompt_line("Commit message: ", message, sizeof(message));
 
         if (prompt_rc < 0) {
-            set_footer("Push cancelled.");
-            draw();
-            napms(5000);
-            set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+            show_temporary_footer("Push cancelled.");
             return;
         }
 
@@ -490,9 +508,7 @@ static void push_all(void)
     else
         set_footer("Push finished. Review repository messages above.");
 
-    draw();
-    napms(5000);
-    set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+    show_temporary_footer(footer);
 }
 
 static int total_content_lines(void)
@@ -571,16 +587,16 @@ int main(void)
     refresh_all();
 
     for (;;) {
+        if (quit_requested)
+            break;
+
         draw();
         int ch = getch();
         if (ch == 'q' || ch == 'Q') break;
         if (ch == 'r' || ch == 'R') refresh_all();
         else if (ch == 'c' || ch == 'C') {
             check_remotes();
-            set_footer("Remote check complete.");
-            draw();
-            napms(5000);
-            set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+            show_temporary_footer("Remote check complete.");
         }
         else if (ch == 'l' || ch == 'L') pull_all();
         else if (ch == 'p' || ch == 'P') push_all();
