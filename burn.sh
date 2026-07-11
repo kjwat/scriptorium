@@ -37,7 +37,7 @@ fi
 
 rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
 
-for bin in simplewords simplefiles simplebrowse  simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplecheck simplefiles simplebrowse  simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -99,6 +99,9 @@ rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplefiles"
 rm -rf "$HOME/.local/share/simplefiles"
 rm -rf "$HOME/.local/state/simplewords"
+rm -rf "$HOME/.config/simplecheck"
+rm -rf "$HOME/.cache/simplecheck"
+rm -rf "$HOME/.local/state/simplecheck"
 rm -f "$HOME/.simplewords-session"
 
 if command -v git >/dev/null 2>&1; then
@@ -131,6 +134,7 @@ if [ -f "$HOME/.bashrc" ]; then
     sed -i "/alias pod='simplepod'/d" "$HOME/.bashrc"
     sed -i "/alias vis='simplevis'/d" "$HOME/.bashrc"
     sed -i "/alias clock='simpleclock'/d" "$HOME/.bashrc"
+    sed -i "/alias check='simplecheck'/d" "$HOME/.bashrc"
     sed -i "/alias cal='simplecal'/d" "$HOME/.bashrc"
     sed -i "/alias stats='simplestats'/d" "$HOME/.bashrc"
     sed -i "/alias ver='simplever'/d" "$HOME/.bashrc"

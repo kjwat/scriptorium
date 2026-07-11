@@ -206,6 +206,7 @@ ensure_simplesuite_aliases() {
         "alias pod='simplepod'"
         "alias vis='simplevis'"
         "alias clock='simpleclock'"
+        "alias check='simplecheck'"
         "alias cal='simplecal'"
         "alias stats='simplestats'"
         "alias ver='simplever'"
@@ -262,6 +263,7 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simplebrowse
     simplecal
     simpleclock
+    simplecheck
     simplefiles
     simpleflac
     simplegame
@@ -322,6 +324,7 @@ prepare_rollback() {
     track_path "$HOME/.config/isyncrc"
     track_path "$HOME/.config/calcurse"
     track_path "$HOME/.links"
+    track_path "$HOME/.local/bin/simplecheck"
     track_path "$HOME/.config/simplefiles/config"
     track_path "$HOME/.config/simplenews/config"
     track_path "$HOME/.config/simplenews/urls"
@@ -523,6 +526,9 @@ configure_mbsync_apparmor
 
 say "Installing SimpleSuite"
 "$ROOT/scripts/install-simplesuite.sh"
+
+say "Installing SimpleCheck"
+"$ROOT/scripts/install-simplecheck.sh"
 
 say "Configuring SimpleCal"
 mkdir -p "$ROOT/dotfiles/simplecal/data"
