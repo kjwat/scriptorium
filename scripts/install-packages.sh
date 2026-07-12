@@ -48,6 +48,7 @@ dependencies_already_present() {
     have_pkgconfig ncursesw || return 1
     have_pkgconfig libcurl || return 1
     have_pkgconfig openssl || return 1
+    have_pkgconfig gio-2.0 || return 1
     have_simplebrowse_js || return 1
 
     case "$family" in
@@ -422,7 +423,7 @@ case "$family" in
 
         run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt update
         run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt install -y \
-            build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev \
+            build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev \
             git mpv poppler-utils pandoc \
             nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
@@ -456,7 +457,7 @@ case "$family" in
         run_package_command alpine sudo env LC_ALL=C apk add \
             build-base pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib glib-dev wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync
         ;;
@@ -464,7 +465,7 @@ case "$family" in
         run_package_command fedora sudo env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-devel wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
@@ -472,7 +473,7 @@ case "$family" in
         run_package_command suse sudo env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel \
+            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync
         ;;
