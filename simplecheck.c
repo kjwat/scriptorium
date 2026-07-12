@@ -20,6 +20,7 @@
 #define MAX_FILE_LINE 512
 #define MAX_STATUS 256
 #define COMMAND_TIMEOUT_SECONDS 45
+#define FOOTER_NOTICE_MS 1500
 
 #define RUN_FAILED 0
 #define RUN_OK 1
@@ -44,7 +45,8 @@ typedef struct {
 static Repo repos[REPO_COUNT];
 static int button_y, button_x, button_w;
 static int scroll_offset;
-static int quit_requested;
+static int footer_notice_active;
+static struct timespec footer_notice_deadline;
 static char footer[MAX_STATUS] = "P: push   L: pull   C: check remotes   R: refresh   Q: quit";
 
 static void draw(void);
@@ -355,35 +357,41 @@ static int any_repo_behind(void)
 
 static void restore_normal_footer(void)
 {
+    footer_notice_active = 0;
     set_footer("P: push   L: pull   C: check remotes   R: refresh   Q: quit");
 }
 
 static void show_temporary_footer(const char *message)
 {
-    const int step_ms = 50;
-    int elapsed = 0;
-
     set_footer("%s", message);
-    draw();
-
-    timeout(step_ms);
-    while (elapsed < 5000) {
-        int ch = getch();
-
-        if (ch == 'q' || ch == 'Q') {
-            quit_requested = 1;
-            break;
-        }
-
-        if (ch == KEY_RESIZE)
-            draw();
-
-        elapsed += step_ms;
+    clock_gettime(CLOCK_MONOTONIC, &footer_notice_deadline);
+    footer_notice_deadline.tv_sec += FOOTER_NOTICE_MS / 1000;
+    footer_notice_deadline.tv_nsec +=
+        (long)(FOOTER_NOTICE_MS % 1000) * 1000000L;
+    if (footer_notice_deadline.tv_nsec >= 1000000000L) {
+        footer_notice_deadline.tv_sec++;
+        footer_notice_deadline.tv_nsec -= 1000000000L;
     }
-    timeout(-1);
+    footer_notice_active = 1;
+    draw();
+}
 
-    if (!quit_requested)
-        restore_normal_footer();
+static int footer_notice_remaining_ms(void)
+{
+    struct timespec now;
+    long long remaining_ns;
+
+    if (!footer_notice_active)
+        return -1;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    remaining_ns =
+        (long long)(footer_notice_deadline.tv_sec - now.tv_sec) * 1000000000LL +
+        (long long)footer_notice_deadline.tv_nsec - now.tv_nsec;
+    if (remaining_ns <= 0)
+        return 0;
+
+    return (int)((remaining_ns + 999999LL) / 1000000LL);
 }
 
 static void pull_all(void)
@@ -469,7 +477,7 @@ static void push_all(void)
         }
 
         if (!message[0]) {
-            set_footer("Push cancelled: no commit message.");
+            show_temporary_footer("Push cancelled: no commit message.");
             return;
         }
     }
@@ -498,17 +506,15 @@ static void push_all(void)
 
     refresh_all();
     if (cancelled) {
-        set_footer("Operation cancelled. You are back in SimpleCheck.");
+        show_temporary_footer("Operation cancelled. You are back in SimpleCheck.");
         return;
     }
     int ok = 0;
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].push_ok) ok++;
     if (ok == REPO_COUNT)
-        set_footer("All three repositories pushed successfully.");
+        show_temporary_footer("All three repositories pushed successfully.");
     else
-        set_footer("Push finished. Review repository messages above.");
-
-    show_temporary_footer(footer);
+        show_temporary_footer("Push finished. Review repository messages above.");
 }
 
 static int total_content_lines(void)
@@ -587,11 +593,26 @@ int main(void)
     refresh_all();
 
     for (;;) {
-        if (quit_requested)
-            break;
-
         draw();
+        int wait_ms = footer_notice_remaining_ms();
+        if (wait_ms == 0) {
+            restore_normal_footer();
+            continue;
+        }
+        timeout(wait_ms);
         int ch = getch();
+        timeout(-1);
+
+        if (ch == ERR) {
+            if (footer_notice_active)
+                restore_normal_footer();
+            continue;
+        }
+
+        /* A notice never consumes the user's next command. */
+        if (footer_notice_active)
+            restore_normal_footer();
+
         if (ch == 'q' || ch == 'Q') break;
         if (ch == 'r' || ch == 'R') refresh_all();
         else if (ch == 'c' || ch == 'C') {
