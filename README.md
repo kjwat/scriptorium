@@ -39,6 +39,9 @@ SimpleSuite programs:
 - `simplever`
 - `simplevis`
 
+Scriptorium also builds and installs `simplecheck`, its ncurses dashboard for
+the `~/writing`, `~/scriptorium`, and `~/simplesuite` Git repositories.
+
 Runtime and workflow tools installed by the package script include, depending
 on platform availability:
 
@@ -109,11 +112,25 @@ Most other SimpleSuite applications either use default local state paths or
 create their own config files on first run. Scriptorium only links files that
 exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
 creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
-SimpleBrowse v4 also installs the `` helper so `--js`, the
-`J` reload key, and JavaScript form replay can render JavaScript-required pages
-through WebKitGTK.
+SimpleBrowse v4 also installs the `simplebrowse-webkitd` helper so `--js`, the
+`J` reload key, and JavaScript form replay can render pages that require
+JavaScript through WebKitGTK.
 
-## Generated Local Files
+The managed SimpleNews URL file is preloaded with categorized technology,
+poetry, literature, spirituality, education, classics/language, and podcast
+feeds. Editing the linked file edits the copy tracked inside Scriptorium.
+
+## Included Radio Playlists
+
+The `playlists/` directory contains ready-to-use M3U station collections for
+classical, grunge, house, jazz, lo-fi, relaxation, and techno. They remain in
+the checkout rather than being copied elsewhere. Browse all of them with:
+
+```sh
+simpleradio ~/scriptorium/playlists
+```
+
+## Generated Files and System Adjustments
 
 The installer may create or modify:
 
@@ -128,6 +145,13 @@ The installer may create or modify:
 - the user's crontab, if systemd user services are unavailable
 - `~/Downloads`, `~/Music`, and `~/Podcasts`
 
+On APT systems, the installer disables stale `cdrom:` package sources before
+installing dependencies and refreshes the package lists. On systems where an
+AppArmor `mbsync` profile is active, it adds the SimpleMail Maildir permissions
+to `/etc/apparmor.d/local/mbsync`, may add the local include to the packaged
+profile, and reloads that profile. These operations use `sudo` and modify
+system configuration outside the home directory.
+
 `~/.bashrc` receives `~/.local/bin` on PATH and these aliases:
 
 ```sh
@@ -139,6 +163,7 @@ alias radio='simpleradio'
 alias pod='simplepod'
 alias vis='simplevis'
 alias clock='simpleclock'
+alias check='simplecheck'
 alias cal='simplecal'
 alias stats='simplestats'
 alias ver='simplever'
@@ -147,6 +172,29 @@ alias pdf='simplepdf'
 alias news='simplenews'
 alias mail='simplemail'
 ```
+
+## SimpleCheck
+
+Run `simplecheck` or its `check` alias to review branch, ahead/behind, and
+working-tree status for `~/writing`, `~/scriptorium`, and `~/simplesuite` in
+one screen. Startup and normal refreshes are local; network access occurs only
+for an explicit check, pull, or push.
+
+- `R`: refresh local status.
+- `C`: fetch and prune each repository's remote-tracking refs, then recalculate
+  ahead/behind counts.
+- `L`: check remotes, then pull repositories that are behind using
+  `git pull --rebase --autostash`.
+- `P`: check remotes and refuse to continue if any repository is behind. If a
+  working tree is dirty, SimpleCheck asks once for a commit message, runs
+  `git add -A`, commits each dirty repository with that message, and pushes all
+  three repositories.
+- Up/Down or `j`/`k`: scroll; `Q`: quit. During a Git command, `Q` or Esc
+  cancels it; commands also have a 45-second timeout.
+
+Review every displayed change before pressing `P`: `git add -A` includes
+tracked changes, deletions, and untracked files. Completion messages disappear
+automatically, so the next command takes effect immediately.
 
 ## Mail and Credentials
 
@@ -174,6 +222,20 @@ IMAP/SMTP settings for `mbsync` and `msmtp`, creates local Maildir folders under
 
 The Gmail app password is stored in those local mail config files. The files
 are chmodded to `600`, but they are still plaintext local secrets.
+
+To disconnect the account from GitHub without deleting the three repositories
+or their files, run:
+
+```sh
+./remove-github-connection.sh
+```
+
+This intentionally removes global and repository-local Git identity and
+GitHub credential-helper settings, GitHub entries in common credential files
+and supported keyrings, GitHub CLI authentication files, and GitHub SSH
+`known_hosts` entries. Embedded credentials are stripped from GitHub remote
+URLs while ordinary unauthenticated URLs are retained. Close the terminal
+afterward to discard any GitHub token inherited by that shell.
 
 ## SimpleCal Reminders
 
@@ -204,6 +266,8 @@ The main installer also prepares a temporary rollback copy of Git config,
 SimpleSuite files, linked dotfiles, mail config, SimpleCal config/state, and
 installed binaries. If installation fails after user-file changes, it asks
 whether to roll those changes back. Package-manager changes are not rolled back.
+APT source repairs and AppArmor profile changes are system-level changes and
+are not included in that rollback either.
 
 This repo includes destructive cleanup scripts:
 
