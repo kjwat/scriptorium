@@ -16,8 +16,11 @@ cd scriptorium
 ./install.sh
 ```
 
-The installer finishes by starting a fresh login shell so the new
-`~/.local/bin` PATH entry and aliases are available immediately.
+Run this from an interactive shell. Linux package installation needs either a
+root shell or a working `sudo`; macOS needs Homebrew and the Apple Command Line
+Tools. A base Alpine installation bootstraps Bash automatically. Bash users
+receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
+When installation finishes, open a new terminal or source the file it names.
 
 ## What It Installs
 
@@ -45,19 +48,43 @@ the `~/writing`, `~/scriptorium`, and `~/simplesuite` Git repositories.
 Runtime and workflow tools installed by the package script include, depending
 on platform availability:
 
-- build tools, `pkg-config`, ncurses, and libcurl headers
+- build tools, `pkg-config`, ncurses, GIO/GLib, libcurl, and OpenSSL headers
 - Python GI, GTK 3 introspection, and WebKit2GTK 4.1 for SimpleBrowse v4
-  JavaScript mode
+  JavaScript mode on supported Linux families
 - `git`, `mpv`, `links`, `fzf`, `calcurse`
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - `pdftotext`/poppler and `pandoc` for SimplePDF
-- `zip`, `unzip`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
+- `zip`, `unzip`, `tar`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
+- `util-linux`, UDisks, and cron tooling for SimpleFiles drives and SimpleCal
+  reminder fallback
 - clipboard, desktop-open, trash, and audio helper packages where available
 
-Supported package families are Debian/Ubuntu, Arch, Fedora, Alpine, Void,
-openSUSE/SUSE, and macOS/Homebrew. If platform detection is unknown,
-`scripts/install-packages.sh` asks for a package family and stores the choice in
+Supported package targets are current Debian/Ubuntu, Arch-family distributions,
+Fedora, Alpine (with `main` and `community`), Void, openSUSE Tumbleweed, and
+macOS/Homebrew. RHEL/CentOS-family releases, SLES, and openSUSE Leap do not
+consistently carry the complete feature set in their default repositories; the
+installer stops before changing packages unless the dependencies were already
+provisioned. If platform detection is unknown, `scripts/install-packages.sh`
+asks for a package family and stores the choice in
 `~/.config/simplesuite/family`.
+
+Use a currently supported distro release with its official repositories
+enabled. In particular, full SimpleBrowse JavaScript mode needs WebKitGTK 4.1;
+if an older release does not provide a required package, installation stops
+with repository/release guidance instead of leaving a partially working build.
+
+On macOS, Scriptorium supplies a small build-only Darwin compatibility layer
+for the BSD interfaces hidden by SimpleSuite's strict POSIX feature settings
+and for the `clock_nanosleep` interface absent from Apple libc. Homebrew's
+WebKitGTK formula is Linux-only, so SimpleBrowse's static reader works there but
+its WebKit/JavaScript mode is not installed. The installer skips that
+unavailable feature instead of failing the whole installation.
+
+Some runtime integrations remain Linux-specific: use Finder or `diskutil`
+instead of SimpleFiles' guarded `:unmount`; SimpleWords and SimpleBrowse use
+their internal clipboards rather than the Wayland/X11 system-clipboard bridge;
+SimpleMail's attachment-open shortcut expects `xdg-open`; and SimpleStats'
+Linux hardware metrics are not meaningful on macOS.
 
 ## SimpleSuite Checkout
 
@@ -112,9 +139,15 @@ Most other SimpleSuite applications either use default local state paths or
 create their own config files on first run. Scriptorium only links files that
 exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
 creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
-SimpleBrowse v4 also installs the `simplebrowse-webkitd` helper so `--js`, the
-`J` reload key, and JavaScript form replay can render pages that require
-JavaScript through WebKitGTK.
+SimpleBrowse v4 also installs and verifies the `simplebrowse-webkitd` and
+`simplebrowse-jsdump` helpers. On supported Linux systems these enable `--js`,
+the `B` (or legacy `J`) reload key, JavaScript dumps, and form replay through
+WebKitGTK.
+
+The managed SimpleFiles config follows the current startup behavior:
+SimpleFiles opens in the invoking shell's current directory, or in a directory
+passed as its command-line argument. The removed `START_DIR` config key is not
+written by Scriptorium.
 
 The managed SimpleNews URL file is preloaded with categorized technology,
 poetry, literature, spirituality, education, classics/language, and podcast
@@ -135,8 +168,10 @@ simpleradio ~/scriptorium/playlists
 The installer may create or modify:
 
 - `~/.bashrc`
+- `~/.zshrc` when zsh is the login shell
 - `~/.gitconfig`
 - `~/.git-credentials`
+- `~/.config/scriptorium/github-credential-user` when a PAT is stored
 - `~/.config/simplemail/config`
 - `~/.mbsyncrc`
 - `~/.msmtprc`
@@ -149,10 +184,12 @@ On APT systems, the installer disables stale `cdrom:` package sources before
 installing dependencies and refreshes the package lists. On systems where an
 AppArmor `mbsync` profile is active, it adds the SimpleMail Maildir permissions
 to `/etc/apparmor.d/local/mbsync`, may add the local include to the packaged
-profile, and reloads that profile. These operations use `sudo` and modify
-system configuration outside the home directory.
+profile, and reloads that profile. These operations use root privileges
+(directly when already root, otherwise through `sudo`) and modify system
+configuration outside the home directory.
 
-`~/.bashrc` receives `~/.local/bin` on PATH and these aliases:
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases; when zsh is the
+login shell, the installer writes the same setup to `~/.zshrc`:
 
 ```sh
 alias words='simplewords'
@@ -206,9 +243,10 @@ pull.rebase=true
 rebase.autoStash=true
 ```
 
-During install it prompts for a GitHub username and personal access token. If
-provided, the token is stored by Git's credential store in `~/.git-credentials`
-with mode `600`.
+During install it offers to store a GitHub username and personal access token.
+Leave the username blank to skip authentication; public clones still work.
+When provided, the token is checked against GitHub when the API is reachable
+and stored by Git's credential store in `~/.git-credentials` with mode `600`.
 
 If you choose Gmail setup, `scripts/setup-simplemail-gmail.sh` writes Gmail
 IMAP/SMTP settings for `mbsync` and `msmtp`, creates local Maildir folders under
@@ -264,8 +302,8 @@ Before linking dotfiles, existing targets are moved into:
 
 The main installer also prepares a temporary rollback copy of Git config,
 SimpleSuite files, linked dotfiles, mail config, SimpleCal config/state, and
-installed binaries. If installation fails after user-file changes, it asks
-whether to roll those changes back. Package-manager changes are not rolled back.
+installed binaries. If installation fails, it asks whether to roll those user
+files back. Package-manager changes are not rolled back.
 APT source repairs and AppArmor profile changes are system-level changes and
 are not included in that rollback either.
 

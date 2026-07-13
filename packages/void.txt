@@ -1,5 +1,5 @@
-base-devel pkg-config ncurses-devel libcurl-devel
+base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel
 git mpv poppler-utils pandoc
-nano zip unzip xdg-utils file less pulseaudio-utils
-python3 python3-gobject webkit2gtk
-isync msmtp calcurse links curl ca-certificates rsync
+nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel
+python3 python3-gobject libwebkit2gtk41
+isync msmtp calcurse links curl ca-certificates rsync cronie

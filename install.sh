@@ -1,10 +1,73 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# shellcheck shell=bash
+
+# Alpine's base installation does not include Bash.  Keep this bootstrap in
+# POSIX sh so ./install.sh can install Bash before the Bash implementation
+# below is parsed.  The other supported platforms provide Bash by default.
+# The marker also forces macOS /bin/sh (Bash in POSIX mode) to re-exec as Bash.
+if [ "${SCRIPTORIUM_BASH_BOOTSTRAPPED_PID:-}" != "$$" ] ||
+   [ -z "${BASH_VERSION:-}" ]; then
+    if ! command -v bash >/dev/null 2>&1; then
+        if command -v apk >/dev/null 2>&1; then
+            if [ "$(id -u)" -eq 0 ]; then
+                apk add --no-cache bash || {
+                    printf 'Could not install Bash with apk. Check Alpine repositories and network access.\n' >&2
+                    exit 1
+                }
+            elif command -v sudo >/dev/null 2>&1; then
+                sudo apk add --no-cache bash || {
+                    printf 'Could not install Bash with apk. Check Alpine repositories and network access.\n' >&2
+                    exit 1
+                }
+            else
+                printf '%s\n' \
+                    'Bash is required, but it is not installed and sudo is unavailable.' \
+                    'Run as root or install Bash first with: apk add bash' >&2
+                exit 1
+            fi
+        else
+            printf '%s\n' \
+                'Bash is required to run the Scriptorium installer.' \
+                "Install Bash with this system's package manager, then rerun ./install.sh." >&2
+            exit 1
+        fi
+    fi
+    if ! command -v bash >/dev/null 2>&1; then
+        printf 'Bash installation completed, but bash is still unavailable on PATH.\n' >&2
+        exit 1
+    fi
+    hash -r 2>/dev/null || true
+    SCRIPTORIUM_BASH_BOOTSTRAPPED_PID=$$
+    export SCRIPTORIUM_BASH_BOOTSTRAPPED_PID
+    exec bash "$0" "$@"
+fi
+unset SCRIPTORIUM_BASH_BOOTSTRAPPED_PID
+
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+
+declare -a SHELL_RC_FILES=("$HOME/.bashrc")
+ACTIVE_SHELL_RC_NAME=.bashrc
+if [[ ${SHELL:-} == */zsh || ${SHELL:-} == zsh ]]; then
+    SHELL_RC_FILES+=("$HOME/.zshrc")
+    ACTIVE_SHELL_RC_NAME=.zshrc
+fi
 
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
+
+run_as_root() {
+    if [[ $(id -u) -eq 0 ]]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        warn "Root privileges are required, but sudo is not installed."
+        warn "Run the installer as root or install/configure sudo first."
+        return 127
+    fi
+}
 
 
 configure_mbsync_apparmor() {
@@ -38,11 +101,11 @@ configure_mbsync_apparmor() {
     say "Allowing mbsync to use the SimpleMail Maildir under AppArmor"
 
     local_file=/etc/apparmor.d/local/mbsync
-    sudo mkdir -p /etc/apparmor.d/local
+    run_as_root mkdir -p /etc/apparmor.d/local
     tmp="$(mktemp)"
 
-    if sudo test -f "$local_file"; then
-        sudo cat "$local_file" > "$tmp"
+    if run_as_root test -f "$local_file"; then
+        run_as_root cat "$local_file" > "$tmp"
     fi
 
     if ! grep -Fqx 'owner @{HOME}/.local/share/simplemail/mail/ r,' "$tmp"; then
@@ -52,14 +115,14 @@ configure_mbsync_apparmor() {
         printf '%s\n' 'owner @{HOME}/.local/share/simplemail/mail/** rwk,' >> "$tmp"
     fi
 
-    sudo install -m 0644 "$tmp" "$local_file"
+    run_as_root install -m 0644 "$tmp" "$local_file"
     rm -f "$tmp"
 
     # Packaged Ubuntu profiles normally include this already. Add the include
     # only when a distro ships the profile without a local override hook.
-    if ! sudo grep -Eq '^[[:space:]]*#include[[:space:]]+(if exists[[:space:]]+)?<local/mbsync>' "$profile"; then
+    if ! run_as_root grep -Eq '^[[:space:]]*#include[[:space:]]+(if exists[[:space:]]+)?<local/mbsync>' "$profile"; then
         tmp="$(mktemp)"
-        sudo awk '
+        run_as_root awk '
             /^[[:space:]]*}[[:space:]]*$/ && !added {
                 print "  #include if exists <local/mbsync>"
                 added = 1
@@ -74,11 +137,11 @@ configure_mbsync_apparmor() {
             warn "Could not add the local AppArmor include to $profile"
             return 0
         }
-        sudo install -m 0644 "$tmp" "$profile"
+        run_as_root install -m 0644 "$tmp" "$profile"
         rm -f "$tmp"
     fi
 
-    if ! sudo apparmor_parser -r "$profile"; then
+    if ! run_as_root apparmor_parser -r "$profile"; then
         warn "Could not reload the mbsync AppArmor profile; mail sync may remain blocked"
         return 0
     fi
@@ -93,26 +156,27 @@ disable_stale_apt_cdrom_sources() {
     while IFS= read -r -d '' file; do
         apt_source_files+=("$file")
     done < <(
-        sudo find /etc/apt -maxdepth 3 -type f \
+        run_as_root find /etc/apt -maxdepth 3 -type f \
             \( -name '*.list' -o -name '*.sources' \) -print0 2>/dev/null
     )
 
     for file in "${apt_source_files[@]}"; do
         case "$file" in
             *.list)
-                if sudo grep -Eq '^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:' "$file"; then
+                if run_as_root grep -Eq '^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:' "$file"; then
                     say "Disabling stale installation-media repository in $file"
-                    sudo sed -Ei \
+                    run_as_root sed -Ei \
                         '/^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:/ s/^/# disabled by Scriptorium: /' \
                         "$file"
                     changed=1
                 fi
                 ;;
             *.sources)
-                if sudo grep -Eqi '^[[:space:]]*URIs:[[:space:]]*cdrom:' "$file"; then
+                if run_as_root grep -Eqi '^[[:space:]]*URIs:[[:space:]]*cdrom:' "$file"; then
                     say "Disabling stale installation-media repository in $file"
                     tmp="$(mktemp)"
-                    sudo awk '
+                    # shellcheck disable=SC2016
+                    run_as_root awk '
                         BEGIN { RS=""; ORS="\n\n" }
                         {
                             stanza=$0
@@ -124,7 +188,7 @@ disable_stale_apt_cdrom_sources() {
                             }
                         }
                     ' "$file" > "$tmp"
-                    sudo install -m 0644 "$tmp" "$file"
+                    run_as_root install -m 0644 "$tmp" "$file"
                     rm -f "$tmp"
                     changed=1
                 fi
@@ -134,12 +198,12 @@ disable_stale_apt_cdrom_sources() {
 
     if (( changed )); then
         say "Refreshing APT package lists after repository repair"
-        sudo apt-get update
+        run_as_root apt-get update
     fi
 }
 
 config_has_key() {
-    local file=$1 key=$2
+    local file="$1" key="$2"
     [[ -f "$file" ]] || return 1
     awk -F= -v key="$key" '
         /^[[:space:]]*#/ { next }
@@ -153,7 +217,7 @@ config_has_key() {
 }
 
 set_config_key() {
-    local file=$1 key=$2 value=$3 tmp
+    local file="$1" key="$2" value="$3" tmp
 
     mkdir -p "$(dirname "$file")"
     if [[ ! -e "$file" ]]; then
@@ -189,13 +253,13 @@ set_config_key() {
 }
 
 ensure_config_key() {
-    local file=$1 key=$2 value=$3
+    local file="$1" key="$2" value="$3"
 
     config_has_key "$file" "$key" || set_config_key "$file" "$key" "$value"
 }
 
-ensure_simplesuite_aliases() {
-    local bashrc=$HOME/.bashrc
+ensure_simplesuite_aliases_in_file() {
+    local shell_rc="$1"
     local alias_line tmp insert_line
     local aliases=(
         "alias words='simplewords'"
@@ -216,27 +280,27 @@ ensure_simplesuite_aliases() {
         "alias mail='simplemail'"
     )
 
-    touch "$bashrc"
+    touch "$shell_rc"
 
-    if ! grep -qxF "# SimpleSuite aliases" "$bashrc" 2>/dev/null; then
+    if ! grep -qxF "# SimpleSuite aliases" "$shell_rc" 2>/dev/null; then
         {
             printf '\n# SimpleSuite aliases\n'
             printf '%s\n' "${aliases[@]}"
-        } >> "$bashrc"
+        } >> "$shell_rc"
         CHANGES_MADE=1
         return
     fi
 
     insert_line=
     for alias_line in "${aliases[@]}"; do
-        if ! grep -qxF "$alias_line" "$bashrc" 2>/dev/null; then
+        if ! grep -qxF "$alias_line" "$shell_rc" 2>/dev/null; then
             insert_line+="${alias_line}"$'\n'
         fi
     done
 
     [[ -n "$insert_line" ]] || return 0
 
-    tmp="$(mktemp "${bashrc}.tmp.XXXXXX")"
+    tmp="$(mktemp "${shell_rc}.tmp.XXXXXX")"
     awk -v insert="$insert_line" '
         {
             print
@@ -245,10 +309,18 @@ ensure_simplesuite_aliases() {
                 inserted = 1
             }
         }
-    ' "$bashrc" > "$tmp"
-    cat "$tmp" > "$bashrc"
+    ' "$shell_rc" > "$tmp"
+    cat "$tmp" > "$shell_rc"
     rm -f "$tmp"
     CHANGES_MADE=1
+}
+
+ensure_simplesuite_aliases() {
+    local shell_rc
+
+    for shell_rc in "${SHELL_RC_FILES[@]}"; do
+        ensure_simplesuite_aliases_in_file "$shell_rc"
+    done
 }
 
 ROLLBACK_DIR=
@@ -277,9 +349,13 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simplevis
     simplewords
 )
+declare -a EXPECTED_SIMPLESUITE_HELPERS=(
+    simplebrowse-webkitd
+    simplebrowse-jsdump
+)
 
 track_path() {
-    local path=$1
+    local path="$1"
     local index=${#ROLLBACK_PATHS[@]}
 
     ROLLBACK_PATHS+=("$path")
@@ -293,12 +369,12 @@ track_path() {
 }
 
 track_created_dir() {
-    local path=$1
+    local path="$1"
     [[ -d "$path" ]] || CREATED_DIRS+=("$path")
 }
 
 prepare_rollback() {
-    local git_config_path suite_dir path program
+    local git_config_path suite_dir path program shell_rc home_real root_real
 
     ROLLBACK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-rollback.XXXXXX")"
     chmod 700 "$ROLLBACK_DIR"
@@ -309,13 +385,35 @@ prepare_rollback() {
     if [[ "$suite_dir" != /* ]]; then
         suite_dir="$PWD/$suite_dir"
     fi
+    if [[ -d "$suite_dir" ]]; then
+        suite_dir="$(CDPATH='' cd -- "$suite_dir" && pwd -P)"
+    fi
+    while [[ "$suite_dir" != / && "$suite_dir" == */ ]]; do
+        suite_dir=${suite_dir%/}
+    done
+
+    home_real="$(CDPATH='' cd -- "$HOME" && pwd -P)"
+    root_real="$(CDPATH='' cd -- "$ROOT" && pwd -P)"
+    if [[ "$suite_dir" == / ||
+          "$home_real" == "$suite_dir" || "$home_real" == "$suite_dir/"* ||
+          "$root_real" == "$suite_dir" || "$root_real" == "$suite_dir/"* ]]; then
+        warn "Unsafe SIMPLESUITE_DIR destination: $suite_dir"
+        warn "Choose a dedicated SimpleSuite directory, not /, HOME, Scriptorium, or one of their parents."
+        return 2
+    fi
 
     track_path "$git_config_path"
+    track_path "$ROOT/dotfiles/simplecal/config"
     track_path "$HOME/.git-credentials"
+    track_path "$HOME/.config/scriptorium/github-credential-user"
     track_path "$suite_dir"
-    track_path "$HOME/.bashrc"
+    for shell_rc in "${SHELL_RC_FILES[@]}"; do
+        track_path "$shell_rc"
+    done
     track_path "$HOME/.config/simplemail/config"
     track_path "$HOME/.config/simplecal"
+    track_path "$HOME/.local/share/simplecal"
+    track_path "$HOME/.local/state/simplecal"
     track_path "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
     track_path "$HOME/.config/systemd/user/simplecal-reminders.service"
     track_path "$HOME/.config/systemd/user/simplecal-reminders.timer"
@@ -324,15 +422,15 @@ prepare_rollback() {
     track_path "$HOME/.config/isyncrc"
     track_path "$HOME/.config/calcurse"
     track_path "$HOME/.links"
-    track_path "$HOME/.local/bin/simplecheck"
     track_path "$HOME/.config/simplefiles/config"
     track_path "$HOME/.config/simplenews/config"
     track_path "$HOME/.config/simplenews/urls"
     track_path "$HOME/.config/simplenews/config.example"
     track_path "$HOME/.config/simplenews/urls.example"
+    track_path "$HOME/.config/simplesuite/family"
 
-    for program in \
-        simpleradio simplenews simplestats simplever simplevis simplewords; do
+    for program in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}" \
+                   "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
         track_path "$HOME/.local/bin/$program"
     done
 
@@ -340,8 +438,35 @@ prepare_rollback() {
         "$HOME/.local" \
         "$HOME/.local/bin" \
         "$HOME/.local/share" \
+        "$HOME/.local/share/simplecal" \
+        "$HOME/.local/share/simplemail" \
+        "$HOME/.local/share/simplemail/mail" \
+        "$HOME/.local/share/simplemail/mail/Inbox" \
+        "$HOME/.local/share/simplemail/mail/Inbox/cur" \
+        "$HOME/.local/share/simplemail/mail/Inbox/new" \
+        "$HOME/.local/share/simplemail/mail/Inbox/tmp" \
+        "$HOME/.local/share/simplemail/mail/Sent" \
+        "$HOME/.local/share/simplemail/mail/Sent/cur" \
+        "$HOME/.local/share/simplemail/mail/Sent/new" \
+        "$HOME/.local/share/simplemail/mail/Sent/tmp" \
+        "$HOME/.local/share/simplemail/mail/Drafts" \
+        "$HOME/.local/share/simplemail/mail/Drafts/cur" \
+        "$HOME/.local/share/simplemail/mail/Drafts/new" \
+        "$HOME/.local/share/simplemail/mail/Drafts/tmp" \
+        "$HOME/.local/share/simplemail/mail/Archive" \
+        "$HOME/.local/share/simplemail/mail/Archive/cur" \
+        "$HOME/.local/share/simplemail/mail/Archive/new" \
+        "$HOME/.local/share/simplemail/mail/Archive/tmp" \
+        "$HOME/.local/share/simplemail/mail/Trash" \
+        "$HOME/.local/share/simplemail/mail/Trash/cur" \
+        "$HOME/.local/share/simplemail/mail/Trash/new" \
+        "$HOME/.local/share/simplemail/mail/Trash/tmp" \
         "$HOME/.local/share/simplesuite" \
+        "$HOME/.local/state" \
+        "$HOME/.local/state/simplecal" \
         "$HOME/.config" \
+        "$HOME/.config/scriptorium" \
+        "$HOME/.config/simplesuite" \
         "$HOME/.config/simplefiles" \
         "$HOME/.config/simplenews" \
         "$HOME/.config/simplemail" \
@@ -401,8 +526,8 @@ prompt_for_rollback() {
     printf '\n!! Installation failed.\n' >&2
     printf 'Roll back Git configuration, Scriptorium user files, symlinks, and dotfiles? [y/N] ' >&2
 
-    if [[ -r /dev/tty ]]; then
-        IFS= read -r answer < /dev/tty || answer=
+    if [[ -r /dev/tty ]] && IFS= read -r answer 2>/dev/null < /dev/tty; then
+        :
     else
         IFS= read -r answer || answer=
     fi
@@ -411,7 +536,7 @@ prompt_for_rollback() {
         y | Y | yes | YES)
             if restore_tracked_changes; then
                 printf 'Rolled back Git and Scriptorium user-file changes.\n' >&2
-                printf 'Package-manager changes, if any, were not rolled back.\n' >&2
+                printf 'System and package-manager changes, if any, were not rolled back.\n' >&2
             else
                 KEEP_ROLLBACK_BACKUP=1
                 printf 'Rollback was incomplete. Recovery copies remain in: %s\n' \
@@ -447,6 +572,20 @@ trap 'exit 143' TERM
 prepare_rollback
 
 say "Scriptorium installer"
+
+say "Installing package dependencies"
+CHANGES_MADE=1
+disable_stale_apt_cdrom_sources
+"$ROOT/scripts/install-packages.sh"
+
+configure_mbsync_apparmor
+
+for required_command in git curl; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        warn "$required_command is still unavailable after dependency installation."
+        exit 1
+    fi
+done
 
 git_name="$(git config --global --get user.name 2>/dev/null || true)"
 git_email="$(git config --global --get user.email 2>/dev/null || true)"
@@ -491,13 +630,12 @@ printf 'Git pull mode: rebase with autostash\n'
 say "Configuring GitHub credentials"
 
 while :; do
-    IFS= read -r -p "Enter your GitHub username: " github_user
+    IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user
     github_user="${github_user#"${github_user%%[![:space:]]*}"}"
     github_user="${github_user%"${github_user##*[![:space:]]}"}"
 
     if [[ -z "$github_user" ]]; then
-        warn "GitHub username cannot be blank."
-        continue
+        break
     fi
 
     if [[ ! "$github_user" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]; then
@@ -508,45 +646,69 @@ while :; do
     break
 done
 
-while :; do
-    IFS= read -r -s -p "Paste your GitHub PAT: " github_pat
-    printf '\n'
-    github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
+if [[ -z "$github_user" ]]; then
+    printf 'GitHub credential setup skipped. Public clones still work; configure authentication before pushing.\n'
+else
+    while :; do
+        IFS= read -r -s -p "Paste your GitHub PAT: " github_pat
+        printf '\n'
+        github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
 
-    if [[ -z "$github_pat" ]]; then
-        warn "GitHub PAT cannot be blank."
-        continue
-    fi
+        if [[ -z "$github_pat" ]]; then
+            warn "GitHub PAT cannot be blank after choosing a GitHub username."
+            continue
+        fi
 
-    break
-done
+        break
+    done
 
-if command -v curl >/dev/null 2>&1; then
+    github_response="$(mktemp "${TMPDIR:-/tmp}/scriptorium-github.XXXXXX")"
+    github_http_code="$(
+        curl -sS -o "$github_response" -w '%{http_code}' \
+            -H "Authorization: Bearer $github_pat" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user 2>/dev/null || true
+    )"
     github_login="$(
-        curl -fsS             -H "Authorization: Bearer $github_pat"             -H "Accept: application/vnd.github+json"             https://api.github.com/user 2>/dev/null |
-        sed -n 's/^[[:space:]]*"login":[[:space:]]*"\([^"]*\)".*/\1/p' |
+        sed -n 's/^[[:space:]]*"login":[[:space:]]*"\([^"]*\)".*/\1/p' "$github_response" |
         head -n 1
-    )" || github_login=
+    )"
+    rm -f "$github_response"
 
-    if [[ -z "$github_login" ]]; then
-        unset github_pat
-        warn "GitHub rejected that PAT, or GitHub could not be reached."
-        exit 1
-    fi
+    case "$github_http_code" in
+        200)
+            if [[ -z "$github_login" ]]; then
+                unset github_pat
+                warn "GitHub returned an unexpected authentication response."
+                exit 1
+            fi
+            if [[ "$github_login" != "$github_user" ]]; then
+                unset github_pat
+                warn "That PAT belongs to '$github_login', not '$github_user'."
+                exit 1
+            fi
+            printf 'Authenticated with GitHub as %s.\n' "$github_login"
+            ;;
+        401 | 403)
+            unset github_pat
+            warn "GitHub rejected that PAT (HTTP $github_http_code)."
+            exit 1
+            ;;
+        *)
+            warn "GitHub credential validation was unavailable (HTTP ${github_http_code:-000})."
+            warn "Storing the credential as entered; Git will verify it on first use."
+            ;;
+    esac
 
-    if [[ "$github_login" != "$github_user" ]]; then
-        unset github_pat
-        warn "That PAT belongs to '$github_login', not '$github_user'."
-        exit 1
-    fi
-
-    printf 'Authenticated with GitHub as %s.\n' "$github_login"
-fi
-
-printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n'     "$github_user" "$github_pat" |
+    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' \
+        "$github_user" "$github_pat" |
     git credential-store --file "$HOME/.git-credentials" store
-chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
-unset github_pat
+    chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+    mkdir -p "$HOME/.config/scriptorium"
+    printf '%s\n' "$github_user" > "$HOME/.config/scriptorium/github-credential-user"
+    chmod 600 "$HOME/.config/scriptorium/github-credential-user"
+    unset github_pat
+fi
 
 
 printf "\nDo you want to configure SimpleMail for Gmail IMAP/SMTP? [y/N] "
@@ -565,26 +727,23 @@ esac
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
 
+# shellcheck disable=SC2016
 PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 
-grep -qxF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null || {
-    printf '\n# Scriptorium user binaries\n%s\n' "$PATH_LINE" >> "$HOME/.bashrc"
-    CHANGES_MADE=1
-}
+for shell_rc in "${SHELL_RC_FILES[@]}"; do
+    grep -qxF "$PATH_LINE" "$shell_rc" 2>/dev/null || {
+        printf '\n# Scriptorium user binaries\n%s\n' "$PATH_LINE" >> "$shell_rc"
+        CHANGES_MADE=1
+    }
+done
 
 ensure_simplesuite_aliases
 
 export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
-say "Installing package dependencies"
-disable_stale_apt_cdrom_sources
-"$ROOT/scripts/install-packages.sh"
-
-configure_mbsync_apparmor
-
 say "Installing SimpleSuite"
-"$ROOT/scripts/install-simplesuite.sh"
+SIMPLESUITE_INSTALL_REMINDERS=0 "$ROOT/scripts/install-simplesuite.sh"
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
@@ -617,6 +776,17 @@ for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do
         exit 1
     }
 done
+for cmd in "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || {
+        warn "$cmd was installed but is not available on PATH"
+        exit 1
+    }
+done
+
+say "Installing SimpleCal reminder backend"
+if ! "$HOME/.local/bin/simplecal" --install-reminders; then
+    warn "SimpleCal reminder setup failed; run 'simplecal --install-reminders' later."
+fi
 
 say "Installed SimpleSuite tools"
 for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do
@@ -626,4 +796,5 @@ done
 say "Done. The Scriptorium is installed."
 cleanup_rollback
 trap - EXIT INT TERM
-exec bash -l
+# shellcheck disable=SC2016
+printf 'Open a new terminal or run: source "$HOME/%s"\n' "$ACTIVE_SHELL_RC_NAME"

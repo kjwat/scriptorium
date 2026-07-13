@@ -1,4 +1,3 @@
-DATA_DIR=/home/keelan/.config/simplecal
 default_reminder_lead_times=10,30,60
 theme=default
 today_color=yellow

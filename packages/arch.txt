@@ -1,5 +1,5 @@
-base-devel pkgconf ncurses curl
+base-devel pkgconf ncurses curl openssl
 git mpv poppler pandoc-cli
-nano zip unzip xdg-utils file less libpulse pipewire-jack
+nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack glib2 util-linux udisks2 wl-clipboard xclip xsel
 python python-gobject webkit2gtk-4.1
-mutt calcurse links ca-certificates rsync
+isync msmtp calcurse links ca-certificates rsync cronie

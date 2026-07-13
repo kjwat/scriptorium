@@ -1,10 +1,38 @@
 #!/bin/sh
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 family="$("$ROOT/scripts/detect-platform.sh")"
 package_log=
 package_status_file=
+
+platform_id() {
+    if [ "$(uname -s 2>/dev/null || echo unknown)" = Darwin ]; then
+        printf '%s\n' macos
+        return
+    fi
+
+    [ -r /etc/os-release ] || {
+        printf '%s\n' unknown
+        return
+    }
+
+    awk -F= '
+        $1 == "ID" {
+            value = substr($0, index($0, "=") + 1)
+            gsub(/^[\047"]|[\047"]$/, "", value)
+            if (value ~ /^[A-Za-z0-9._-]+$/)
+                print tolower(value)
+            else
+                print "unknown"
+            found=1
+            exit
+        }
+        END { if (!found) print "unknown" }
+    ' /etc/os-release
+}
+
+distro_id="$(platform_id)"
 
 cleanup_package_files() {
     [ -z "$package_log" ] || rm -f -- "$package_log"
@@ -17,12 +45,50 @@ have_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
+as_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif have_cmd sudo; then
+        sudo "$@"
+    else
+        printf 'Root privileges are required, but sudo is not installed.\n' >&2
+        printf 'Run the installer as root or install/configure sudo first.\n' >&2
+        return 127
+    fi
+}
+
 have_pkgconfig() {
     pkg-config --exists "$1" >/dev/null 2>&1
 }
 
 have_any_editor() {
     have_cmd nano || have_cmd vim || have_cmd nvim || have_cmd emacs || have_cmd micro
+}
+
+have_gnu_make() {
+    (have_cmd make && make --version 2>/dev/null | grep -q 'GNU Make') ||
+        (have_cmd gmake && gmake --version 2>/dev/null | grep -q 'GNU Make')
+}
+
+have_reminder_scheduler() {
+    have_cmd crontab ||
+        (have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1)
+}
+
+configure_homebrew_pkgconfig() {
+    [ "$family" = macos ] || return 0
+    have_cmd brew || return 0
+
+    for formula in ncurses curl openssl@3; do
+        formula_prefix=$(brew --prefix "$formula" 2>/dev/null) || continue
+        pkgconfig_dir=$formula_prefix/lib/pkgconfig
+        [ -d "$pkgconfig_dir" ] || continue
+        case ":${PKG_CONFIG_PATH:-}:" in
+            *":$pkgconfig_dir:"*) ;;
+            *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
+        esac
+    done
+    export PKG_CONFIG_PATH
 }
 
 have_simplebrowse_js() {
@@ -38,30 +104,51 @@ PY
 
 dependencies_already_present() {
     for dependency_command in \
-        cc make pkg-config git mpv pdftotext pandoc \
-        zip unzip file less fzf links python3 \
+        cc pkg-config git mpv pdftotext pandoc \
+        zip unzip tar file less fzf links \
         mbsync msmtp calcurse curl rsync; do
         have_cmd "$dependency_command" || return 1
     done
+
+    case "$family" in
+        macos)
+            have_gnu_make || return 1
+            ;;
+        *)
+            have_cmd make || return 1
+            ;;
+    esac
 
     have_any_editor || return 1
     have_pkgconfig ncursesw || return 1
     have_pkgconfig libcurl || return 1
     have_pkgconfig openssl || return 1
     have_pkgconfig gio-2.0 || return 1
-    have_simplebrowse_js || return 1
+    have_reminder_scheduler || return 1
+
+    case "$family" in
+        macos | msys2) ;;
+        *)
+            have_cmd python3 || return 1
+            have_simplebrowse_js || return 1
+            ;;
+    esac
 
     case "$family" in
         macos)
             have_cmd open || return 1
+            have_cmd pactl || return 1
+            have_cmd parec || return 1
             ;;
         msys2)
             ;;
         *)
             for dependency_command in \
-                xdg-open gio wl-copy wl-paste xclip xsel pactl parec; do
+                xdg-open gio findmnt wl-copy wl-paste pactl parec; do
                 have_cmd "$dependency_command" || return 1
             done
+            (have_cmd udisksctl || have_cmd umount) || return 1
+            (have_cmd xclip || have_cmd xsel) || return 1
             ;;
     esac
 
@@ -139,18 +226,59 @@ repository_help() {
 arch_partial_upgrade_help() {
     printf '%s\n' \
         '' \
-        '!! Arch/Cachy package state appears to be stale.' \
+        '!! Arch/Cachy package installation did not complete.' \
         '' \
-        '   Scriptorium does not run a full system upgrade for you,' \
-        '   because that would be a surprise distro upgrade during setup.' \
-        '' \
-        '   Arch-based systems do not support partial upgrades. If pacman' \
-        '   reports dependency conflicts, missing package files, or library' \
-        '   version mismatches, update the system first:' \
+        '   Scriptorium uses a full pacman -Syu transaction because Arch-based' \
+        '   systems do not support partial upgrades. Resolve the conflict or' \
+        '   stale mirror reported above, then complete the upgrade manually:' \
         '' \
         '     sudo pacman -Syu' \
         '' \
         '   After that completes, run ./install.sh again.' \
+        '' >&2
+}
+
+package_unavailable_help() {
+    unavailable_family=$1
+
+    printf '%s\n' \
+        '' \
+        '!! A package required for the complete Scriptorium feature set is not available.' \
+        '' >&2
+
+    case "$unavailable_family" in
+        debian)
+            printf '%s\n' \
+                '   On Ubuntu, make sure the Universe component is enabled.' \
+                '   On Debian/Ubuntu releases that do not package WebKitGTK 4.1,' \
+                '   upgrade to a current supported release before installing.' >&2
+            ;;
+        alpine)
+            printf '%s\n' \
+                '   Make sure both the main and community repositories for this' \
+                '   Alpine release are enabled in /etc/apk/repositories.' >&2
+            ;;
+        arch)
+            printf '%s\n' \
+                '   Refresh mirrors and use repositories matching the installed' \
+                '   Arch-derived distribution; do not mix release snapshots.' >&2
+            ;;
+        fedora | suse | void)
+            printf '%s\n' \
+                '   Make sure the official repositories for a currently supported' \
+                '   release are enabled and match the installed system.' >&2
+            ;;
+        macos)
+            printf '%s\n' \
+                '   Run brew update and check that this macOS release is supported' \
+                '   by the current Homebrew formulae.' >&2
+            ;;
+    esac
+
+    printf '%s\n' \
+        '' \
+        '   Review the exact missing package in the package-manager output above,' \
+        '   repair the repository/release configuration, then rerun ./install.sh.' \
         '' >&2
 }
 
@@ -161,6 +289,12 @@ explain_repository_failure() {
     case "$error_family" in
         debian)
             if grep -Eqi \
+                'unable to locate package|package .* has no installation candidate' \
+                "$error_log"; then
+                package_unavailable_help debian
+                return 0
+            fi
+            if grep -Eqi \
                 'list of sources could not be read|malformed entry .* (sources\.list|list file)|no active sources found' \
                 "$error_log"; then
                 repository_help debian
@@ -168,6 +302,10 @@ explain_repository_failure() {
             fi
             ;;
         arch)
+            if grep -Eqi 'target not found:' "$error_log"; then
+                package_unavailable_help arch
+                return 0
+            fi
             if grep -Eqi \
                 'no servers configured for repository|no servers are configured for the repository' \
                 "$error_log"; then
@@ -176,6 +314,10 @@ explain_repository_failure() {
             fi
             ;;
         fedora)
+            if grep -Eqi 'no match for argument:|unable to find a match:' "$error_log"; then
+                package_unavailable_help fedora
+                return 0
+            fi
             if grep -Eqi \
                 'there are no enabled repositories|no enabled repositories|no repositories available' \
                 "$error_log"; then
@@ -184,6 +326,10 @@ explain_repository_failure() {
             fi
             ;;
         alpine)
+            if grep -Eqi 'unable to select packages:|no such package' "$error_log"; then
+                package_unavailable_help alpine
+                return 0
+            fi
             if grep -Eqi \
                 'repositories file unavailable|no active repository entries' \
                 "$error_log"; then
@@ -192,6 +338,10 @@ explain_repository_failure() {
             fi
             ;;
         void)
+            if grep -Eqi 'package .* not found|failed to find .* in repository' "$error_log"; then
+                package_unavailable_help void
+                return 0
+            fi
             if grep -Eqi \
                 'xbps-bin: no repositories|no repositories available|no usable package repository' \
                 "$error_log"; then
@@ -200,6 +350,10 @@ explain_repository_failure() {
             fi
             ;;
         suse)
+            if grep -Eqi 'not found in package names|no provider of .* found' "$error_log"; then
+                package_unavailable_help suse
+                return 0
+            fi
             if grep -Eqi \
                 'there are no enabled repositories defined|no repositories defined|no enabled repositories' \
                 "$error_log"; then
@@ -208,6 +362,10 @@ explain_repository_failure() {
             fi
             ;;
         macos)
+            if grep -Eqi 'no available formula|no formulae or casks found' "$error_log"; then
+                package_unavailable_help macos
+                return 0
+            fi
             if grep -Eqi \
                 'invalid value for HOMEBREW_.*_GIT_REMOTE|not a git repository.*Homebrew|no remote.*origin' \
                 "$error_log"; then
@@ -282,13 +440,50 @@ run_package_command() {
     done
 }
 
+debian_sources_configured() {
+    for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+        [ -r "$source_file" ] || continue
+        if awk '
+            /^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+[^#[:space:]]+/ &&
+            $0 !~ /^[[:space:]]*deb([[:space:]]+\[[^]]*\])?[[:space:]]+cdrom:/ {
+                found=1
+            }
+            END { exit found ? 0 : 1 }
+        ' "$source_file"; then
+            return 0
+        fi
+    done
+
+    for source_file in /etc/apt/sources.list.d/*.sources; do
+        [ -r "$source_file" ] || continue
+        if awk '
+            BEGIN { RS=""; found=0 }
+            {
+                has_deb = $0 ~ /(^|\n)[[:space:]]*Types:[^\n]*(^|[[:space:]])deb([[:space:]]|$)/
+                has_uri = $0 ~ /(^|\n)[[:space:]]*URIs:[[:space:]]*[^[:space:]#]/
+                cdrom_only = $0 ~ /(^|\n)[[:space:]]*URIs:[[:space:]]*cdrom:/
+                disabled = $0 ~ /(^|\n)[[:space:]]*Enabled:[[:space:]]*no([[:space:]]|$)/
+                if (has_deb && has_uri && !cdrom_only && !disabled)
+                    found=1
+            }
+            END { exit found ? 0 : 1 }
+        ' "$source_file"; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 check_repository_configuration() {
     check_family=$1
 
     case "$check_family" in
         debian)
+            # apt-get expands this identifier; the shell must not.
+            # shellcheck disable=SC2016
             if ! apt-get indextargets --no-release-info --format '$(IDENTIFIER)' \
-                2>/dev/null | grep -q .; then
+                2>/dev/null | grep -q . && ! debian_sources_configured; then
                 repository_help debian
                 return 1
             fi
@@ -405,9 +600,54 @@ if [ "$family" = unknown ]; then
     fi
 fi
 
+configure_homebrew_pkgconfig
+
 if dependencies_already_present; then
     printf 'Package dependencies already present; skipping package manager install.\n'
     exit 0
+fi
+
+case "$distro_id" in
+    rhel | centos | rocky | almalinux | ol | amzn)
+        printf '%s\n' \
+            'This RHEL-family release does not provide the complete Scriptorium' \
+            'dependency set in its default official repositories.' \
+            'Fedora is the supported DNF target. On this system, provision the' \
+            'dependencies reported by scripts/checkdeps.sh (for example through' \
+            'approved EPEL or vendor repositories), then rerun ./install.sh.' >&2
+        exit 2
+        ;;
+    opensuse-leap | sles)
+        printf '%s\n' \
+            'This SUSE release does not provide the complete Scriptorium dependency' \
+            'set in its default official repositories.' \
+            'openSUSE Tumbleweed is the supported Zypper target. Provision every' \
+            'dependency reported by scripts/checkdeps.sh, then rerun ./install.sh.' >&2
+        exit 2
+        ;;
+esac
+
+case "$family" in
+    debian) package_manager=apt-get ;;
+    arch) package_manager=pacman ;;
+    fedora) package_manager=dnf ;;
+    alpine) package_manager=apk ;;
+    void) package_manager=xbps-install ;;
+    suse) package_manager=zypper ;;
+    macos) package_manager=brew ;;
+    *) package_manager= ;;
+esac
+
+if [ -n "$package_manager" ] && ! have_cmd "$package_manager"; then
+    printf 'Detected package family %s, but %s is not available on PATH.\n' \
+        "$family" "$package_manager" >&2
+    exit 1
+fi
+
+if [ "$family" != macos ] && [ "$(id -u)" -ne 0 ] && ! have_cmd sudo; then
+    printf 'Package installation needs root privileges, but sudo is unavailable.\n' >&2
+    printf 'Run ./install.sh as root or install/configure sudo first.\n' >&2
+    exit 1
 fi
 
 case "$family" in
@@ -418,71 +658,84 @@ case "$family" in
             {
                 printf '%s\n' 'msmtp msmtp/apparmor boolean false'
                 printf '%s\n' 'msmtp msmtp/apparmor seen true'
-            } | sudo debconf-set-selections || true
+            } | as_root debconf-set-selections || true
         fi
 
-        run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt update
-        run_package_command debian sudo env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt install -y \
-            build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev \
+        run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get update
+        run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y \
+            build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync cron
         ;;
     void)
         check_repository_configuration void
-        run_package_command void sudo env LC_ALL=C xbps-install -Sy \
-            base-devel pkg-config ncurses-devel libcurl-devel openssl-devel \
+        run_package_command void as_root env LC_ALL=C xbps-install -Sy \
+            base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel \
-            python3 python3-gobject webkit2gtk \
-            isync msmtp calcurse links curl ca-certificates rsync
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel \
+            python3 python3-gobject libwebkit2gtk41 \
+            isync msmtp calcurse links curl ca-certificates rsync cronie
         ;;
     arch)
         check_repository_configuration arch
-        if pacman -Si cachyos-keyring >/dev/null 2>&1; then
-            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring cachyos-keyring openssl
-        else
-            run_package_command arch sudo env LC_ALL=C pacman -Sy --needed archlinux-keyring openssl
+        arch_keyrings=archlinux-keyring
+        for keyring in cachyos-keyring endeavouros-keyring manjaro-keyring; do
+            if pacman -Qq "$keyring" >/dev/null 2>&1 ||
+               pacman -Si "$keyring" >/dev/null 2>&1; then
+                arch_keyrings="$arch_keyrings $keyring"
+            fi
+        done
+        # Refresh keyrings first so a stale live image can authenticate the
+        # immediately following full-system transaction.
+        # shellcheck disable=SC2086
+        run_package_command arch as_root env LC_ALL=C pacman -Sy --needed $arch_keyrings
+        arch_jack_provider=pipewire-jack
+        if pacman -Qq pipewire-jack >/dev/null 2>&1 || pacman -Qq jack2 >/dev/null 2>&1; then
+            arch_jack_provider=
         fi
-        run_package_command arch sudo env LC_ALL=C pacman -S --needed \
+        run_package_command arch as_root env LC_ALL=C pacman -Syu --needed \
             base-devel pkgconf ncurses curl openssl \
             git mpv poppler pandoc-cli \
-            nano zip unzip xdg-utils file less fzf libpulse pipewire-jack glib2 wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
-            isync msmtp calcurse links ca-certificates rsync
+            isync msmtp calcurse links ca-certificates rsync cronie
         ;;
     alpine)
         check_repository_configuration alpine
-        run_package_command alpine sudo env LC_ALL=C apk add \
-            build-base pkgconf ncurses-dev curl-dev openssl-dev \
+        run_package_command alpine as_root env LC_ALL=C apk add \
+            build-base bash pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib glib-dev wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
-            isync msmtp calcurse links ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync dcron
         ;;
     fedora)
-        run_package_command fedora sudo env LC_ALL=C dnf install -y \
+        run_package_command fedora as_root env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-devel wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync cronie
         ;;
     suse)
-        run_package_command suse sudo env LC_ALL=C zypper install -y \
+        run_package_command suse as_root env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
-            nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
-            isync msmtp calcurse links curl ca-certificates rsync
+            isync msmtp calcurse links curl ca-certificates rsync cron
         ;;
     macos)
+        if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find clang >/dev/null 2>&1; then
+            echo "Apple Command Line Tools are required. Run: xcode-select --install" >&2
+            exit 1
+        fi
         run_package_command macos env LC_ALL=C brew install \
-            pkg-config ncurses curl make openssl@3 \
+            pkgconf ncurses curl make openssl@3 glib \
             git mpv poppler pandoc \
-            nano zip unzip file less fzf \
-            python3 pygobject3 gtk+3 webkitgtk \
+            nano zip unzip libmagic less fzf pulseaudio \
             isync msmtp calcurse links rsync
         ;;
     *)
@@ -491,3 +744,13 @@ case "$family" in
         exit 1
         ;;
 esac
+
+configure_homebrew_pkgconfig
+if ! dependencies_already_present; then
+    printf '\nPackage installation completed, but one or more expected dependencies are still unavailable.\n' >&2
+    printf 'Dependency details follow; fix the reported package or PATH issue, then rerun ./install.sh.\n\n' >&2
+    "$ROOT/scripts/checkdeps.sh" || true
+    exit 1
+fi
+
+printf 'Package dependency installation verified.\n'

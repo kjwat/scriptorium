@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE="$ROOT/simplecheck.c"
 DEST="$HOME/.local/bin/simplecheck"
 CC_BIN="${CC:-cc}"
+
+prepend_pkgconfig_dir() {
+    local dir=$1
+    [[ -d "$dir" ]] || return 0
+    case ":${PKG_CONFIG_PATH:-}:" in
+        *":$dir:"*) ;;
+        *) PKG_CONFIG_PATH="$dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
+    esac
+}
+
+if [[ $(uname -s 2>/dev/null || true) == Darwin ]] &&
+   command -v brew >/dev/null 2>&1; then
+    ncurses_prefix="$(brew --prefix ncurses 2>/dev/null || true)"
+    [[ -z "$ncurses_prefix" ]] || prepend_pkgconfig_dir "$ncurses_prefix/lib/pkgconfig"
+    export PKG_CONFIG_PATH
+fi
 
 if [[ ! -f "$SOURCE" ]]; then
     printf 'Missing SimpleCheck source: %s\n' "$SOURCE" >&2

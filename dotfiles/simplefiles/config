@@ -9,15 +9,12 @@ TEXT_EXTENSIONS=.txt,.md,.markdown,.tex,.c,.h,.cpp,.hpp,.cc,.py,.sh,.conf,.ini,.
 PREVIEW=true
 PREVIEW_LINES=80
 
-START_DIR=~
 TRASH_DIR=~/.local/share/simplefiles/trash
 CONFIRM_DELETE=true
 
 # File associations
 OPEN_.pdf=simplepdf
 OPEN_.epub=simplepdf
-OPEN_.djvu=simplepdf
-OPEN_.mobi=simplepdf
 
 OPEN_.flac=simpleflac
 OPEN_.mp3=simpleflac

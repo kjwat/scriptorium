@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -u
 
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+
 missing_required=()
 missing_runtime=()
 missing_optional=()
@@ -26,11 +28,21 @@ dep_hint() {
         open) echo "macOS built-in external-open helper" ;;
         pdftotext) echo "provided by poppler/poppler-utils; used by simplepdf" ;;
         pandoc) echo "provided by pandoc; used by simplepdf EPUB support" ;;
-        mpv) echo "used by simpleflac, simpleradio, and simplepod" ;;
+        mpv) echo "used by audio apps and reminder playback" ;;
         git) echo "used by simplever" ;;
+        mbsync) echo "provided by isync; used by simplemail synchronization" ;;
+        msmtp) echo "used by simplemail sending" ;;
+        curl) echo "command-line HTTP client used during setup and maintenance" ;;
+        calcurse) echo "standalone calendar covered by the managed calcurse config" ;;
+        rsync) echo "used by Scriptorium file synchronization workflows" ;;
         pactl|parec) echo "used by simplevis audio capture; provided by pulseaudio-utils/libpulse" ;;
         zip) echo "used by simplefiles :compress" ;;
         unzip) echo "used by simplefiles :extract" ;;
+        tar) echo "used by simplefiles :extract for TAR archives" ;;
+        findmnt) echo "provided by util-linux; used by simplefiles :unmount validation" ;;
+        udisksctl) echo "provided by udisks2; used by simplefiles :unmount" ;;
+        umount) echo "provided by util-linux; fallback for simplefiles :unmount" ;;
+        crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
         fzf) echo "used by simplepdf fuzzy file selection" ;;
@@ -45,7 +57,9 @@ dep_hint() {
 pc_hint() {
     case "$1" in
         ncursesw) echo "provided by ncurses development package" ;;
+        gio-2.0) echo "provided by GLib/GIO development package; used by simplefiles removable-volume discovery" ;;
         libcurl) echo "provided by libcurl/curl development package; used by simplebrowse, simplepod, and simplenews" ;;
+        openssl) echo "provided by OpenSSL development package; used by simplepod PodcastIndex authentication" ;;
     esac
 }
 
@@ -55,9 +69,9 @@ js_pkg_hint() {
         arch) echo "python python-gobject webkit2gtk-4.1" ;;
         fedora) echo "python3 python3-gobject webkit2gtk4.1" ;;
         alpine) echo "python3 py3-gobject3 webkit2gtk-4.1" ;;
-        void) echo "python3 python3-gobject webkit2gtk" ;;
+        void) echo "python3 python3-gobject libwebkit2gtk41" ;;
         suse) echo "python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1" ;;
-        macos) echo "python3 pygobject3 gtk+3 webkitgtk" ;;
+        macos) echo "not available through Homebrew on macOS; use SimpleBrowse reader mode" ;;
         *) echo "python3 python3-gobject WebKit2GTK-4.1 introspection" ;;
     esac
 }
@@ -96,6 +110,25 @@ check_cmd() {
     fi
 }
 
+is_gnu_make() {
+    "$1" --version 2>/dev/null | grep -q 'GNU Make'
+}
+
+check_make() {
+    if [ "$family" = macos ]; then
+        if have_cmd make && is_gnu_make make; then
+            printf "FOUND:   %-16s (%s)\n" "GNU make" "make"
+        elif have_cmd gmake && is_gnu_make gmake; then
+            printf "FOUND:   %-16s (%s)\n" "GNU make" "gmake"
+        else
+            printf "MISSING: %-16s (%s)\n" "GNU make" "brew install make"
+            add_missing required "GNU make"
+        fi
+    else
+        check_cmd required make "make"
+    fi
+}
+
 check_pc() {
     bucket="$1"
     pc="$2"
@@ -130,15 +163,31 @@ check_any_editor() {
     fi
 }
 
+configure_homebrew_pkgconfig() {
+    [ "$family" = macos ] || return 0
+    have_cmd brew || return 0
+
+    for formula in ncurses curl openssl@3; do
+        formula_prefix="$(brew --prefix "$formula" 2>/dev/null)" || continue
+        pkgconfig_dir="$formula_prefix/lib/pkgconfig"
+        [ -d "$pkgconfig_dir" ] || continue
+        case ":${PKG_CONFIG_PATH:-}:" in
+            *":$pkgconfig_dir:"*) ;;
+            *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
+        esac
+    done
+    export PKG_CONFIG_PATH
+}
+
 detect_platform() {
     os="$(uname -s 2>/dev/null || echo unknown)"
     distro="unknown"
-    family="unknown"
+    family="$("$ROOT/scripts/detect-platform.sh")"
     wsl=0
 
     case "$os" in
-        Darwin) distro="macos"; family="macos"; return ;;
-        MINGW*|MSYS*|CYGWIN*) distro="windows"; family="msys2"; return ;;
+        Darwin) distro="macos"; return ;;
+        MINGW*|MSYS*|CYGWIN*) distro="windows"; return ;;
     esac
 
     if grep -qi microsoft /proc/version 2>/dev/null; then
@@ -146,21 +195,15 @@ detect_platform() {
     fi
 
     if [ -r /etc/os-release ]; then
-        . /etc/os-release
-        distro="${ID:-unknown}"
-        like="${ID_LIKE:-}"
-
-        case "$distro $like" in
-            *void*) family="void" ;;
-            *debian*|*ubuntu*) family="debian" ;;
-            *arch*) family="arch" ;;
-            *fedora*|*rhel*|*centos*) family="fedora" ;;
-            *alpine*) family="alpine" ;;
-            *opensuse*|*suse*) family="suse" ;;
-            *gentoo*) family="gentoo" ;;
-            *nixos*) family="nixos" ;;
-            *) family="$distro" ;;
-        esac
+        distro="$(awk -F= '
+            $1 == "ID" {
+                value = substr($0, index($0, "=") + 1)
+                gsub(/^['\''"]|['\''"]$/, "", value)
+                print value
+                exit
+            }
+        ' /etc/os-release)"
+        [ -n "$distro" ] || distro=unknown
     fi
 }
 
@@ -169,9 +212,26 @@ pkg_for_dep() {
         *:fzf) echo "fzf" ;;
         *:zip) echo "zip" ;;
         *:unzip) echo "unzip" ;;
-        *:file) echo "file" ;;
+        *:tar) echo "tar" ;;
+        *:file)
+            case "$family" in
+                macos) echo "libmagic" ;;
+                *) echo "file" ;;
+            esac
+            ;;
         *:less) echo "less" ;;
+        *:calcurse) echo "calcurse" ;;
+        *:rsync) echo "rsync" ;;
         *:xdg-open) echo "xdg-utils" ;;
+        *:findmnt) echo "util-linux" ;;
+        *:udisksctl) echo "udisks2" ;;
+        *:crontab)
+            case "$family" in
+                alpine) echo "dcron" ;;
+                arch | fedora | void) echo "cronie" ;;
+                *) echo "cron" ;;
+            esac
+            ;;
         *:pactl|*:parec)
             case "$family" in
                 arch) echo "libpulse" ;;
@@ -201,45 +261,45 @@ packages_for_family() {
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
-            PKG_REQUIRED="base-devel pkg-config ncurses-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 python3-gobject webkit2gtk"
+            PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
-            INSTALL="sudo apt update && sudo apt install -y"
-            PKG_REQUIRED="build-essential pkg-config libncursesw5-dev libcurl4-openssl-dev libssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils libglib2.0-bin wl-clipboard xclip xsel links python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1"
+            INSTALL="sudo apt-get update && sudo apt-get install -y"
+            PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
-            PKG_REQUIRED="base-devel pkgconf ncurses curl openssl"
-            PKG_RUNTIME="git mpv poppler pandoc-cli"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf libpulse glib2 wl-clipboard xclip xsel links python python-gobject webkit2gtk-4.1"
+            PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
+            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack util-linux udisks2 wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
-            PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2 wl-clipboard xclip xsel links python3 python3-gobject webkit2gtk4.1"
+            PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
-            PKG_REQUIRED="build-base pkgconf ncurses-dev curl-dev openssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 py3-gobject3 webkit2gtk-4.1"
+            PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
-            PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
-            PKG_RUNTIME="git mpv poppler-tools pandoc"
-            PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib2-tools wl-clipboard xclip xsel links python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1"
+            PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
+            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
-            PKG_REQUIRED="pkg-config ncurses curl make openssl@3"
-            PKG_RUNTIME="git mpv poppler pandoc"
-            PKG_OPTIONAL="nano zip unzip file less fzf pulseaudio links python3 pygobject3 gtk+3 webkitgtk"
+            PKG_REQUIRED="pkgconf ncurses curl make openssl@3 glib"
+            PKG_RUNTIME="git mpv poppler pandoc isync msmtp calcurse links rsync"
+            PKG_OPTIONAL="nano zip unzip libmagic less fzf pulseaudio"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
@@ -260,6 +320,7 @@ echo "Checking SimpleSuite dependencies..."
 echo
 
 detect_platform
+configure_homebrew_pkgconfig
 packages_for_family
 
 echo "Detected distro/platform: $distro"
@@ -269,10 +330,12 @@ echo
 
 echo "=== Required build dependencies ==="
 check_cmd required cc "C compiler"
-check_cmd required make "make"
+check_make
 check_cmd required pkg-config "pkg-config"
 check_pc  required ncursesw "ncursesw"
+check_pc  required gio-2.0 "GIO"
 check_pc  required libcurl "libcurl"
+check_pc  required openssl "OpenSSL"
 
 echo
 echo "=== Runtime dependencies ==="
@@ -280,40 +343,75 @@ check_cmd runtime git "git"
 check_cmd runtime mpv "mpv"
 check_cmd runtime pdftotext "pdftotext"
 check_cmd runtime pandoc "pandoc"
+check_cmd runtime mbsync "mbsync"
+check_cmd runtime msmtp "msmtp"
+check_cmd runtime curl "curl"
 
 echo
 echo "=== Optional / feature dependencies ==="
 check_any_editor
 check_cmd optional zip "zip"
 check_cmd optional unzip "unzip"
+check_cmd optional tar "tar"
 check_cmd optional file "file"
 check_cmd optional less "less"
 check_cmd optional fzf "fzf"
+check_cmd optional calcurse "calcurse"
+check_cmd optional rsync "rsync"
 
 if [ "$family" != "msys2" ]; then
     check_cmd optional links "links"
 fi
-check_simplebrowse_js
+if [ "$family" = macos ]; then
+    printf "SKIPPED: %-16s (%s)\n" "SimpleBrowse JS" "WebKitGTK 4.1 is not packaged for macOS"
+elif [ "$family" != msys2 ]; then
+    check_simplebrowse_js
+fi
 
-if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
+if [ "$family" != "msys2" ]; then
     check_cmd optional gio "gio"
-    check_cmd optional wl-copy "wl-copy"
-    check_cmd optional wl-paste "wl-paste"
-    check_cmd optional xclip "xclip"
-    check_cmd optional xsel "xsel"
 fi
 
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
 elif [ "$family" != "msys2" ]; then
-    if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${XDG_CURRENT_DESKTOP:-}" ]; then
-        check_cmd optional xdg-open "xdg-open"
+    check_cmd optional findmnt "findmnt"
+    if have_cmd udisksctl || have_cmd umount; then
+        if have_cmd udisksctl; then
+            printf "FOUND:   %-16s (%s)\n" "unmount helper" "udisksctl"
+        else
+            printf "FOUND:   %-16s (%s)\n" "unmount helper" "umount"
+        fi
+    else
+        printf "MISSING: %-16s (%s)\n" "unmount helper" "udisksctl or umount"
+        add_missing optional "udisksctl"
+    fi
+
+    check_cmd optional xdg-open "xdg-open"
+    check_cmd optional wl-copy "wl-copy"
+    check_cmd optional wl-paste "wl-paste"
+
+    if have_cmd xclip || have_cmd xsel; then
+        if have_cmd xclip; then
+            printf "FOUND:   %-16s (%s)\n" "X11 clipboard" "xclip"
+        else
+            printf "FOUND:   %-16s (%s)\n" "X11 clipboard" "xsel"
+        fi
+    else
+        printf "MISSING: %-16s (%s)\n" "X11 clipboard" "xclip or xsel"
+        add_missing optional "xclip"
     fi
 fi
 
 if [ "$family" != "msys2" ]; then
     check_cmd optional pactl "pactl"
     check_cmd optional parec "parec"
+fi
+
+if have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1; then
+    printf "FOUND:   %-16s (%s)\n" "reminder backend" "systemd --user"
+else
+    check_cmd optional crontab "crontab"
 fi
 
 echo

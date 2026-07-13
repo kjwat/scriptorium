@@ -1,29 +1,69 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+SIMPLESUITE_DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 
-clean_kjwat_credentials() {
-    if [ -f "$HOME/.git-credentials" ]; then
-        tmp="$(mktemp)"
-        grep -vE 'github\.com.*kjwat|kjwat.*github\.com' "$HOME/.git-credentials" > "$tmp" || true
-        mv "$tmp" "$HOME/.git-credentials"
-        chmod 600 "$HOME/.git-credentials"
+if [ -d "$SIMPLESUITE_DEST" ]; then
+    SIMPLESUITE_DEST="$(CDPATH='' cd -- "$SIMPLESUITE_DEST" && pwd -P)"
+fi
+while [ "$SIMPLESUITE_DEST" != / ] && [ "${SIMPLESUITE_DEST%/}" != "$SIMPLESUITE_DEST" ]; do
+    SIMPLESUITE_DEST=${SIMPLESUITE_DEST%/}
+done
+
+HOME_REAL="$(CDPATH='' cd -- "$HOME" && pwd -P)"
+ROOT_REAL="$(CDPATH='' cd -- "$ROOT" && pwd -P)"
+case "$HOME_REAL/" in
+    "$SIMPLESUITE_DEST/"*) unsafe_simplesuite_dest=1 ;;
+    *) unsafe_simplesuite_dest=0 ;;
+esac
+case "$ROOT_REAL/" in
+    "$SIMPLESUITE_DEST/"*) unsafe_simplesuite_dest=1 ;;
+esac
+if [ "$SIMPLESUITE_DEST" = / ] || [ "$unsafe_simplesuite_dest" -eq 1 ]; then
+    printf 'Refusing unsafe SIMPLESUITE_DIR destination: %s\n' "$SIMPLESUITE_DEST" >&2
+    exit 2
+fi
+
+run_as_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        printf 'Root privileges are required to remove system packages.\n' >&2
+        return 127
+    fi
+}
+
+clean_scriptorium_credentials() {
+    credential_user=kjwat
+    credential_marker="$HOME/.config/scriptorium/github-credential-user"
+
+    if [ -s "$credential_marker" ]; then
+        IFS= read -r credential_user < "$credential_marker" || credential_user=kjwat
     fi
 
-if command -v git >/dev/null 2>&1; then
-        printf 'protocol=https\nhost=github.com\nusername=kjwat\n\n' | git credential reject || true
-        printf 'protocol=https\nhost=github.com\npath=kjwat/scriptorium\n\n' | git credential reject || true
-        printf 'protocol=https\nhost=github.com\npath=kjwat/simplesuite\n\n' | git credential reject || true
-        printf 'protocol=https\nhost=github.com\npath=kjwat/writing\n\n' | git credential reject || true
+    if [ -n "$credential_user" ] && [ -f "$HOME/.git-credentials" ] &&
+       command -v git >/dev/null 2>&1; then
+        printf 'protocol=https\nhost=github.com\nusername=%s\n\n' "$credential_user" |
+            git credential-store --file "$HOME/.git-credentials" erase || true
+        if [ ! -s "$HOME/.git-credentials" ]; then
+            rm -f "$HOME/.git-credentials"
+        else
+            chmod 600 "$HOME/.git-credentials"
+        fi
     fi
+
+    rm -f "$credential_marker"
+    rmdir "$HOME/.config/scriptorium" 2>/dev/null || true
 }
 
 echo
 echo "BURN MODE"
 echo
 printf "Type BURN to continue: "
-read ans
+read -r ans
 
 [ "$ans" = "BURN" ] || exit 1
 
@@ -35,19 +75,19 @@ else
     rm -rf "$HOME/writing"
 fi
 
-rm -rf "$HOME/simplesuite" "$HOME/src/simplesuite"
+rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 
-for bin in simplewords simplecheck simplefiles simplebrowse  simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
 # Remove snapd itself only if Scriptorium installed it.
 if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
-    if command -v apt >/dev/null 2>&1; then
-        sudo apt purge -y snapd || true
-        sudo apt autoremove -y || true
+    if command -v apt-get >/dev/null 2>&1; then
+        run_as_root apt-get purge -y snapd || true
+        run_as_root apt-get autoremove -y || true
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf remove -y snapd || true
+        run_as_root dnf remove -y snapd || true
     fi
     rm -rf "$HOME/snap"
     rm -f "$HOME/.config/scriptorium/snapd-installed"
@@ -58,17 +98,26 @@ rm -rf "$HOME/.config/simplebrowse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
 rm -rf "$HOME/.config/simplecal"
+rm -rf "$HOME/.local/share/simplecal"
 rm -rf "$HOME/.local/state/simplecal"
+rm -rf "$HOME/.local/state/simpleclock"
 rm -f "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl --user disable --now simplecal-reminders.timer >/dev/null 2>&1 || true
+    systemctl --user disable --now \
+        simplecal-reminders.timer simplecal-reminders.service \
+        simpleclock-reminders.timer simpleclock-reminders.service \
+        >/dev/null 2>&1 || true
     systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
 rm -f "$HOME/.config/systemd/user/simplecal-reminders.service"
 rm -f "$HOME/.config/systemd/user/simplecal-reminders.timer"
+rm -f "$HOME/.config/systemd/user/simpleclock-reminders.service"
+rm -f "$HOME/.config/systemd/user/simpleclock-reminders.timer"
 if command -v crontab >/dev/null 2>&1; then
     tmp_cron="$(mktemp)"
-    crontab -l 2>/dev/null | grep -v "simplecal --check-reminders" > "$tmp_cron" || true
+    crontab -l 2>/dev/null | \
+        grep -v -e "simplecal --check-reminders" \
+                -e "simpleclock --check-reminders" > "$tmp_cron" || true
     crontab "$tmp_cron" 2>/dev/null || true
     rm -f "$tmp_cron"
 fi
@@ -96,7 +145,9 @@ remove_scriptorium_mail_block "$HOME/.msmtprc" "# BEGIN SCRIPTORIUM SIMPLEMAIL G
 rm -rf "$HOME/.config/simplemail"
 
 rm -rf "$HOME/.links"
+rm -rf "$HOME/.cache/simplebrowse"
 rm -rf "$HOME/.cache/simplefiles"
+rm -rf "$HOME/.local/share/simplebrowse"
 rm -rf "$HOME/.local/share/simplefiles"
 rm -rf "$HOME/.local/state/simplewords"
 rm -rf "$HOME/.config/simplecheck"
@@ -121,41 +172,51 @@ if command -v git >/dev/null 2>&1; then
     esac
 fi
 
-if [ -f "$HOME/.bashrc" ]; then
-    sed -i '/# Scriptorium user binaries/d' "$HOME/.bashrc"
-    sed -i '/export PATH="\$HOME\/.local\/bin:\$PATH"/d' "$HOME/.bashrc"
+clean_shell_rc() {
+    file=$1
+    [ -f "$file" ] || return 0
 
-    sed -i '/# SimpleSuite aliases/d' "$HOME/.bashrc"
-    sed -i "/alias words='simplewords'/d" "$HOME/.bashrc"
-    sed -i "/alias files='simplefiles'/d" "$HOME/.bashrc"
-    sed -i "/alias browse='simplebrowse'/d" "$HOME/.bashrc"
-    sed -i "/alias flac='simpleflac'/d" "$HOME/.bashrc"
-    sed -i "/alias radio='simpleradio'/d" "$HOME/.bashrc"
-    sed -i "/alias pod='simplepod'/d" "$HOME/.bashrc"
-    sed -i "/alias vis='simplevis'/d" "$HOME/.bashrc"
-    sed -i "/alias clock='simpleclock'/d" "$HOME/.bashrc"
-    sed -i "/alias check='simplecheck'/d" "$HOME/.bashrc"
-    sed -i "/alias cal='simplecal'/d" "$HOME/.bashrc"
-    sed -i "/alias stats='simplestats'/d" "$HOME/.bashrc"
-    sed -i "/alias ver='simplever'/d" "$HOME/.bashrc"
-    sed -i "/alias game='simplegame'/d" "$HOME/.bashrc"
-    sed -i "/alias pdf='simplepdf'/d" "$HOME/.bashrc"
-    sed -i "/alias news='simplenews'/d" "$HOME/.bashrc"
-    sed -i "/alias mail='simplemail'/d" "$HOME/.bashrc"
-fi
+    tmp="$(mktemp)"
+    awk '
+        BEGIN {
+            aliases["words"] = "simplewords"
+            aliases["files"] = "simplefiles"
+            aliases["browse"] = "simplebrowse"
+            aliases["flac"] = "simpleflac"
+            aliases["radio"] = "simpleradio"
+            aliases["pod"] = "simplepod"
+            aliases["vis"] = "simplevis"
+            aliases["clock"] = "simpleclock"
+            aliases["check"] = "simplecheck"
+            aliases["cal"] = "simplecal"
+            aliases["stats"] = "simplestats"
+            aliases["ver"] = "simplever"
+            aliases["game"] = "simplegame"
+            aliases["pdf"] = "simplepdf"
+            aliases["news"] = "simplenews"
+            aliases["mail"] = "simplemail"
+            quote = sprintf("%c", 39)
+        }
+        $0 == "# Scriptorium user binaries" { next }
+        $0 == "export PATH=\"$HOME/.local/bin:$PATH\"" { next }
+        $0 == "# SimpleSuite aliases" { next }
+        $1 == "alias" {
+            split($2, pair, "=")
+            value = pair[2]
+            gsub(quote, "", value)
+            if (pair[1] in aliases && value == aliases[pair[1]]) next
+        }
+        { print }
+    ' "$file" > "$tmp"
+    cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
 
-# Remove credential helper and stored PATs.
-if command -v git >/dev/null 2>&1; then
-    helper="$(git config --global credential.helper 2>/dev/null || true)"
+clean_shell_rc "$HOME/.bashrc"
+clean_shell_rc "$HOME/.zshrc"
 
-    if [ "$helper" = "store" ]; then
-        git config --global --unset credential.helper || true
-    fi
-
-    printf 'protocol=https\nhost=github.com\nusername=kjwat\n\n' | git credential reject || true
-fi
-
-rm -f "$HOME/.git-credentials"
+# Remove only the GitHub credential recorded by this Scriptorium install.
+clean_scriptorium_credentials
 
 cd "$HOME"
 rm -rf "$ROOT"
