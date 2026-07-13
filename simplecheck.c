@@ -37,6 +37,7 @@ typedef struct {
     int dirty;
     int ahead;
     int behind;
+    int upstream_ok;
     int push_ok;
     char result[MAX_STATUS];
     char last_action[MAX_STATUS];
@@ -195,7 +196,7 @@ static void refresh_repo(Repo *r)
     char *counts[] = {"git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}", NULL};
 
     r->exists = access(r->path, F_OK) == 0;
-    r->is_repo = r->dirty = r->ahead = r->behind = r->file_count = 0;
+    r->is_repo = r->dirty = r->ahead = r->behind = r->upstream_ok = r->file_count = 0;
     r->branch[0] = '\0';
     r->result[0] = '\0';
     if (!r->exists) {
@@ -219,7 +220,8 @@ static void refresh_repo(Repo *r)
          * git rev-list --left-right --count HEAD...@{upstream}
          * outputs: <ahead>\t<behind>
          */
-        sscanf(out, "%d\t%d", &r->ahead, &r->behind);
+        if (sscanf(out, "%d\t%d", &r->ahead, &r->behind) == 2)
+            r->upstream_ok = 1;
     }
 }
 
@@ -317,9 +319,13 @@ static int run_git(Repo *r, char *const argv[], const char *verb)
     return RUN_FAILED;
 }
 
-static void check_remotes(void)
+static int check_remotes(void)
 {
     char out[MAX_OUTPUT];
+    char errors[REPO_COUNT][MAX_STATUS];
+    int all_ok = 1;
+
+    memset(errors, 0, sizeof(errors));
 
     set_footer("Checking remotes...");
     draw();
@@ -338,9 +344,10 @@ static void check_remotes(void)
 
         if (rc != 0) {
             trim_newline(out);
-            snprintf(r->last_action, sizeof(r->last_action),
+            snprintf(errors[i], sizeof(errors[i]),
                      "remote check failed: %.180s",
                      out[0] ? out : "unknown Git error");
+            all_ok = 0;
         }
     }
 
@@ -349,12 +356,34 @@ static void check_remotes(void)
      * and recalculates ahead/behind without touching the network.
      */
     refresh_all();
+
+    /*
+     * refresh_all() clears per-repository messages, so restore any fetch
+     * failures afterward instead of accidentally reporting stale refs as
+     * current.
+     */
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (errors[i][0])
+            snprintf(repos[i].last_action, sizeof(repos[i].last_action),
+                     "%.255s", errors[i]);
+    }
+
+    return all_ok;
 }
 
 static int any_repo_behind(void)
 {
     for (int i = 0; i < REPO_COUNT; i++) {
         if (repos[i].is_repo && repos[i].behind > 0)
+            return 1;
+    }
+    return 0;
+}
+
+static int any_repo_without_upstream(void)
+{
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (repos[i].is_repo && !repos[i].upstream_ok)
             return 1;
     }
     return 0;
@@ -408,7 +437,15 @@ static void pull_all(void)
     /*
      * Network access happens only after the user explicitly presses L.
      */
-    check_remotes();
+    if (!check_remotes()) {
+        show_temporary_footer("Pull aborted: at least one remote check failed.");
+        return;
+    }
+
+    if (any_repo_without_upstream()) {
+        show_temporary_footer("Pull aborted: at least one repository has no usable upstream.");
+        return;
+    }
 
     for (int i = 0; i < REPO_COUNT; i++) {
         Repo *r = &repos[i];
@@ -462,7 +499,15 @@ static void push_all(void)
      * Startup and ordinary refreshes remain instant. Network access
      * occurs here only because the user explicitly requested a push.
      */
-    check_remotes();
+    if (!check_remotes()) {
+        show_temporary_footer("Push aborted: at least one remote check failed.");
+        return;
+    }
+
+    if (any_repo_without_upstream()) {
+        show_temporary_footer("Push aborted: at least one repository has no usable upstream.");
+        return;
+    }
 
     if (any_repo_behind()) {
         show_temporary_footer("Push blocked: pull the available updates first with L.");
@@ -550,12 +595,16 @@ static void draw(void)
         }
         if (logical++ >= scroll_offset && y < h - 4) {
             if (!r->is_repo) mvprintw(y++, 4, "%s", r->result);
-            else mvprintw(y++, 4, "%s  branch: %s  %s%s%s",
-                r->dirty ? "DIRTY" : "clean", r->branch,
-                r->ahead ? "ahead " : "", r->ahead ? "" : "",
-                r->behind ? "behind" : "");
+            else if (!r->upstream_ok)
+                mvprintw(y++, 4, "%s  branch: %s  upstream unknown",
+                    r->dirty ? "DIRTY" : "clean", r->branch);
+            else
+                mvprintw(y++, 4, "%s  branch: %s  %s%s%s",
+                    r->dirty ? "DIRTY" : "clean", r->branch,
+                    r->ahead ? "ahead " : "", r->ahead ? "" : "",
+                    r->behind ? "behind" : "");
         }
-        if (r->is_repo && (r->ahead || r->behind) && logical - 1 >= scroll_offset && y < h - 4)
+        if (r->is_repo && r->upstream_ok && (r->ahead || r->behind) && logical - 1 >= scroll_offset && y < h - 4)
             mvprintw(y - 1, w > 42 ? w - 28 : 4, "ahead %d / behind %d", r->ahead, r->behind);
 
         if (r->last_action[0]) {
@@ -621,8 +670,10 @@ int main(void)
         if (ch == 'q' || ch == 'Q') break;
         if (ch == 'r' || ch == 'R') refresh_all();
         else if (ch == 'c' || ch == 'C') {
-            check_remotes();
-            show_temporary_footer("Remote check complete.");
+            if (check_remotes())
+                show_temporary_footer("Remote check complete.");
+            else
+                show_temporary_footer("Remote check finished with errors. Review repository messages.");
         }
         else if (ch == 'l' || ch == 'L') pull_all();
         else if (ch == 'p' || ch == 'P') push_all();
