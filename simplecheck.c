@@ -215,7 +215,7 @@ static void refresh_repo(Repo *r)
         parse_porcelain(r, out);
 
     if (run_capture(r->path, counts, out, sizeof(out)) == 0)
-        sscanf(out, "%d\t%d", &r->behind, &r->ahead);
+        sscanf(out, "%d\t%d", &r->ahead, &r->behind);
 }
 
 static void refresh_all(void)
