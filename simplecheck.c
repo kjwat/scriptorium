@@ -214,8 +214,13 @@ static void refresh_repo(Repo *r)
     if (run_capture(r->path, status, out, sizeof(out)) == 0)
         parse_porcelain(r, out);
 
-    if (run_capture(r->path, counts, out, sizeof(out)) == 0)
+    if (run_capture(r->path, counts, out, sizeof(out)) == 0) {
+        /*
+         * git rev-list --left-right --count HEAD...@{upstream}
+         * outputs: <ahead>\t<behind>
+         */
         sscanf(out, "%d\t%d", &r->ahead, &r->behind);
+    }
 }
 
 static void refresh_all(void)
