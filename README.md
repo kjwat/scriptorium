@@ -208,8 +208,9 @@ profile, and reloads that profile. These operations use root privileges
 (directly when already root, otherwise through `sudo`) and modify system
 configuration outside the home directory.
 
-`~/.bashrc` receives `~/.local/bin` on PATH and these aliases; when zsh is the
-login shell, the installer writes the same setup to `~/.zshrc`:
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. When zsh or Fish
+is the login shell, the installer also writes the same setup to `~/.zshrc` or
+`~/.config/fish/conf.d/scriptorium.fish`, using the shell's native PATH setup:
 
 ```sh
 alias words='simplewords'

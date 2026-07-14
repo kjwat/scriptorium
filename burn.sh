@@ -241,6 +241,7 @@ clean_shell_rc() {
         }
         $0 == "# Scriptorium user binaries" { next }
         $0 == "export PATH=\"$HOME/.local/bin:$PATH\"" { next }
+        $0 == "fish_add_path --path \"$HOME/.local/bin\"" { next }
         $0 == "# SimpleSuite aliases" { next }
         $1 == "alias" {
             split($2, pair, "=")
@@ -256,6 +257,7 @@ clean_shell_rc() {
 
 clean_shell_rc "$HOME/.bashrc"
 clean_shell_rc "$HOME/.zshrc"
+clean_shell_rc "$HOME/.config/fish/conf.d/scriptorium.fish"
 
 # Remove only the GitHub credential recorded by this Scriptorium install.
 clean_scriptorium_credentials

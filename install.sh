@@ -54,6 +54,10 @@ if [[ ${SHELL:-} == */zsh || ${SHELL:-} == zsh ]]; then
     SHELL_RC_FILES+=("$HOME/.zshrc")
     ACTIVE_SHELL_RC_NAME=.zshrc
     ACTIVE_SHELL_COMMAND="${SHELL:-zsh}"
+elif [[ ${SHELL:-} == */fish || ${SHELL:-} == fish ]]; then
+    SHELL_RC_FILES+=("$HOME/.config/fish/conf.d/scriptorium.fish")
+    ACTIVE_SHELL_RC_NAME=.config/fish/conf.d/scriptorium.fish
+    ACTIVE_SHELL_COMMAND="${SHELL:-fish}"
 fi
 
 say() { printf '\n==> %s\n' "$*"; }
@@ -282,6 +286,7 @@ ensure_simplesuite_aliases_in_file() {
         "alias mail='simplemail'"
     )
 
+    mkdir -p "$(dirname "$shell_rc")"
     touch "$shell_rc"
 
     if ! grep -qxF "# SimpleSuite aliases" "$shell_rc" 2>/dev/null; then
@@ -732,12 +737,15 @@ esac
 say "Preparing user PATH"
 mkdir -p "$HOME/.local/bin"
 
-# shellcheck disable=SC2016
-PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
-
 for shell_rc in "${SHELL_RC_FILES[@]}"; do
-    grep -qxF "$PATH_LINE" "$shell_rc" 2>/dev/null || {
-        printf '\n# Scriptorium user binaries\n%s\n' "$PATH_LINE" >> "$shell_rc"
+    mkdir -p "$(dirname "$shell_rc")"
+    if [[ $shell_rc == *.fish ]]; then
+        path_line='fish_add_path --path "$HOME/.local/bin"'
+    else
+        path_line='export PATH="$HOME/.local/bin:$PATH"'
+    fi
+    grep -qxF "$path_line" "$shell_rc" 2>/dev/null || {
+        printf '\n# Scriptorium user binaries\n%s\n' "$path_line" >> "$shell_rc"
         CHANGES_MADE=1
     }
 done
