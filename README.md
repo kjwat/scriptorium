@@ -249,6 +249,8 @@ for an explicit check, pull, or push.
   three repositories.
 - Up/Down or `j`/`k`: scroll; `Q`: quit. During a Git command, `Q` or Esc
   cancels it; commands also have a 45-second timeout.
+- In the commit-message prompt, Left/Right and Home/End move the cursor;
+  Backspace and Delete edit on either side of it.
 
 Review every displayed change before pressing `P`: `git add -A` includes
 tracked changes, deletions, and untracked files. Completion messages disappear

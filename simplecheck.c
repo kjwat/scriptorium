@@ -235,6 +235,8 @@ static void refresh_all(void)
 static int prompt_line(const char *label, char *buf, size_t size)
 {
     size_t len = 0;
+    size_t cursor = 0;
+    size_t view = 0;
 
     if (!buf || size < 2)
         return 0;
@@ -246,17 +248,27 @@ static int prompt_line(const char *label, char *buf, size_t size)
 
     for (;;) {
         int h, w;
+        size_t label_len = strlen(label);
+        size_t field_width;
         getmaxyx(stdscr, h, w);
+
+        field_width = w > (int)label_len ? (size_t)w - label_len : 1;
+        if (cursor < view)
+            view = cursor;
+        else if (cursor >= view + field_width)
+            view = cursor - field_width + 1;
 
         move(h - 2, 0);
         clrtoeol();
-        mvprintw(h - 2, 0, "%s%s", label, buf);
+        mvaddnstr(h - 2, 0, label, w);
+        if (w > (int)label_len)
+            addnstr(buf + view, (int)field_width);
 
         move(h - 1, 0);
         clrtoeol();
         mvaddstr(h - 1, 1, "Enter: accept   Esc/Ctrl-C: cancel");
 
-        int cursor_x = (int)strlen(label) + (int)len;
+        int cursor_x = (int)label_len + (int)(cursor - view);
         if (cursor_x >= w)
             cursor_x = w - 1;
         move(h - 2, cursor_x);
@@ -278,8 +290,41 @@ static int prompt_line(const char *label, char *buf, size_t size)
         }
 
         if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
-            if (len > 0)
-                buf[--len] = '\0';
+            if (cursor > 0) {
+                memmove(buf + cursor - 1, buf + cursor, len - cursor + 1);
+                cursor--;
+                len--;
+            }
+            continue;
+        }
+
+        if (ch == KEY_DC) {
+            if (cursor < len) {
+                memmove(buf + cursor, buf + cursor + 1, len - cursor);
+                len--;
+            }
+            continue;
+        }
+
+        if (ch == KEY_LEFT) {
+            if (cursor > 0)
+                cursor--;
+            continue;
+        }
+
+        if (ch == KEY_RIGHT) {
+            if (cursor < len)
+                cursor++;
+            continue;
+        }
+
+        if (ch == KEY_HOME) {
+            cursor = 0;
+            continue;
+        }
+
+        if (ch == KEY_END) {
+            cursor = len;
             continue;
         }
 
@@ -287,7 +332,9 @@ static int prompt_line(const char *label, char *buf, size_t size)
             continue;
 
         if (ch >= 32 && ch <= 126 && len + 1 < size) {
-            buf[len++] = (char)ch;
+            memmove(buf + cursor + 1, buf + cursor, len - cursor + 1);
+            buf[cursor++] = (char)ch;
+            len++;
             buf[len] = '\0';
         }
     }
