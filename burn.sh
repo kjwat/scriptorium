@@ -59,6 +59,28 @@ clean_scriptorium_credentials() {
     rmdir "$HOME/.config/scriptorium" 2>/dev/null || true
 }
 
+run_simplesuite_burn() {
+    suite_uninstaller=
+
+    if [ -x "$HOME/.local/bin/simplesuite-uninstall" ]; then
+        suite_uninstaller=$HOME/.local/bin/simplesuite-uninstall
+    elif [ -x "$SIMPLESUITE_DEST/uninstall.sh" ]; then
+        suite_uninstaller=$SIMPLESUITE_DEST/uninstall.sh
+    fi
+
+    [ -n "$suite_uninstaller" ] || return 0
+
+    echo "Burning the installed SimpleSuite payload and data"
+    if ! (
+        unset BINDIR DATADIR SIMPLESUITE_DATADIR DESTDIR
+        PREFIX="$HOME/.local"
+        export PREFIX
+        "$suite_uninstaller" --burn --yes
+    ); then
+        printf 'SimpleSuite native burn failed; continuing with Scriptorium fallback cleanup.\n' >&2
+    fi
+}
+
 echo
 echo "BURN MODE"
 echo
@@ -75,9 +97,12 @@ else
     rm -rf "$HOME/writing"
 fi
 
-rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
+run_simplesuite_burn
 
-for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
+rm -rf "$HOME/.writing-clone-tmp"
+
+for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -97,11 +122,12 @@ rm -rf "$HOME/.config/calcurse"
 rm -rf "$HOME/.config/simplebrowse"
 rm -rf "$HOME/.config/simplefiles"
 rm -rf "$HOME/.config/simplepod"
+rm -rf "$HOME/.config/simplewords"
 rm -rf "$HOME/.config/simplecal"
 rm -rf "$HOME/.local/share/simplecal"
 rm -rf "$HOME/.local/state/simplecal"
 rm -rf "$HOME/.local/state/simpleclock"
-rm -f "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
+rm -rf "$HOME/.local/share/simplesuite"
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now \
         simplecal-reminders.timer simplecal-reminders.service \
@@ -138,22 +164,38 @@ remove_scriptorium_mail_block() {
     ' "$file" > "$tmp"
     cat "$tmp" > "$file"
     rm -f "$tmp"
+    if [ ! -s "$file" ]; then
+        rm -f "$file"
+    fi
 }
 
 remove_scriptorium_mail_block "$HOME/.mbsyncrc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
 remove_scriptorium_mail_block "$HOME/.msmtprc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
+rm -f "$HOME/.config/isyncrc"
 rm -rf "$HOME/.config/simplemail"
 
 rm -rf "$HOME/.links"
 rm -rf "$HOME/.cache/simplebrowse"
 rm -rf "$HOME/.cache/simplefiles"
+rm -rf "$HOME/.cache/simplemail"
+rm -rf "$HOME/.cache/simplepod"
+rm -rf "$HOME/.cache/simplewords"
+rm -f "$HOME/.cache/simplever.log"
 rm -rf "$HOME/.local/share/simplebrowse"
 rm -rf "$HOME/.local/share/simplefiles"
+rm -rf "$HOME/.local/share/simplemail"
+rm -rf "$HOME/.local/state/simplefiles"
+rm -rf "$HOME/.local/state/simplemail"
+rm -rf "$HOME/.local/state/simplepod"
+rm -rf "$HOME/.local/state/simplever"
 rm -rf "$HOME/.local/state/simplewords"
 rm -rf "$HOME/.config/simplecheck"
 rm -rf "$HOME/.cache/simplecheck"
 rm -rf "$HOME/.local/state/simplecheck"
 rm -f "$HOME/.simplewords-session"
+rm -f "$HOME/.simpleclock-alarm"
+rm -f "$HOME/.simpleclock-alarm-worker"
+rm -f "$HOME/.simpleclock-alarm.tmp"
 
 if command -v git >/dev/null 2>&1; then
     git_name="$(git config --global user.name 2>/dev/null || true)"
@@ -217,6 +259,9 @@ clean_shell_rc "$HOME/.zshrc"
 
 # Remove only the GitHub credential recorded by this Scriptorium install.
 clean_scriptorium_credentials
+rm -rf "$HOME/.config/scriptorium"
+rm -rf "$HOME/.config/simplesuite"
+rm -rf "$HOME/.scriptorium-backups"
 
 cd "$HOME"
 rm -rf "$ROOT"

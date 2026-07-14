@@ -4,8 +4,18 @@ set -euo pipefail
 SCRIPTORIUM_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
-SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump}"
+SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
+SIMPLESUITE_ASSETS="
+simplecal-alarm.mp3
+simplewords-typewriter.wav
+simplewords-typewriter-alt.wav
+simplewords-typewriter-space.wav
+simplewords-typewriter-enter.wav
+simplewords-typewriter-delete.wav
+simplewords-typewriter-NOTICE.md
+install-source
+"
 MACOS_COMPAT_DIR=
 SIMPLESUITE_PROGRAMS="
 simplebrowse
@@ -168,6 +178,27 @@ if [ -n "$SIMPLESUITE_SCRIPTS" ]; then
         echo "SimpleSuite build/install did not produce every expected helper script." >&2
         exit 1
     fi
+fi
+
+echo "Verifying SimpleSuite shared assets in $HOME/.local/share/simplesuite"
+for asset in $SIMPLESUITE_ASSETS; do
+    if [ -r "$HOME/.local/share/simplesuite/$asset" ]; then
+        printf '  ok: %s\n' "$asset"
+    else
+        printf '  missing: %s\n' \
+            "$HOME/.local/share/simplesuite/$asset" >&2
+        missing=1
+    fi
+done
+
+if [ ! -f "$HOME/.config/simplewords/config" ]; then
+    printf '  missing: %s\n' "$HOME/.config/simplewords/config" >&2
+    missing=1
+fi
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite install did not produce its complete runtime payload." >&2
+    exit 1
 fi
 
 if [ "$SIMPLESUITE_INSTALL_REMINDERS" -eq 1 ]; then

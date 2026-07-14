@@ -102,12 +102,26 @@ SIMPLESUITE_REPO_URL=https://example/repo.git ./install.sh
 ```
 
 If the checkout already exists, Scriptorium updates it with `git pull
---ff-only`. The SimpleSuite build installs binaries to `~/.local/bin` and
-installs the SimpleCal alarm asset to:
+--ff-only`. The SimpleSuite build installs binaries to `~/.local/bin`,
+including `simplesuite-uninstall`. Shared audio assets are installed under:
 
 ```text
 ~/.local/share/simplesuite/simplecal-alarm.mp3
+~/.local/share/simplesuite/simplewords-typewriter.wav
+~/.local/share/simplesuite/simplewords-typewriter-alt.wav
+~/.local/share/simplesuite/simplewords-typewriter-space.wav
+~/.local/share/simplesuite/simplewords-typewriter-enter.wav
+~/.local/share/simplesuite/simplewords-typewriter-delete.wav
 ```
+
+The same directory also carries the sound-provenance notice and the internal
+source-checkout record used by destructive uninstallation.
+
+SimpleWords typewriter audio is native and needs no additional player or audio
+development package. Its config is created at
+`~/.config/simplewords/config` only when missing. The feature remains off by
+default; volume `70` is recommended when it is enabled. Existing SimpleWords
+config is never overwritten.
 
 ## Managed Dotfiles
 
@@ -136,9 +150,11 @@ installations may still contain a legacy `DATA_DIR` line; SimpleCal accepts it,
 but the lower-case `data_dir` key is the current form.
 
 Most other SimpleSuite applications either use default local state paths or
-create their own config files on first run. Scriptorium only links files that
-exist in this repo. SimpleBrowse has no Scriptorium-managed default config; it
-creates `~/.config/simplebrowse/bookmarks` only when bookmarks are used.
+create their own config files on first run. SimpleSuite's installer creates a
+missing SimpleWords config without making it a Scriptorium-managed symlink.
+Scriptorium only links files that exist in this repo. SimpleBrowse has no
+Scriptorium-managed default config; it creates
+`~/.config/simplebrowse/bookmarks` only when bookmarks are used.
 SimpleBrowse v4 also installs and verifies the `simplebrowse-webkitd` and
 `simplebrowse-jsdump` helpers. On supported Linux systems these enable `--js`,
 the `B` (or legacy `J`) reload key, JavaScript dumps, and form replay through
@@ -173,6 +189,8 @@ The installer may create or modify:
 - `~/.git-credentials`
 - `~/.config/scriptorium/github-credential-user` when a PAT is stored
 - `~/.config/simplemail/config`
+- `~/.config/simplewords/config` when it does not already exist
+- `~/.local/share/simplesuite/` for alarm/typewriter assets and install metadata
 - `~/.mbsyncrc`
 - `~/.msmtprc`
 - `~/.config/isyncrc`
@@ -311,9 +329,13 @@ This repo includes destructive cleanup scripts:
 
 - `burn-writing.sh` removes the writing checkout and related writing
   credentials after confirmation.
-- `burn.sh` removes Scriptorium-managed binaries, configs, SimpleSuite,
-  SimpleCal reminder services, SimpleMail setup, and the Scriptorium checkout
-  itself after confirmation.
+- `burn.sh` invokes SimpleSuite's native burn, then removes any remaining
+  Scriptorium-managed binaries, configs, typewriter/alarm assets, SimpleCal
+  reminder services, SimpleMail setup, rollback backups, and both source
+  checkouts after confirmation.
+
+The single `BURN` confirmation authorizes both cleanup layers; there is no
+second SimpleSuite prompt.
 
 Do not run either script unless you intend that cleanup.
 

@@ -352,6 +352,7 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplebrowse-webkitd
     simplebrowse-jsdump
+    simplesuite-uninstall
 )
 
 track_path() {
@@ -411,10 +412,11 @@ prepare_rollback() {
         track_path "$shell_rc"
     done
     track_path "$HOME/.config/simplemail/config"
+    track_path "$HOME/.config/simplewords/config"
     track_path "$HOME/.config/simplecal"
     track_path "$HOME/.local/share/simplecal"
     track_path "$HOME/.local/state/simplecal"
-    track_path "$HOME/.local/share/simplesuite/simplecal-alarm.mp3"
+    track_path "$HOME/.local/share/simplesuite"
     track_path "$HOME/.config/systemd/user/simplecal-reminders.service"
     track_path "$HOME/.config/systemd/user/simplecal-reminders.timer"
     track_path "$HOME/.msmtprc"
@@ -470,6 +472,7 @@ prepare_rollback() {
         "$HOME/.config/simplefiles" \
         "$HOME/.config/simplenews" \
         "$HOME/.config/simplemail" \
+        "$HOME/.config/simplewords" \
         "$HOME/Downloads" \
         "$HOME/Music" \
         "$HOME/Podcasts"; do
