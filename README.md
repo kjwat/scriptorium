@@ -20,7 +20,9 @@ Run this from an interactive shell. Linux package installation needs either a
 root shell or a working `sudo`; macOS needs Homebrew and the Apple Command Line
 Tools. A base Alpine installation bootstraps Bash automatically. Bash users
 receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
-When installation finishes, open a new terminal or source the file it names.
+When an interactive installation finishes, it starts a configured shell so
+commands such as `words` and `simplewords` work immediately. A noninteractive
+installation instead prints the shell file to source before using the commands.
 
 ## What It Installs
 

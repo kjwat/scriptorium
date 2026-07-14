@@ -49,9 +49,11 @@ ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 
 declare -a SHELL_RC_FILES=("$HOME/.bashrc")
 ACTIVE_SHELL_RC_NAME=.bashrc
+ACTIVE_SHELL_COMMAND=bash
 if [[ ${SHELL:-} == */zsh || ${SHELL:-} == zsh ]]; then
     SHELL_RC_FILES+=("$HOME/.zshrc")
     ACTIVE_SHELL_RC_NAME=.zshrc
+    ACTIVE_SHELL_COMMAND="${SHELL:-zsh}"
 fi
 
 say() { printf '\n==> %s\n' "$*"; }
@@ -799,5 +801,11 @@ done
 say "Done. The Scriptorium is installed."
 cleanup_rollback
 trap - EXIT INT TERM
+
+if [[ -t 0 ]]; then
+    printf 'Starting a configured shell; words and simplewords are ready to use.\n'
+    exec "$ACTIVE_SHELL_COMMAND" -i
+fi
+
 # shellcheck disable=SC2016
 printf 'Open a new terminal or run: source "$HOME/%s"\n' "$ACTIVE_SHELL_RC_NAME"
