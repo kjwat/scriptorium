@@ -9,7 +9,9 @@ TEXT_EXTENSIONS=.txt,.md,.markdown,.tex,.c,.h,.cpp,.hpp,.cc,.py,.sh,.conf,.ini,.
 PREVIEW=true
 PREVIEW_LINES=80
 
-TRASH_DIR=~/.local/share/simplefiles/trash
+# Empty uses the freedesktop trash for the file's own filesystem. This keeps
+# large external-drive deletions on that drive instead of copying them home.
+TRASH_DIR=
 CONFIRM_DELETE=true
 
 # File associations
