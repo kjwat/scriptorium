@@ -236,19 +236,23 @@ alias mail='simplemail'
 Run `simplecheck` or its `check` alias to review branch, ahead/behind, and
 working-tree status for `~/writing`, `~/scriptorium`, and `~/simplesuite` in
 one screen. Startup and normal refreshes are local; network access occurs only
-for an explicit check, pull, or push.
+for an explicit check, pull, or push. Local refreshes use one bounded status
+snapshot per repository and run all three snapshots concurrently.
 
 - `R`: refresh local status.
 - `C`: fetch and prune each repository's remote-tracking refs, then recalculate
-  ahead/behind counts.
-- `L`: check remotes, then pull repositories that are behind using
-  `git pull --rebase --autostash`.
+  ahead/behind counts. The three fetches run concurrently, so one slow remote
+  does not make the other repositories wait in series.
+- `L`: check remotes, then concurrently rebase repositories that are behind
+  onto their freshly fetched upstreams using autostash.
 - `P`: check remotes and refuse to continue if any repository is behind. If a
   working tree is dirty, SimpleCheck asks once for a commit message, runs
   `git add -A`, commits each dirty repository with that message, and pushes all
-  three repositories.
-- Up/Down or `j`/`k`: scroll; `Q`: quit. During a Git command, `Q` or Esc
-  cancels it; commands also have a 45-second timeout.
+  three repositories concurrently.
+- Up/Down or `j`/`k`: scroll; `Q`: quit. During a Git command, `Q`, Esc, or
+  Ctrl-C cancels it with a 25 ms input polling ceiling. Local status snapshots
+  have a 10-second timeout; network and mutating Git commands have a 45-second
+  timeout.
 - In the commit-message prompt, Left/Right and Home/End move the cursor;
   Backspace and Delete edit on either side of it.
 

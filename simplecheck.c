@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <time.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,7 +20,11 @@
 #define MAX_FILES 256
 #define MAX_FILE_LINE 512
 #define MAX_STATUS 256
-#define COMMAND_TIMEOUT_SECONDS 45
+#define LOCAL_COMMAND_TIMEOUT_MS 10000
+#define COMMAND_TIMEOUT_MS 45000
+#define UI_POLL_MS 25
+#define TERMINATE_GRACE_MS 20
+#define ESCAPE_DELAY_MS 25
 #define FOOTER_NOTICE_MS 1500
 
 #define RUN_FAILED 0
@@ -43,12 +48,28 @@ typedef struct {
     char last_action[MAX_STATUS];
 } Repo;
 
+typedef struct {
+    pid_t pid;
+    int fd;
+    char *out;
+    size_t out_sz;
+    size_t used;
+    int result;
+    int child_active;
+    int pipe_open;
+    int truncated;
+    int64_t deadline_ms;
+} CaptureJob;
+
 static Repo repos[REPO_COUNT];
 static int button_y, button_x, button_w;
 static int scroll_offset;
 static int footer_notice_active;
 static struct timespec footer_notice_deadline;
 static char footer[MAX_STATUS] = "P: push   L: pull   C: check remotes   R: refresh   Q: quit";
+static pid_t *deferred_children;
+static size_t deferred_child_count;
+static size_t deferred_child_capacity;
 
 static void draw(void);
 
@@ -60,98 +81,321 @@ static void set_footer(const char *fmt, ...)
     va_end(ap);
 }
 
-static void stop_child(pid_t pid)
+static int64_t monotonic_ms(void)
 {
-    if (pid <= 0) return;
-    kill(-pid, SIGTERM);
-    napms(150);
-    kill(-pid, SIGKILL);
-    while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+        return 0;
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
-static int run_capture(const char *cwd, char *const argv[], char *out, size_t out_sz)
+static void reap_deferred_children(void)
+{
+    size_t out = 0;
+
+    for (size_t i = 0; i < deferred_child_count; i++) {
+        pid_t waited;
+
+        do {
+            waited = waitpid(deferred_children[i], NULL, WNOHANG);
+        } while (waited < 0 && errno == EINTR);
+        if (waited == 0)
+            deferred_children[out++] = deferred_children[i];
+    }
+    deferred_child_count = out;
+}
+
+static void defer_child_reap(pid_t pid)
+{
+    pid_t *grown;
+    size_t next;
+
+    if (pid <= 0)
+        return;
+    reap_deferred_children();
+    if (deferred_child_count == deferred_child_capacity) {
+        next = deferred_child_capacity ? deferred_child_capacity * 2 : 8;
+        grown = realloc(deferred_children, next * sizeof(*grown));
+        if (!grown)
+            return;
+        deferred_children = grown;
+        deferred_child_capacity = next;
+    }
+    deferred_children[deferred_child_count++] = pid;
+}
+
+static int reap_child_until(pid_t pid, int64_t deadline_ms)
+{
+    for (;;) {
+        pid_t waited;
+
+        do {
+            waited = waitpid(pid, NULL, WNOHANG);
+        } while (waited < 0 && errno == EINTR);
+        if (waited == pid || (waited < 0 && errno == ECHILD))
+            return 1;
+        if (waited < 0 || monotonic_ms() >= deadline_ms)
+            return 0;
+        (void)poll(NULL, 0, 1);
+    }
+}
+
+/* Cancellation must not inherit a child process's shutdown latency. Give Git
+ * a very small graceful window, then kill the whole command group and defer a
+ * stubborn reap instead of blocking the curses loop. */
+static void stop_child(pid_t pid)
+{
+    int64_t deadline;
+
+    if (pid <= 0)
+        return;
+    if (kill(-pid, SIGTERM) != 0)
+        (void)kill(pid, SIGTERM);
+    deadline = monotonic_ms() + TERMINATE_GRACE_MS;
+    if (reap_child_until(pid, deadline))
+        return;
+
+    if (kill(-pid, SIGKILL) != 0)
+        (void)kill(pid, SIGKILL);
+    deadline = monotonic_ms() + TERMINATE_GRACE_MS;
+    if (!reap_child_until(pid, deadline))
+        defer_child_reap(pid);
+}
+
+static void capture_job_init(CaptureJob *job, char *out, size_t out_sz)
+{
+    memset(job, 0, sizeof(*job));
+    job->pid = -1;
+    job->fd = -1;
+    job->out = out;
+    job->out_sz = out_sz;
+    job->result = -1;
+    if (out_sz)
+        out[0] = '\0';
+}
+
+static int capture_job_start(CaptureJob *job, const char *cwd,
+                             char *const argv[], char *out, size_t out_sz,
+                             int timeout_ms)
 {
     int pipefd[2];
     pid_t pid;
-    size_t used = 0;
-    int status = -1;
-    struct timespec started;
 
-    if (out_sz) out[0] = '\0';
-    if (pipe(pipefd) < 0) return -1;
+    capture_job_init(job, out, out_sz);
+    if (pipe(pipefd) < 0)
+        return 0;
 
     pid = fork();
     if (pid < 0) {
         close(pipefd[0]);
         close(pipefd[1]);
-        return -1;
+        return 0;
     }
     if (pid == 0) {
         int nullfd;
-        setpgid(0, 0);
-        if (cwd && chdir(cwd) < 0) _exit(126);
-        nullfd = open("/dev/null", O_RDONLY);
-        if (nullfd >= 0) {
-            dup2(nullfd, STDIN_FILENO);
-            if (nullfd > STDERR_FILENO) close(nullfd);
-        }
-        dup2(pipefd[1], STDOUT_FILENO);
-        dup2(pipefd[1], STDERR_FILENO);
+
+        (void)setpgid(0, 0);
+        if (cwd && chdir(cwd) < 0)
+            _exit(126);
+        /* Close the read side first: it may occupy a standard descriptor when
+         * SimpleCheck was launched with that descriptor closed. */
         close(pipefd[0]);
-        close(pipefd[1]);
+        nullfd = open("/dev/null", O_RDONLY);
+        if (nullfd < 0 || dup2(nullfd, STDIN_FILENO) < 0)
+            _exit(126);
+        if (nullfd > STDERR_FILENO)
+            close(nullfd);
+
+        if (dup2(pipefd[1], STDOUT_FILENO) < 0 ||
+            dup2(pipefd[1], STDERR_FILENO) < 0)
+            _exit(126);
+        if (pipefd[1] > STDERR_FILENO)
+            close(pipefd[1]);
         setenv("GIT_TERMINAL_PROMPT", "0", 1);
         setenv("GCM_INTERACTIVE", "Never", 1);
         execvp(argv[0], argv);
         _exit(127);
     }
 
-    setpgid(pid, pid);
+    (void)setpgid(pid, pid);
     close(pipefd[1]);
-    fcntl(pipefd[0], F_SETFL, fcntl(pipefd[0], F_GETFL) | O_NONBLOCK);
-    clock_gettime(CLOCK_MONOTONIC, &started);
+    int flags = fcntl(pipefd[0], F_GETFL, 0);
+    int fd_flags = fcntl(pipefd[0], F_GETFD, 0);
+    if (flags < 0 || fd_flags < 0 ||
+        fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK) != 0 ||
+        fcntl(pipefd[0], F_SETFD, fd_flags | FD_CLOEXEC) != 0) {
+        close(pipefd[0]);
+        stop_child(pid);
+        return 0;
+    }
 
+    job->pid = pid;
+    job->fd = pipefd[0];
+    job->child_active = 1;
+    job->pipe_open = 1;
+    job->deadline_ms = monotonic_ms() + timeout_ms;
+    return 1;
+}
+
+static void capture_job_drain(CaptureJob *job)
+{
+    char chunk[4096];
+    int reads = 0;
+
+    /* A noisy child must yield back to input and deadline checks even if it
+     * can keep its pipe permanently readable. */
+    while (job->pipe_open && reads++ < 16) {
+        ssize_t count = read(job->fd, chunk, sizeof(chunk));
+
+        if (count > 0) {
+            size_t available = job->used + 1 < job->out_sz
+                                   ? job->out_sz - job->used - 1 : 0;
+            size_t copy = (size_t)count < available
+                              ? (size_t)count : available;
+            if (copy) {
+                memcpy(job->out + job->used, chunk, copy);
+                job->used += copy;
+                job->out[job->used] = '\0';
+            }
+            if (copy < (size_t)count)
+                job->truncated = 1;
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            return;
+        close(job->fd);
+        job->fd = -1;
+        job->pipe_open = 0;
+    }
+}
+
+static void capture_job_reap(CaptureJob *job)
+{
+    int status = 0;
+    pid_t waited;
+
+    if (!job->child_active)
+        return;
+    do {
+        waited = waitpid(job->pid, &status, WNOHANG);
+    } while (waited < 0 && errno == EINTR);
+    if (waited == 0)
+        return;
+    job->child_active = 0;
+    if (waited == job->pid && WIFEXITED(status))
+        job->result = WEXITSTATUS(status);
+    else
+        job->result = -1;
+
+    /* Once the direct command exits, no descendant is allowed to hold the UI
+     * open merely by retaining its inherited stdout descriptor. */
+    capture_job_drain(job);
+    if (job->pipe_open) {
+        close(job->fd);
+        job->fd = -1;
+        job->pipe_open = 0;
+    }
+}
+
+static void capture_job_stop(CaptureJob *job, int result)
+{
+    if (job->pipe_open) {
+        close(job->fd);
+        job->fd = -1;
+        job->pipe_open = 0;
+    }
+    if (job->child_active)
+        stop_child(job->pid);
+    job->child_active = 0;
+    job->result = result;
+}
+
+/* Pump all repository jobs together. Network checks therefore cost roughly
+ * the slowest remote, not the sum of all three, while Esc/Q and resize remain
+ * responsive throughout. Tests use interactive=0 without initializing curses. */
+static int wait_capture_jobs(CaptureJob jobs[], size_t count, int interactive)
+{
+    int cancelled = 0;
+
+    if (interactive)
+        timeout(0);
     for (;;) {
-        char discard[1024];
-        char *dst = used + 1 < out_sz ? out + used : discard;
-        size_t room = used + 1 < out_sz ? out_sz - used - 1 : sizeof(discard);
-        ssize_t n = read(pipefd[0], dst, room);
-        if (n > 0 && dst != discard) used += (size_t)n;
+        struct pollfd pollfds[REPO_COUNT + 1];
+        nfds_t poll_count = 0;
+        int active = 0;
+        int wait_ms = UI_POLL_MS;
+        int64_t now = monotonic_ms();
 
-        pid_t done = waitpid(pid, &status, WNOHANG);
-        if (done == pid) break;
-        if (done < 0 && errno != EINTR) break;
-
-        nodelay(stdscr, TRUE);
-        int ch = getch();
-        nodelay(stdscr, FALSE);
-        if (ch == 'q' || ch == 'Q' || ch == 27) {
-            close(pipefd[0]);
-            stop_child(pid);
-            if (out_sz) out[used] = '\0';
-            return -2;
+        reap_deferred_children();
+        for (size_t i = 0; i < count; i++) {
+            if (!jobs[i].child_active)
+                continue;
+            capture_job_drain(&jobs[i]);
+            capture_job_reap(&jobs[i]);
+            if (!jobs[i].child_active)
+                continue;
+            if (now >= jobs[i].deadline_ms) {
+                capture_job_stop(&jobs[i], -3);
+                continue;
+            }
+            active++;
+            int64_t remaining = jobs[i].deadline_ms - now;
+            if (remaining < wait_ms)
+                wait_ms = remaining > 0 ? (int)remaining : 0;
         }
 
-        struct timespec now;
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        if (now.tv_sec - started.tv_sec >= COMMAND_TIMEOUT_SECONDS) {
-            close(pipefd[0]);
-            stop_child(pid);
-            if (out_sz) out[used] = '\0';
-            return -3;
+        if (!active)
+            break;
+
+        if (interactive) {
+            int ch = getch();
+            if (ch == 'q' || ch == 'Q' || ch == 27 || ch == 3) {
+                cancelled = 1;
+                for (size_t i = 0; i < count; i++) {
+                    if (jobs[i].child_active)
+                        capture_job_stop(&jobs[i], -2);
+                }
+                break;
+            }
+            if (ch == KEY_RESIZE)
+                draw();
+            pollfds[poll_count++] = (struct pollfd) {
+                .fd = STDIN_FILENO,
+                .events = POLLIN
+            };
         }
 
-        struct pollfd pfd = { .fd = pipefd[0], .events = POLLIN | POLLHUP };
-        poll(&pfd, 1, 75);
-    }
+        for (size_t i = 0; i < count; i++) {
+            if (jobs[i].child_active && jobs[i].pipe_open) {
+                pollfds[poll_count++] = (struct pollfd) {
+                    .fd = jobs[i].fd,
+                    .events = POLLIN | POLLHUP
+                };
+            }
+        }
 
-    while (used + 1 < out_sz) {
-        ssize_t n = read(pipefd[0], out + used, out_sz - used - 1);
-        if (n > 0) used += (size_t)n;
-        else break;
+        int ready;
+        do {
+            ready = poll(pollfds, poll_count, wait_ms);
+        } while (ready < 0 && errno == EINTR);
     }
-    if (out_sz) out[used] = '\0';
-    close(pipefd[0]);
-    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    if (interactive)
+        timeout(-1);
+    return cancelled;
+}
+
+static int run_capture_timeout(const char *cwd, char *const argv[], char *out,
+                               size_t out_sz, int timeout_ms)
+{
+    CaptureJob job;
+
+    if (!capture_job_start(&job, cwd, argv, out, out_sz, timeout_ms))
+        return -1;
+    (void)wait_capture_jobs(&job, 1, 1);
+    return job.result;
 }
 
 static void trim_newline(char *s)
@@ -171,65 +415,171 @@ static void init_repos(void)
         snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home, repos[i].name);
 }
 
-static void parse_porcelain(Repo *r, char *text)
+static const char *skip_porcelain_fields(const char *text, int fields)
+{
+    for (int i = 0; i < fields; i++) {
+        while (*text == ' ')
+            text++;
+        while (*text && *text != ' ')
+            text++;
+        if (!*text)
+            return text;
+    }
+    while (*text == ' ')
+        text++;
+    return text;
+}
+
+static void add_changed_file(Repo *r, const char *status, const char *path)
+{
+    if (r->file_count < MAX_FILES) {
+        snprintf(r->files[r->file_count], MAX_FILE_LINE,
+                 "%.2s %s", status, path);
+        r->file_count++;
+    }
+    r->dirty = 1;
+}
+
+/* One porcelain-v2 status replaces four serial Git invocations per repo.
+ * Besides being faster, this gives branch, upstream, ahead/behind, and file
+ * state from the same index snapshot. */
+static void parse_porcelain_v2(Repo *r, char *text, int truncated)
 {
     char *save = NULL;
     char *line = strtok_r(text, "\n", &save);
+
+    r->is_repo = 1;
     r->file_count = 0;
     r->dirty = 0;
-    while (line && r->file_count < MAX_FILES) {
-        if (line[0]) {
-            snprintf(r->files[r->file_count], MAX_FILE_LINE, "%s", line);
-            r->file_count++;
-            r->dirty = 1;
+    r->ahead = 0;
+    r->behind = 0;
+    r->upstream_ok = 0;
+    r->branch[0] = '\0';
+
+    while (line) {
+        if (strncmp(line, "# branch.head ", 14) == 0) {
+            const char *head = line + 14;
+            snprintf(r->branch, sizeof(r->branch), "%s",
+                     strcmp(head, "(detached)") == 0
+                         ? "detached HEAD" : head);
+        } else if (strncmp(line, "# branch.ab +", 13) == 0) {
+            if (sscanf(line + 12, "+%d -%d", &r->ahead, &r->behind) == 2)
+                r->upstream_ok = 1;
+        } else if ((line[0] == '1' || line[0] == '2' || line[0] == 'u') &&
+                   line[1] == ' ' && line[2] && line[3]) {
+            int fields = line[0] == '1' ? 7 : line[0] == '2' ? 8 : 9;
+            const char *path = skip_porcelain_fields(line + 2, fields);
+            char status[3] = {
+                line[2] == '.' ? ' ' : line[2],
+                line[3] == '.' ? ' ' : line[3],
+                '\0'
+            };
+            if (*path)
+                add_changed_file(r, status, path);
+        } else if (line[0] == '?' && line[1] == ' ') {
+            add_changed_file(r, "??", line + 2);
         }
         line = strtok_r(NULL, "\n", &save);
     }
+
+    if (!r->branch[0])
+        snprintf(r->branch, sizeof(r->branch), "detached HEAD");
+    if (truncated && r->file_count < MAX_FILES) {
+        snprintf(r->files[r->file_count++], MAX_FILE_LINE,
+                 ".. additional status output omitted");
+        r->dirty = 1;
+    } else if (r->dirty && r->file_count == MAX_FILES) {
+        snprintf(r->files[MAX_FILES - 1], MAX_FILE_LINE,
+                 ".. additional changed files omitted");
+    }
 }
 
-static void refresh_repo(Repo *r)
+static const char *last_output_line(char *out)
 {
-    char out[MAX_OUTPUT];
-    char *git_check[] = {"git", "rev-parse", "--is-inside-work-tree", NULL};
-    char *branch[] = {"git", "branch", "--show-current", NULL};
-    char *status[] = {"git", "status", "--short", "--untracked-files=all", NULL};
-    char *counts[] = {"git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}", NULL};
+    char *last;
 
+    trim_newline(out);
+    last = strrchr(out, '\n');
+    return last && last[1] ? last + 1 : out;
+}
+
+static void reset_repo_snapshot(Repo *r)
+{
     r->exists = access(r->path, F_OK) == 0;
-    r->is_repo = r->dirty = r->ahead = r->behind = r->upstream_ok = r->file_count = 0;
+    r->is_repo = 0;
+    r->dirty = 0;
+    r->ahead = 0;
+    r->behind = 0;
+    r->upstream_ok = 0;
+    r->file_count = 0;
     r->branch[0] = '\0';
     r->result[0] = '\0';
-    if (!r->exists) {
+    if (!r->exists)
         snprintf(r->result, sizeof(r->result), "directory missing");
-        return;
-    }
-    if (run_capture(r->path, git_check, out, sizeof(out)) != 0 || strncmp(out, "true", 4) != 0) {
-        snprintf(r->result, sizeof(r->result), "not a Git repository");
-        return;
-    }
-    r->is_repo = 1;
-    if (run_capture(r->path, branch, out, sizeof(out)) == 0) {
-        trim_newline(out);
-        snprintf(r->branch, sizeof(r->branch), "%s", out[0] ? out : "detached HEAD");
-    }
-    if (run_capture(r->path, status, out, sizeof(out)) == 0)
-        parse_porcelain(r, out);
-
-    if (run_capture(r->path, counts, out, sizeof(out)) == 0) {
-        /*
-         * git rev-list --left-right --count HEAD...@{upstream}
-         * outputs: <ahead>\t<behind>
-         */
-        if (sscanf(out, "%d\t%d", &r->ahead, &r->behind) == 2)
-            r->upstream_ok = 1;
-    }
+    else
+        snprintf(r->result, sizeof(r->result), "refreshing local status...");
 }
 
-static void refresh_all(void)
+static int refresh_all(void)
 {
-    for (int i = 0; i < REPO_COUNT; i++) refresh_repo(&repos[i]);
+    CaptureJob jobs[REPO_COUNT];
+    char outputs[REPO_COUNT][MAX_OUTPUT];
+    char *status[] = {
+        "git", "--no-optional-locks", "status", "--porcelain=v2",
+        "--branch", "--ahead-behind", "--untracked-files=all", NULL
+    };
+    int all_ok = 1;
+    int cancelled;
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        Repo *r = &repos[i];
+        reset_repo_snapshot(r);
+        capture_job_init(&jobs[i], outputs[i], sizeof(outputs[i]));
+        if (r->exists &&
+            !capture_job_start(&jobs[i], r->path, status, outputs[i],
+                               sizeof(outputs[i]), LOCAL_COMMAND_TIMEOUT_MS)) {
+            snprintf(r->result, sizeof(r->result),
+                     "could not start local Git status");
+            all_ok = 0;
+        }
+    }
+
+    set_footer("Refreshing local status... Q, Esc, or Ctrl-C cancels");
+    draw();
+    cancelled = wait_capture_jobs(jobs, REPO_COUNT, 1);
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        Repo *r = &repos[i];
+        const char *error;
+
+        if (!r->exists)
+            continue;
+        if (jobs[i].result == 0) {
+            parse_porcelain_v2(r, outputs[i], jobs[i].truncated);
+            r->result[0] = '\0';
+            continue;
+        }
+
+        all_ok = 0;
+        if (jobs[i].result == -2) {
+            snprintf(r->result, sizeof(r->result), "local refresh cancelled");
+        } else if (jobs[i].result == -3) {
+            snprintf(r->result, sizeof(r->result),
+                     "local status stopped after %d-second timeout",
+                     LOCAL_COMMAND_TIMEOUT_MS / 1000);
+        } else {
+            error = last_output_line(outputs[i]);
+            snprintf(r->result, sizeof(r->result), "Git status failed: %.210s",
+                     error[0] ? error : "not a Git repository");
+        }
+    }
+
     scroll_offset = 0;
-    set_footer("Refreshed. P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+    if (cancelled)
+        set_footer("Refresh cancelled. P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+    else
+        set_footer("Refreshed. P: push   L: pull   C: check remotes   R: refresh   Q: quit");
+    return cancelled ? RUN_CANCELLED : all_ok ? RUN_OK : RUN_FAILED;
 }
 
 static int prompt_line(const char *label, char *buf, size_t size)
@@ -340,12 +690,8 @@ static int prompt_line(const char *label, char *buf, size_t size)
     }
 }
 
-static int run_git(Repo *r, char *const argv[], const char *verb)
+static int store_git_result(Repo *r, int rc, char *out, const char *verb)
 {
-    char out[MAX_OUTPUT];
-    set_footer("%s: %s in progress... Q or Esc cancels", r->name, verb);
-    draw();
-    int rc = run_capture(r->path, argv, out, sizeof(out));
     trim_newline(out);
     if (rc == 0) {
         snprintf(r->last_action, sizeof(r->last_action), "%s complete", verb);
@@ -356,58 +702,130 @@ static int run_git(Repo *r, char *const argv[], const char *verb)
         return RUN_CANCELLED;
     }
     if (rc == -3) {
-        snprintf(r->last_action, sizeof(r->last_action), "%s stopped after %d-second timeout", verb, COMMAND_TIMEOUT_SECONDS);
+        snprintf(r->last_action, sizeof(r->last_action),
+                 "%s stopped after %d-second timeout", verb,
+                 COMMAND_TIMEOUT_MS / 1000);
         return RUN_FAILED;
     }
-    const char *last = strrchr(out, '\n');
-    if (last && last[1]) last++;
-    else last = out;
-    snprintf(r->last_action, sizeof(r->last_action), "%s failed: %.190s", verb, last[0] ? last : "unknown Git error");
+    const char *last = last_output_line(out);
+    snprintf(r->last_action, sizeof(r->last_action), "%s failed: %.190s",
+             verb, last[0] ? last : "unknown Git error");
     return RUN_FAILED;
+}
+
+static int run_git(Repo *r, char *const argv[], const char *verb)
+{
+    char out[MAX_OUTPUT];
+    set_footer("%s: %s in progress... Q, Esc, or Ctrl-C cancels",
+               r->name, verb);
+    draw();
+    int rc = run_capture_timeout(r->path, argv, out, sizeof(out),
+                                 COMMAND_TIMEOUT_MS);
+    return store_git_result(r, rc, out, verb);
+}
+
+static int run_git_batch(const int selected[REPO_COUNT], char *const argv[],
+                         const char *verb, int results[REPO_COUNT])
+{
+    CaptureJob jobs[REPO_COUNT];
+    char outputs[REPO_COUNT][MAX_OUTPUT];
+    int selected_count = 0;
+    int all_ok = 1;
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        capture_job_init(&jobs[i], outputs[i], sizeof(outputs[i]));
+        results[i] = RUN_FAILED;
+        if (!selected[i])
+            continue;
+        selected_count++;
+        if (!capture_job_start(&jobs[i], repos[i].path, argv, outputs[i],
+                               sizeof(outputs[i]), COMMAND_TIMEOUT_MS))
+            all_ok = 0;
+    }
+    if (selected_count == 0)
+        return RUN_OK;
+
+    set_footer("%s running in %d %s... Q, Esc, or Ctrl-C cancels",
+               verb, selected_count,
+               selected_count == 1 ? "repository" : "repositories");
+    draw();
+    int cancelled = wait_capture_jobs(jobs, REPO_COUNT, 1);
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (!selected[i])
+            continue;
+        results[i] = store_git_result(&repos[i], jobs[i].result,
+                                      outputs[i], verb);
+        if (results[i] != RUN_OK)
+            all_ok = 0;
+    }
+    return cancelled ? RUN_CANCELLED : all_ok ? RUN_OK : RUN_FAILED;
 }
 
 static int check_remotes(void)
 {
-    char out[MAX_OUTPUT];
+    CaptureJob jobs[REPO_COUNT];
+    char outputs[REPO_COUNT][MAX_OUTPUT];
     char errors[REPO_COUNT][MAX_STATUS];
+    char *fetch[] = { "git", "fetch", "--quiet", "--prune", NULL };
     int all_ok = 1;
+    int cancelled;
 
     memset(errors, 0, sizeof(errors));
-
-    set_footer("Checking remotes...");
-    draw();
 
     for (int i = 0; i < REPO_COUNT; i++) {
         Repo *r = &repos[i];
 
-        if (!r->is_repo)
-            continue;
-
-        char *fetch[] = {
-            "git", "fetch", "--quiet", "--prune", NULL
-        };
-
-        int rc = run_capture(r->path, fetch, out, sizeof(out));
-
-        if (rc != 0) {
-            trim_newline(out);
+        capture_job_init(&jobs[i], outputs[i], sizeof(outputs[i]));
+        if (r->is_repo &&
+            !capture_job_start(&jobs[i], r->path, fetch, outputs[i],
+                               sizeof(outputs[i]), COMMAND_TIMEOUT_MS)) {
             snprintf(errors[i], sizeof(errors[i]),
-                     "remote check failed: %.180s",
-                     out[0] ? out : "unknown Git error");
+                     "remote check failed: could not start git fetch");
             all_ok = 0;
         }
+    }
+
+    set_footer("Checking all remotes concurrently... Q, Esc, or Ctrl-C cancels");
+    draw();
+    cancelled = wait_capture_jobs(jobs, REPO_COUNT, 1);
+
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (!repos[i].is_repo || jobs[i].result == 0 || errors[i][0])
+            continue;
+        if (jobs[i].result == -2) {
+            snprintf(errors[i], sizeof(errors[i]), "remote check cancelled");
+        } else if (jobs[i].result == -3) {
+            snprintf(errors[i], sizeof(errors[i]),
+                     "remote check stopped after %d-second timeout",
+                     COMMAND_TIMEOUT_MS / 1000);
+        } else {
+            const char *error = last_output_line(outputs[i]);
+            snprintf(errors[i], sizeof(errors[i]),
+                     "remote check failed: %.180s",
+                     error[0] ? error : "unknown Git error");
+        }
+        all_ok = 0;
+    }
+
+    if (cancelled) {
+        for (int i = 0; i < REPO_COUNT; i++) {
+            if (errors[i][0])
+                snprintf(repos[i].last_action,
+                         sizeof(repos[i].last_action), "%.255s", errors[i]);
+        }
+        return RUN_CANCELLED;
     }
 
     /*
      * Fetch updated the remote-tracking refs. This second pass is local
      * and recalculates ahead/behind without touching the network.
      */
-    refresh_all();
+    int refresh_rc = refresh_all();
 
     /*
-     * refresh_all() clears per-repository messages, so restore any fetch
-     * failures afterward instead of accidentally reporting stale refs as
-     * current.
+     * Restore fetch failures after repainting the local snapshots so a failed
+     * remote can never look current merely because its stale refs parsed.
      */
     for (int i = 0; i < REPO_COUNT; i++) {
         if (errors[i][0])
@@ -415,7 +833,9 @@ static int check_remotes(void)
                      "%.255s", errors[i]);
     }
 
-    return all_ok;
+    if (refresh_rc == RUN_CANCELLED)
+        return RUN_CANCELLED;
+    return all_ok && refresh_rc == RUN_OK ? RUN_OK : RUN_FAILED;
 }
 
 static int any_repo_behind(void)
@@ -478,13 +898,18 @@ static int footer_notice_remaining_ms(void)
 static void pull_all(void)
 {
     int found = 0;
-    int failed = 0;
-    int cancelled = 0;
+    int selected[REPO_COUNT] = {0};
+    int results[REPO_COUNT];
 
     /*
      * Network access happens only after the user explicitly presses L.
      */
-    if (!check_remotes()) {
+    int remote_rc = check_remotes();
+    if (remote_rc == RUN_CANCELLED) {
+        show_temporary_footer("Pull cancelled.");
+        return;
+    }
+    if (remote_rc != RUN_OK) {
         show_temporary_footer("Pull aborted: at least one remote check failed.");
         return;
     }
@@ -501,32 +926,8 @@ static void pull_all(void)
             continue;
 
         found = 1;
+        selected[i] = 1;
         r->last_action[0] = '\0';
-
-        /*
-         * Autostash protects local working changes while rebasing the
-         * incoming commits. Git restores them afterward.
-         */
-        char *pull[] = {
-            "git", "pull", "--rebase", "--autostash", NULL
-        };
-
-        int rc = run_git(r, pull, "pull");
-
-        if (rc == RUN_CANCELLED) {
-            cancelled = 1;
-            break;
-        }
-
-        if (rc != RUN_OK)
-            failed = 1;
-    }
-
-    refresh_all();
-
-    if (cancelled) {
-        show_temporary_footer("Pull cancelled.");
-        return;
     }
 
     if (!found) {
@@ -534,7 +935,18 @@ static void pull_all(void)
         return;
     }
 
-    if (failed)
+    /* check_remotes() already fetched each upstream. Rebase directly onto
+     * those refs so pull does not perform the same network request twice. The
+     * repositories are independent, so their rebases can run concurrently. */
+    char *rebase[] = {
+        "git", "rebase", "--autostash", "@{upstream}", NULL
+    };
+    int batch_rc = run_git_batch(selected, rebase, "pull", results);
+    (void)refresh_all();
+
+    if (batch_rc == RUN_CANCELLED)
+        show_temporary_footer("Pull cancelled.");
+    else if (batch_rc != RUN_OK)
         show_temporary_footer("Pull finished with errors. Review the repository messages above.");
     else
         show_temporary_footer("Pull complete. All available updates were applied.");
@@ -546,7 +958,12 @@ static void push_all(void)
      * Startup and ordinary refreshes remain instant. Network access
      * occurs here only because the user explicitly requested a push.
      */
-    if (!check_remotes()) {
+    int remote_rc = check_remotes();
+    if (remote_rc == RUN_CANCELLED) {
+        show_temporary_footer("Push cancelled.");
+        return;
+    }
+    if (remote_rc != RUN_OK) {
         show_temporary_footer("Push aborted: at least one remote check failed.");
         return;
     }
@@ -580,6 +997,8 @@ static void push_all(void)
     }
 
     int cancelled = 0;
+    int ready[REPO_COUNT] = {0};
+    int push_results[REPO_COUNT];
     for (int i = 0; i < REPO_COUNT && !cancelled; i++) {
         Repo *r = &repos[i];
         r->push_ok = 0;
@@ -595,10 +1014,18 @@ static void push_all(void)
             if (rc == RUN_CANCELLED) { cancelled = 1; break; }
             if (rc != RUN_OK) continue;
         }
+        ready[i] = 1;
+    }
+
+    if (!cancelled) {
         char *push[] = {"git", "push", NULL};
-        int rc = run_git(r, push, "push");
-        if (rc == RUN_CANCELLED) { cancelled = 1; break; }
-        if (rc == RUN_OK) r->push_ok = 1;
+        int batch_rc = run_git_batch(ready, push, "push", push_results);
+        if (batch_rc == RUN_CANCELLED)
+            cancelled = 1;
+        for (int i = 0; i < REPO_COUNT; i++) {
+            if (ready[i] && push_results[i] == RUN_OK)
+                repos[i].push_ok = 1;
+        }
     }
 
     refresh_all();
@@ -685,10 +1112,18 @@ static void draw(void)
 int main(void)
 {
     init_repos();
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
+        fprintf(stderr,
+                "simplecheck: refusing to run without a terminal on stdin and stdout\n");
+        return 1;
+    }
+    setenv("ESCDELAY", "25", 1);
     initscr();
-    cbreak();
+    set_escdelay(ESCAPE_DELAY_MS);
+    raw();
     noecho();
     keypad(stdscr, TRUE);
+    notimeout(stdscr, FALSE);
     curs_set(0);
     mousemask(BUTTON1_CLICKED, NULL);
     refresh_all();
@@ -714,11 +1149,14 @@ int main(void)
         if (footer_notice_active)
             restore_normal_footer();
 
-        if (ch == 'q' || ch == 'Q') break;
+        if (ch == 'q' || ch == 'Q' || ch == 3) break;
         if (ch == 'r' || ch == 'R') refresh_all();
         else if (ch == 'c' || ch == 'C') {
-            if (check_remotes())
+            int rc = check_remotes();
+            if (rc == RUN_OK)
                 show_temporary_footer("Remote check complete.");
+            else if (rc == RUN_CANCELLED)
+                show_temporary_footer("Remote check cancelled.");
             else
                 show_temporary_footer("Remote check finished with errors. Review repository messages.");
         }
@@ -735,5 +1173,7 @@ int main(void)
         }
     }
     endwin();
+    reap_deferred_children();
+    free(deferred_children);
     return 0;
 }
