@@ -10,6 +10,9 @@ case "$os" in
     Darwin)
         result=macos
         ;;
+    FreeBSD)
+        result=freebsd
+        ;;
     MINGW* | MSYS* | CYGWIN*)
         result=msys2
         ;;

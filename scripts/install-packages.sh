@@ -11,6 +11,10 @@ platform_id() {
         printf '%s\n' macos
         return
     fi
+    if [ "$(uname -s 2>/dev/null || echo unknown)" = FreeBSD ]; then
+        printf '%s\n' freebsd
+        return
+    fi
 
     [ -r /etc/os-release ] || {
         printf '%s\n' unknown
@@ -111,7 +115,7 @@ dependencies_already_present() {
     done
 
     case "$family" in
-        macos)
+        macos | freebsd)
             have_gnu_make || return 1
             ;;
         *)
@@ -127,7 +131,7 @@ dependencies_already_present() {
     have_reminder_scheduler || return 1
 
     case "$family" in
-        macos | msys2) ;;
+        macos | msys2 | freebsd) ;;
         *)
             have_cmd python3 || return 1
             have_simplebrowse_js || return 1
@@ -141,6 +145,17 @@ dependencies_already_present() {
             have_cmd parec || return 1
             ;;
         msys2)
+            ;;
+        freebsd)
+            have_cmd xdg-open || return 1
+            have_cmd gio || return 1
+            have_cmd umount || return 1
+            have_cmd ifconfig || return 1
+            have_cmd route || return 1
+            have_cmd wpa_cli || return 1
+            (have_cmd xclip || have_cmd xsel) || return 1
+            have_cmd pactl || return 1
+            have_cmd parec || return 1
             ;;
         *)
             for dependency_command in \
@@ -218,6 +233,11 @@ repository_help() {
                 '   Repair Homebrew according to the reported remote/tap error, then run:' \
                 '     brew update' >&2
             ;;
+        freebsd)
+            printf '%s\n' \
+                '   Check that the FreeBSD package repository is enabled with: pkg -vv' \
+                '   Then refresh its catalogue with: sudo pkg update -f' >&2
+            ;;
     esac
 
     printf '\n   After repairing the repositories, run ./install.sh again.\n' >&2
@@ -263,7 +283,7 @@ package_unavailable_help() {
                 '   Refresh mirrors and use repositories matching the installed' \
                 '   Arch-derived distribution; do not mix release snapshots.' >&2
             ;;
-        fedora | suse | void)
+        fedora | suse | void | freebsd)
             printf '%s\n' \
                 '   Make sure the official repositories for a currently supported' \
                 '   release are enabled and match the installed system.' >&2
@@ -370,6 +390,16 @@ explain_repository_failure() {
                 'invalid value for HOMEBREW_.*_GIT_REMOTE|not a git repository.*Homebrew|no remote.*origin' \
                 "$error_log"; then
                 repository_help macos
+                return 0
+            fi
+            ;;
+        freebsd)
+            if grep -Eqi 'no packages available|unable to update repository|no repositories configured' "$error_log"; then
+                repository_help freebsd
+                return 0
+            fi
+            if grep -Eqi 'no packages available to install matching|was not found in the repositories' "$error_log"; then
+                package_unavailable_help freebsd
                 return 0
             fi
             ;;
@@ -553,7 +583,7 @@ if [ "$family" = unknown ]; then
         IFS= read -r saved_family < "$family_file" || true
 
         case "$saved_family" in
-            debian | arch | fedora | alpine | void | suse)
+            debian | arch | fedora | alpine | void | suse | freebsd)
                 family=$saved_family
                 ;;
             *)
@@ -571,7 +601,8 @@ if [ "$family" = unknown ]; then
                 '3) fedora (dnf)' \
                 '4) alpine (apk)' \
                 '5) void (xbps)' \
-                '6) suse (zypper)'
+                '6) suse (zypper)' \
+                '7) freebsd (pkg)'
             printf '\nEnter choice: '
 
             if ! IFS= read -r choice; then
@@ -586,8 +617,9 @@ if [ "$family" = unknown ]; then
                 4) family=alpine ;;
                 5) family=void ;;
                 6) family=suse ;;
+                7) family=freebsd ;;
                 *)
-                    printf '\nInvalid choice. Enter a number from 1 to 6.\n\n' >&2
+                    printf '\nInvalid choice. Enter a number from 1 to 7.\n\n' >&2
                     continue
                     ;;
             esac
@@ -635,6 +667,7 @@ case "$family" in
     void) package_manager=xbps-install ;;
     suse) package_manager=zypper ;;
     macos) package_manager=brew ;;
+    freebsd) package_manager=pkg ;;
     *) package_manager= ;;
 esac
 
@@ -726,6 +759,15 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync cron
+        ;;
+    freebsd)
+        run_package_command freebsd as_root env LC_ALL=C pkg update
+        run_package_command freebsd as_root env LC_ALL=C pkg install -y \
+            bash gmake pkgconf ncurses glib curl openssl \
+            git mpv poppler-utils pandoc \
+            nano zip unzip gtar xdg-utils file less fzf pulseaudio wl-clipboard xclip xsel \
+            python3 \
+            isync msmtp calcurse links ca_root_nss rsync
         ;;
     macos)
         if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find clang >/dev/null 2>&1; then

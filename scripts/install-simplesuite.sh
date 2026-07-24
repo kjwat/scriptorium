@@ -133,6 +133,10 @@ fi
 
 configure_homebrew_build_environment
 
+if [[ $(uname -s 2>/dev/null || true) == FreeBSD ]]; then
+    export MAKE=gmake
+fi
+
 if [ -x "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh" ]; then
     "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh"
 elif [ -x "$DEST/checkdeps.sh" ]; then

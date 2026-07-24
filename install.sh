@@ -25,6 +25,18 @@ if [ "${SCRIPTORIUM_BASH_BOOTSTRAPPED_PID:-}" != "$$" ] ||
                     'Run as root or install Bash first with: apk add bash' >&2
                 exit 1
             fi
+        elif [ "$(uname -s 2>/dev/null || true)" = FreeBSD ] &&
+             command -v pkg >/dev/null 2>&1; then
+            if [ "$(id -u)" -eq 0 ]; then
+                pkg install -y bash
+            elif command -v sudo >/dev/null 2>&1; then
+                sudo pkg install -y bash
+            else
+                printf '%s\n' \
+                    'Bash is required, but sudo is unavailable.' \
+                    'Run as root or install Bash first with: pkg install bash' >&2
+                exit 1
+            fi
         else
             printf '%s\n' \
                 'Bash is required to run the Scriptorium installer.' \

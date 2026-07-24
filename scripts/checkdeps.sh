@@ -72,6 +72,7 @@ js_pkg_hint() {
         void) echo "python3 python3-gobject libwebkit2gtk41" ;;
         suse) echo "python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1" ;;
         macos) echo "not available through Homebrew on macOS; use SimpleBrowse reader mode" ;;
+        freebsd) echo "optional Python GObject and WebKitGTK 4.1 packages" ;;
         *) echo "python3 python3-gobject WebKit2GTK-4.1 introspection" ;;
     esac
 }
@@ -115,13 +116,18 @@ is_gnu_make() {
 }
 
 check_make() {
-    if [ "$family" = macos ]; then
+    if [ "$family" = macos ] || [ "$family" = freebsd ]; then
         if have_cmd make && is_gnu_make make; then
             printf "FOUND:   %-16s (%s)\n" "GNU make" "make"
         elif have_cmd gmake && is_gnu_make gmake; then
             printf "FOUND:   %-16s (%s)\n" "GNU make" "gmake"
         else
-            printf "MISSING: %-16s (%s)\n" "GNU make" "brew install make"
+            if [ "$family" = freebsd ]; then
+                make_hint="pkg install gmake"
+            else
+                make_hint="brew install make"
+            fi
+            printf "MISSING: %-16s (%s)\n" "GNU make" "$make_hint"
             add_missing required "GNU make"
         fi
     else
@@ -187,6 +193,7 @@ detect_platform() {
 
     case "$os" in
         Darwin) distro="macos"; return ;;
+        FreeBSD) distro="freebsd"; return ;;
         MINGW*|MSYS*|CYGWIN*) distro="windows"; return ;;
     esac
 
@@ -301,6 +308,12 @@ packages_for_family() {
             PKG_RUNTIME="git mpv poppler pandoc isync msmtp calcurse links rsync"
             PKG_OPTIONAL="nano zip unzip libmagic less fzf pulseaudio"
             ;;
+        freebsd)
+            INSTALL="sudo pkg install"
+            PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links ca_root_nss rsync"
+            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio wl-clipboard xclip xsel python3"
+            ;;
         msys2)
             INSTALL="pacman -S --needed"
             PKG_REQUIRED="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ncurses mingw-w64-x86_64-curl"
@@ -374,6 +387,19 @@ fi
 
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
+elif [ "$family" = "freebsd" ]; then
+    check_cmd optional umount "unmount helper"
+    check_cmd optional xdg-open "xdg-open"
+    check_cmd optional ifconfig "simplenet wireless discovery"
+    check_cmd optional route "simplenet routing"
+    check_cmd optional wpa_cli "simplenet backend"
+    if have_cmd xclip || have_cmd xsel; then
+        printf "FOUND:   %-16s (%s)\n" "X11 clipboard" \
+            "$(have_cmd xclip && echo xclip || echo xsel)"
+    else
+        printf "MISSING: %-16s (%s)\n" "X11 clipboard" "xclip or xsel"
+        add_missing optional "xclip"
+    fi
 elif [ "$family" != "msys2" ]; then
     check_cmd optional findmnt "findmnt"
     if have_cmd udisksctl || have_cmd umount; then

@@ -65,8 +65,8 @@ on platform availability:
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
-Fedora, Alpine (with `main` and `community`), Void, openSUSE Tumbleweed, and
-macOS/Homebrew. RHEL/CentOS-family releases, SLES, and openSUSE Leap do not
+Fedora, Alpine (with `main` and `community`), Void, openSUSE Tumbleweed,
+FreeBSD (`pkg`), and macOS/Homebrew. RHEL/CentOS-family releases, SLES, and openSUSE Leap do not
 consistently carry the complete feature set in their default repositories; the
 installer stops before changing packages unless the dependencies were already
 provisioned. If platform detection is unknown, `scripts/install-packages.sh`
