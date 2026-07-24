@@ -32,6 +32,7 @@ SimpleSuite programs:
 - `simplewords`
 - `simplefiles`
 - `simplemail`
+- `simplenet`
 - `simplecal`
 - `simpleclock`
 - `simpleflac`
@@ -55,6 +56,8 @@ on platform availability:
   JavaScript mode on supported Linux families
 - `git`, `mpv`, `links`, `fzf`, `calcurse`
 - `isync`/`mbsync` and `msmtp` for SimpleMail
+- NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
+  SimpleNet Wi-Fi management and adapter diagnostics
 - `pdftotext`/poppler and `pandoc` for SimplePDF
 - `zip`, `unzip`, `tar`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
 - `util-linux`, UDisks, and cron tooling for SimpleFiles drives and SimpleCal
@@ -229,6 +232,7 @@ alias game='simplegame'
 alias pdf='simplepdf'
 alias news='simplenews'
 alias mail='simplemail'
+alias net='simplenet'
 ```
 
 ## SimpleCheck

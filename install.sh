@@ -284,6 +284,7 @@ ensure_simplesuite_aliases_in_file() {
         "alias pdf='simplepdf'"
         "alias news='simplenews'"
         "alias mail='simplemail'"
+        "alias net='simplenet'"
     )
 
     mkdir -p "$(dirname "$shell_rc")"
@@ -347,6 +348,7 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simpleflac
     simplegame
     simplemail
+    simplenet
     simplepdf
     simplepod
     simpleradio

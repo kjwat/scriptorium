@@ -102,7 +102,7 @@ run_simplesuite_burn
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail; do
+for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -237,6 +237,7 @@ clean_shell_rc() {
             aliases["pdf"] = "simplepdf"
             aliases["news"] = "simplenews"
             aliases["mail"] = "simplemail"
+            aliases["net"] = "simplenet"
             quote = sprintf("%c", 39)
         }
         $0 == "# Scriptorium user binaries" { next }

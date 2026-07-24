@@ -26,7 +26,7 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
 set -eu
 
-programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
+programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenet simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source'
 
@@ -60,6 +60,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
     >"$TMP/install.log"
 
 [[ -x "$HOME/.local/bin/simplewords" ]]
+[[ -x "$HOME/.local/bin/simplenet" ]]
 [[ -x "$HOME/.local/bin/simplesuite-uninstall" ]]
 [[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]]
 [[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]]

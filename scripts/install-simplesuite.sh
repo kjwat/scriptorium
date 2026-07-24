@@ -25,6 +25,7 @@ simplefiles
 simpleflac
 simplegame
 simplemail
+simplenet
 simplepdf
 simplepod
 simpleradio
