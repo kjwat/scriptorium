@@ -9,6 +9,7 @@ export HOME="$TMP/home"
 FAKE_ROOT="$HOME/scriptorium"
 FAKE_SUITE="$HOME/simplesuite"
 FAKE_BIN="$TMP/test-bin"
+REAL_BASH_DIR="$(dirname "$(command -v bash)")"
 mkdir -p "$FAKE_ROOT" "$FAKE_SUITE" "$FAKE_BIN" "$HOME/.local/bin"
 cp "$SOURCE_ROOT/burn.sh" "$SOURCE_ROOT/burn-writing.sh" "$FAKE_ROOT/"
 
@@ -76,7 +77,7 @@ EOF
 ln -s "$HOME/.mbsyncrc" "$HOME/.config/isyncrc"
 
 printf '%s\n' BURN | \
-    PATH="$FAKE_BIN:/usr/bin:/bin" \
+    PATH="$FAKE_BIN:$REAL_BASH_DIR:/usr/local/bin:/usr/bin:/bin" \
     SIMPLESUITE_DIR="$FAKE_SUITE" \
     "$FAKE_ROOT/burn.sh" >"$TMP/burn.log"
 

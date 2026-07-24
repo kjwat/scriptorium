@@ -1,9 +1,9 @@
 #!/bin/sh
 # shellcheck shell=bash
 
-# Alpine's base installation does not include Bash.  Keep this bootstrap in
+# Alpine and FreeBSD base installations do not include Bash. Keep this bootstrap in
 # POSIX sh so ./install.sh can install Bash before the Bash implementation
-# below is parsed.  The other supported platforms provide Bash by default.
+# below is parsed.
 # The marker also forces macOS /bin/sh (Bash in POSIX mode) to re-exec as Bash.
 if [ "${SCRIPTORIUM_BASH_BOOTSTRAPPED_PID:-}" != "$$" ] ||
    [ -z "${BASH_VERSION:-}" ]; then
@@ -770,7 +770,8 @@ export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
 say "Installing SimpleSuite"
-SIMPLESUITE_INSTALL_REMINDERS=0 "$ROOT/scripts/install-simplesuite.sh"
+SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$ROOT/scripts/install-simplesuite.sh"
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"

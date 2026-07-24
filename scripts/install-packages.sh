@@ -394,12 +394,12 @@ explain_repository_failure() {
             fi
             ;;
         freebsd)
-            if grep -Eqi 'no packages available|unable to update repository|no repositories configured' "$error_log"; then
-                repository_help freebsd
-                return 0
-            fi
             if grep -Eqi 'no packages available to install matching|was not found in the repositories' "$error_log"; then
                 package_unavailable_help freebsd
+                return 0
+            fi
+            if grep -Eqi 'no packages available|unable to update repository|no repositories configured' "$error_log"; then
+                repository_help freebsd
                 return 0
             fi
             ;;
@@ -764,8 +764,8 @@ case "$family" in
         run_package_command freebsd as_root env LC_ALL=C pkg update
         run_package_command freebsd as_root env LC_ALL=C pkg install -y \
             bash gmake pkgconf ncurses glib curl openssl \
-            git mpv poppler-utils pandoc \
-            nano zip unzip gtar xdg-utils file less fzf pulseaudio wl-clipboard xclip xsel \
+            git mpv poppler-utils hs-pandoc \
+            nano zip unzip gtar xdg-utils file less fzf pulseaudio wl-clipboard xclip xsel-conrad \
             python3 \
             isync msmtp calcurse links ca_root_nss rsync
         ;;

@@ -1,11 +1,12 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 SCRIPTORIUM_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
+SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_ASSETS="
 simplecal-alarm.mp3
 simplewords-typewriter.wav
@@ -45,6 +46,14 @@ case "$SIMPLESUITE_INSTALL_REMINDERS" in
         ;;
 esac
 
+case "$SIMPLESUITE_INSTALL_PACKAGES" in
+    0 | 1 | auto) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_PACKAGES must be 0, 1, or auto." >&2
+        exit 2
+        ;;
+esac
+
 cleanup() {
     if [ -n "$MACOS_COMPAT_DIR" ] && [ -d "$MACOS_COMPAT_DIR" ]; then
         rm -rf "$MACOS_COMPAT_DIR"
@@ -53,11 +62,6 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-
-if ! command -v git >/dev/null 2>&1; then
-    echo "git is required to install SimpleSuite." >&2
-    exit 1
-fi
 
 prepend_pkgconfig_dir() {
     pkgconfig_dir=$1
@@ -107,11 +111,61 @@ configure_homebrew_build_environment() {
     export CPPFLAGS LDFLAGS PKG_CONFIG_PATH
 }
 
-directory_has_entries() (
-    shopt -s dotglob nullglob
-    entries=("$1"/*)
-    ((${#entries[@]} > 0))
-)
+directory_has_entries() {
+    [ -d "$1" ] || return 1
+
+    for entry in "$1"/.[!.]* "$1"/..?* "$1"/*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        return 0
+    done
+
+    return 1
+}
+
+run_checkdeps() {
+    checkdeps_script=$1
+
+    [ -x "$checkdeps_script" ] || return 0
+    if head -n 1 "$checkdeps_script" 2>/dev/null | grep -q 'bash' &&
+       ! command -v bash >/dev/null 2>&1; then
+        echo "Skipping $checkdeps_script because Bash is not on PATH." >&2
+        echo "SimpleSuite build errors, if any, will still be reported below." >&2
+        return 0
+    fi
+
+    if ! "$checkdeps_script"; then
+        echo "Dependency check reported missing packages; continuing with the build." >&2
+        echo "Install the reported packages for the complete runtime feature set." >&2
+    fi
+}
+
+install_packages_if_needed() {
+    case "$SIMPLESUITE_INSTALL_PACKAGES" in
+        0)
+            return 0
+            ;;
+        auto)
+            [ "$(uname -s 2>/dev/null || true)" = FreeBSD ] || return 0
+            ;;
+    esac
+
+    if [ ! -x "$SCRIPTORIUM_ROOT/scripts/install-packages.sh" ]; then
+        if [ "$SIMPLESUITE_INSTALL_PACKAGES" = 1 ]; then
+            echo "SIMPLESUITE_INSTALL_PACKAGES=1, but scripts/install-packages.sh was not found." >&2
+            exit 1
+        fi
+        return 0
+    fi
+
+    "$SCRIPTORIUM_ROOT/scripts/install-packages.sh"
+}
+
+install_packages_if_needed
+
+if ! command -v git >/dev/null 2>&1; then
+    echo "git is required to install SimpleSuite." >&2
+    exit 1
+fi
 
 mkdir -p "$(dirname "$DEST")"
 
@@ -133,20 +187,21 @@ fi
 
 configure_homebrew_build_environment
 
-if [[ $(uname -s 2>/dev/null || true) == FreeBSD ]]; then
+if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
     export MAKE=gmake
 fi
 
 if [ -x "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh" ]; then
-    "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh"
+    run_checkdeps "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh"
 elif [ -x "$DEST/checkdeps.sh" ]; then
-    "$DEST/checkdeps.sh"
+    run_checkdeps "$DEST/checkdeps.sh"
 fi
 
 if [ -x "$DEST/build.sh" ]; then
     (cd "$DEST" && ./build.sh)
 elif [ -f "$DEST/Makefile" ]; then
-    (cd "$DEST" && make install)
+    make_cmd=${MAKE:-make}
+    (cd "$DEST" && "$make_cmd" install)
 else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1

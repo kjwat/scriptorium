@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 SOURCE_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-suite-check.XXXXXX")"
@@ -9,16 +9,20 @@ export HOME="$TMP/home"
 FAKE_SCRIPTORIUM="$TMP/scriptorium"
 FAKE_REPO="$TMP/simple-source"
 FAKE_BIN="$TMP/test-bin"
+REAL_GIT_DIR="$(dirname "$(command -v git)")"
 mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN"
 
 cp "$SOURCE_ROOT/scripts/install-simplesuite.sh" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh"
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 chmod 755 "$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
+printf '%s\n' '#!/bin/sh' 'printf "%s\n" yes >"$HOME/package-install-ran"' \
+    >"$FAKE_SCRIPTORIUM/scripts/install-packages.sh"
+chmod 755 "$FAKE_SCRIPTORIUM/scripts/install-packages.sh"
 
 cat >"$FAKE_BIN/uname" <<'EOF'
 #!/bin/sh
-echo Linux
+echo FreeBSD
 EOF
 chmod 755 "$FAKE_BIN/uname"
 
@@ -52,20 +56,21 @@ git -C "$FAKE_REPO" config user.email 'test@example.invalid'
 git -C "$FAKE_REPO" add build.sh
 git -C "$FAKE_REPO" commit -qm fixture
 
-PATH="$FAKE_BIN:/usr/bin:/bin" \
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 SIMPLESUITE_REPO_URL="$FAKE_REPO" \
 SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install.log"
 
-[[ -x "$HOME/.local/bin/simplewords" ]]
-[[ -x "$HOME/.local/bin/simplenet" ]]
-[[ -x "$HOME/.local/bin/simplesuite-uninstall" ]]
-[[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]]
-[[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]]
-[[ -r "$HOME/.local/share/simplesuite/install-source" ]]
+[ -x "$HOME/.local/bin/simplewords" ]
+[ -x "$HOME/.local/bin/simplenet" ]
+[ -x "$HOME/.local/bin/simplesuite-uninstall" ]
+[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
+[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
+[ -r "$HOME/.local/share/simplesuite/install-source" ]
 grep -q '^typewriter_sound=false$' "$HOME/.config/simplewords/config"
 grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
+grep -q '^yes$' "$HOME/package-install-ran"
 
 echo 'OK Scriptorium verifies the complete SimpleSuite runtime payload'
