@@ -1,0 +1,67 @@
+#EXTM3U
+
+#EXTINF:-1,181.FM Power 181 (Top 40)
+http://listen.181fm.com/181-power_128k.mp3
+
+#EXTINF:-1,181.FM UK Top 40
+http://listen.181fm.com/181-uktop40_128k.mp3
+
+#EXTINF:-1,181.FM The Mix
+http://listen.181fm.com/181-themix_128k.mp3
+
+#EXTINF:-1,181.FM The Office
+http://listen.181fm.com/181-office_128k.mp3
+
+#EXTINF:-1,2000 FM Top 40
+http://bigrradio.cdnstream1.com/5106_128
+
+#EXTINF:-1,Big R Radio - 80s and 90s Pop Mix
+http://bigrradio.cdnstream1.com/5183_128
+
+#EXTINF:-1,Big R Radio - 70s and 80s Pop Mix
+http://bigrradio.cdnstream1.com/5181_128
+
+#EXTINF:-1,Capital FM London
+http://media-ice.musicradio.com/CapitalMP3
+
+#EXTINF:-1,Heart 70s
+https://media-ssl.musicradio.com/Heart70sMP3
+
+#EXTINF:-1,Heart 80s
+https://media-ssl.musicradio.com/Heart80sMP3
+
+#EXTINF:-1,Heart 90s
+https://media-ssl.musicradio.com/Heart90sMP3
+
+#EXTINF:-1,Heart Dance
+https://media-ssl.musicradio.com/HeartDanceMP3
+
+#EXTINF:-1,LOS 40 Spain
+https://playerservices.streamtheworld.com/api/livestream-redirect/Los40.mp3
+
+#EXTINF:-1,LOS 40 Urban
+https://playerservices.streamtheworld.com/api/livestream-redirect/LOS40_URBAN.mp3
+
+#EXTINF:-1,Chocolate FM
+http://streaming5.elitecomunicacion.es:8082/live.mp3
+
+#EXTINF:-1,Radio 105 Network
+http://icecast.unitedradio.it/Radio105.mp3
+
+#EXTINF:-1,90s90s Hits
+http://streams.90s90s.de/pop/mp3-192/streams.90s90s.de/
+
+#EXTINF:-1,SWR3
+https://liveradio.swr.de/sw282p3/swr3/play.mp3
+
+#EXTINF:-1,Mirchi Top 20
+https://drive.uber.radio/uber/bollywoodnow/icecast.audio
+
+#EXTINF:-1,Power POP
+https://listen.powerapp.com.tr/powerpop/128/chunks.m3u8
+
+#EXTINF:-1,KISS FM Greece
+http://live.radiokiss.gr/kissfm1006hq.mp3
+
+#EXTINF:-1,Radio Nova
+http://novazz.ice.infomaniak.ch/novazz-128.mp3
