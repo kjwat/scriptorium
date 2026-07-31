@@ -10,6 +10,7 @@ SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
 export SIMPLESUITE_INSTALL_FREEBSD_HELPER FREEBSD_UNMOUNT_HELPER
+SIMPLESUITE_BUILD_INSTALL_PACKAGES="$SIMPLESUITE_INSTALL_PACKAGES"
 SIMPLESUITE_ASSETS="
 simplecal-alarm.mp3
 simplewords-typewriter.wav
@@ -20,7 +21,6 @@ simplewords-typewriter-delete.wav
 simplewords-typewriter-NOTICE.md
 install-source
 "
-MACOS_COMPAT_DIR=
 SIMPLESUITE_PROGRAMS="
 simplebrowse
 simplecal
@@ -65,12 +65,6 @@ case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
         ;;
 esac
 
-cleanup() {
-    if [ -n "$MACOS_COMPAT_DIR" ] && [ -d "$MACOS_COMPAT_DIR" ]; then
-        rm -rf "$MACOS_COMPAT_DIR"
-    fi
-}
-trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -88,38 +82,30 @@ configure_homebrew_build_environment() {
     [ "$(uname -s 2>/dev/null || echo unknown)" = Darwin ] || return 0
 
     if ! command -v brew >/dev/null 2>&1; then
+        for brew_candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            [ -x "$brew_candidate" ] || continue
+            PATH="${brew_candidate%/*}:$PATH"
+            export PATH
+            break
+        done
+    fi
+    if ! command -v brew >/dev/null 2>&1; then
         echo "Homebrew is required to build SimpleSuite on macOS." >&2
         exit 1
     fi
 
-    # These formulae are keg-only on macOS. Their pkg-config metadata is not
-    # necessarily on the default search path when a project is built outside
-    # Homebrew itself.
-    for formula in ncurses curl openssl@3; do
+    # Keg-only formula metadata is not necessarily on the default search path.
+    for formula in ncurses glib curl openssl@3; do
         formula_prefix=$(brew --prefix "$formula" 2>/dev/null) || {
             echo "Required Homebrew formula is not installed: $formula" >&2
             exit 1
         }
-        prepend_pkgconfig_dir "$formula_prefix/lib/pkgconfig"
+        for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
+                             "$formula_prefix/share/pkgconfig"; do
+            prepend_pkgconfig_dir "$pkgconfig_dir"
+        done
     done
-
-    MACOS_COMPAT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-macos.XXXXXX")"
-    case "$MACOS_COMPAT_DIR" in
-        *[[:space:]]*)
-            rm -rf "$MACOS_COMPAT_DIR"
-            MACOS_COMPAT_DIR="$(TMPDIR=/tmp mktemp -d /tmp/scriptorium-macos.XXXXXX)"
-            ;;
-    esac
-
-    cp "$SCRIPTORIUM_ROOT/scripts/macos-compat.h" "$MACOS_COMPAT_DIR/"
-    cc -std=c11 -O2 -Wall -Wextra -Werror \
-        -I "$SCRIPTORIUM_ROOT/scripts" \
-        -c "$SCRIPTORIUM_ROOT/scripts/macos-compat.c" \
-        -o "$MACOS_COMPAT_DIR/macos-compat.o"
-
-    CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }-include$MACOS_COMPAT_DIR/macos-compat.h"
-    LDFLAGS="${LDFLAGS:+$LDFLAGS }$MACOS_COMPAT_DIR/macos-compat.o"
-    export CPPFLAGS LDFLAGS PKG_CONFIG_PATH
+    export PKG_CONFIG_PATH
 }
 
 directory_has_entries() {
@@ -156,7 +142,10 @@ install_packages_if_needed() {
             return 0
             ;;
         auto)
-            [ "$(uname -s 2>/dev/null || true)" = FreeBSD ] || return 0
+            case "$(uname -s 2>/dev/null || true)" in
+                Darwin|FreeBSD) ;;
+                *) return 0 ;;
+            esac
             ;;
     esac
 
@@ -169,6 +158,7 @@ install_packages_if_needed() {
     fi
 
     "$SCRIPTORIUM_ROOT/scripts/install-packages.sh"
+    SIMPLESUITE_BUILD_INSTALL_PACKAGES=0
 }
 
 install_packages_if_needed
@@ -198,9 +188,12 @@ fi
 
 configure_homebrew_build_environment
 
-if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
-    export MAKE=gmake
-fi
+case "$(uname -s 2>/dev/null || true)" in
+    Darwin|FreeBSD)
+        MAKE=${MAKE:-gmake}
+        export MAKE
+        ;;
+esac
 
 if [ -x "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh" ]; then
     run_checkdeps "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh"
@@ -209,7 +202,9 @@ elif [ -x "$DEST/checkdeps.sh" ]; then
 fi
 
 if [ -x "$DEST/build.sh" ]; then
-    (cd "$DEST" && ./build.sh)
+    (cd "$DEST" && \
+        SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
+        ./build.sh)
 elif [ -f "$DEST/Makefile" ]; then
     make_cmd=${MAKE:-make}
     (cd "$DEST" && "$make_cmd" install)

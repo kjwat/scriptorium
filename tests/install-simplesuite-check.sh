@@ -22,9 +22,23 @@ chmod 755 "$FAKE_SCRIPTORIUM/scripts/install-packages.sh"
 
 cat >"$FAKE_BIN/uname" <<'EOF'
 #!/bin/sh
-echo FreeBSD
+printf '%s\n' "${FAKE_UNAME:-FreeBSD}"
 EOF
 chmod 755 "$FAKE_BIN/uname"
+
+cat >"$FAKE_BIN/brew" <<'EOF'
+#!/bin/sh
+set -eu
+if [ "${1-}" = --prefix ] && [ -n "${2-}" ]; then
+    prefix="$FAKE_BREW_ROOT/${2-}"
+    mkdir -p "$prefix/lib/pkgconfig" "$prefix/share/pkgconfig"
+    printf '%s\n' "$prefix"
+    exit 0
+fi
+echo "unexpected brew arguments: $*" >&2
+exit 2
+EOF
+chmod 755 "$FAKE_BIN/brew"
 
 cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
@@ -57,11 +71,26 @@ printf '%s\n' 'feed_timeout=18' \
 printf '%s\n' '# feeds' \
     >"$HOME/.config/simplenews/urls.example"
 
-[ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
-[ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
-mkdir -p "$(dirname "$FREEBSD_UNMOUNT_HELPER")"
-printf '%s\n' '#!/bin/sh' 'exit 0' >"$FREEBSD_UNMOUNT_HELPER"
-chmod 755 "$FREEBSD_UNMOUNT_HELPER"
+case "$(uname -s)" in
+    FreeBSD)
+        [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
+        [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
+        [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
+        mkdir -p "$(dirname "$FREEBSD_UNMOUNT_HELPER")"
+        printf '%s\n' '#!/bin/sh' 'exit 0' >"$FREEBSD_UNMOUNT_HELPER"
+        chmod 755 "$FREEBSD_UNMOUNT_HELPER"
+        ;;
+    Darwin)
+        [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
+        [ "${MAKE:-}" = gmake ]
+        printf '%s\n' yes >"$HOME/macos-build-ran"
+        ;;
+    Linux)
+        [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = auto ]
+        [ -z "${MAKE:-}" ]
+        printf '%s\n' yes >"$HOME/linux-build-ran"
+        ;;
+esac
 EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
@@ -72,6 +101,8 @@ git -C "$FAKE_REPO" add build.sh
 git -C "$FAKE_REPO" commit -qm fixture
 
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=FreeBSD \
+FAKE_BREW_ROOT="$TMP/homebrew" \
 SIMPLESUITE_REPO_URL="$FAKE_REPO" \
 SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
@@ -95,4 +126,40 @@ grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 
-echo 'OK Scriptorium verifies the complete SimpleSuite runtime payload'
+HOME="$TMP/macos-home"
+export HOME
+mkdir -p "$HOME"
+
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Darwin \
+FAKE_BREW_ROOT="$TMP/homebrew" \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" \
+SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+    >"$TMP/install-macos.log"
+
+[ -x "$HOME/.local/bin/simplewords" ]
+[ -x "$HOME/.local/bin/simplebrowse-webkitd" ]
+[ -r "$HOME/.local/share/simplesuite/install-source" ]
+grep -q '^yes$' "$HOME/package-install-ran"
+grep -q '^yes$' "$HOME/macos-build-ran"
+
+HOME="$TMP/linux-home"
+export HOME
+mkdir -p "$HOME"
+
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux \
+FAKE_BREW_ROOT="$TMP/homebrew" \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" \
+SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+    >"$TMP/install-linux.log"
+
+[ -x "$HOME/.local/bin/simplewords" ]
+[ ! -e "$HOME/package-install-ran" ]
+grep -q '^yes$' "$HOME/linux-build-ran"
+
+echo 'OK Scriptorium verifies FreeBSD, macOS, and Linux SimpleSuite bootstrap handoffs'

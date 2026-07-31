@@ -16,9 +16,10 @@ cd scriptorium
 ./install.sh
 ```
 
-Run this from an interactive shell. Linux package installation needs either a
-root shell or a working `sudo`; macOS needs Homebrew and the Apple Command Line
-Tools. A base Alpine installation bootstraps Bash automatically. Bash users
+Run this from an interactive shell. `install.sh` detects Linux distributions,
+FreeBSD, and macOS automatically. Linux and FreeBSD package installation needs
+either a root shell or working `sudo`; macOS needs Homebrew and Apple Command
+Line Tools. A base Alpine installation bootstraps Bash automatically. Bash users
 receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
@@ -53,7 +54,7 @@ on platform availability:
 
 - build tools, `pkg-config`, ncurses, GIO/GLib, libcurl, and OpenSSL headers
 - Python GI, GTK 3 introspection, and WebKit2GTK 4.1 for SimpleBrowse v4
-  JavaScript mode on supported Linux families
+  JavaScript mode on supported Linux and BSD families; macOS uses WKWebView
 - `git`, `mpv`, `links`, `fzf`, `calcurse`
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
@@ -79,18 +80,13 @@ enabled. In particular, full SimpleBrowse JavaScript mode needs WebKitGTK 4.1;
 if an older release does not provide a required package, installation stops
 with repository/release guidance instead of leaving a partially working build.
 
-On macOS, Scriptorium supplies a small build-only Darwin compatibility layer
-for the BSD interfaces hidden by SimpleSuite's strict POSIX feature settings
-and for the `clock_nanosleep` interface absent from Apple libc. Homebrew's
-WebKitGTK formula is Linux-only, so SimpleBrowse's static reader works there but
-its WebKit/JavaScript mode is not installed. The installer skips that
-unavailable feature instead of failing the whole installation.
-
-Some runtime integrations remain Linux-specific: use Finder or `diskutil`
-instead of SimpleFiles' guarded `:unmount`; SimpleWords and SimpleBrowse use
-their internal clipboards rather than the Wayland/X11 system-clipboard bridge;
-SimpleMail's attachment-open shortcut expects `xdg-open`; and SimpleStats'
-Linux hardware metrics are not meaningful on macOS.
+On macOS 14.2 or newer, the same `./install.sh` path validates the selected SDK,
+installs the Homebrew package set once, and hands the checkout to SimpleSuite's
+native Darwin build without repeating the package transaction. SimpleBrowse
+uses WKWebView, SimpleFiles uses Disk Arbitration and Finder-compatible Trash,
+SimpleNet uses CoreWLAN, SimpleStats uses Mach and IOKit, SimpleVis uses a Core
+Audio process tap, and reminders use per-user launchd agents. No WebKitGTK or
+PulseAudio compatibility package is installed for those native features.
 
 ## SimpleSuite Checkout
 

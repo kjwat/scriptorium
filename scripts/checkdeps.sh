@@ -78,13 +78,19 @@ js_pkg_hint() {
         alpine) echo "python3 py3-gobject3 webkit2gtk-4.1" ;;
         void) echo "python3 python3-gobject libwebkit2gtk41" ;;
         suse) echo "python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1" ;;
-        macos) echo "not available through Homebrew on macOS; use SimpleBrowse reader mode" ;;
+        macos) echo "built in: SimpleBrowse uses the system WKWebView framework" ;;
         freebsd) echo "optional Python GObject and WebKitGTK 4.1 packages" ;;
         *) echo "python3 python3-gobject WebKit2GTK-4.1 introspection" ;;
     esac
 }
 
 check_simplebrowse_js() {
+    if [ "$family" = macos ]; then
+        printf "FOUND:   %-16s (%s)\n" "SimpleBrowse JS" \
+            "native WKWebView helper is built with SimpleSuite"
+        return
+    fi
+
     if ! have_cmd python3; then
         printf "MISSING: %-16s (%s; %s)\n" "SimpleBrowse JS" "python3" "$(dep_hint python3)"
         add_missing optional "SimpleBrowse JS: $(js_pkg_hint)"
@@ -102,6 +108,37 @@ PY
     else
         printf "MISSING: %-16s (%s)\n" "SimpleBrowse JS" "$(js_pkg_hint)"
         add_missing optional "SimpleBrowse JS: $(js_pkg_hint)"
+    fi
+}
+
+check_macos_audio_capture() {
+    version=
+    major=0
+    minor=0
+
+    if have_cmd sw_vers; then
+        version=$(sw_vers -productVersion 2>/dev/null || true)
+    fi
+    case "$version" in
+        [0-9]*)
+            major=${version%%.*}
+            remainder=${version#*.}
+            if [ "$remainder" != "$version" ]; then
+                minor=${remainder%%.*}
+            fi
+            ;;
+    esac
+    case "$major:$minor" in
+        *[!0-9:]*|'') major=0; minor=0 ;;
+    esac
+    if [ "$major" -gt 14 ] ||
+       { [ "$major" -eq 14 ] && [ "$minor" -ge 2 ]; }; then
+        printf "FOUND:   %-16s (%s)\n" "SimpleVis capture" \
+            "native Core Audio tap; macOS $version"
+    else
+        printf "MISSING: %-16s (%s)\n" "SimpleVis capture" \
+            "native system audio needs macOS 14.2 or newer"
+        add_missing optional "SimpleVis native capture (macOS 14.2+)"
     fi
 }
 
@@ -178,16 +215,26 @@ check_any_editor() {
 
 configure_homebrew_pkgconfig() {
     [ "$family" = macos ] || return 0
+    if ! have_cmd brew; then
+        for brew_candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+            [ -x "$brew_candidate" ] || continue
+            PATH="${brew_candidate%/*}:$PATH"
+            export PATH
+            break
+        done
+    fi
     have_cmd brew || return 0
 
-    for formula in ncurses curl openssl@3; do
+    for formula in ncurses glib curl openssl@3; do
         formula_prefix="$(brew --prefix "$formula" 2>/dev/null)" || continue
-        pkgconfig_dir="$formula_prefix/lib/pkgconfig"
-        [ -d "$pkgconfig_dir" ] || continue
-        case ":${PKG_CONFIG_PATH:-}:" in
-            *":$pkgconfig_dir:"*) ;;
-            *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
-        esac
+        for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
+                             "$formula_prefix/share/pkgconfig"; do
+            [ -d "$pkgconfig_dir" ] || continue
+            case ":${PKG_CONFIG_PATH:-}:" in
+                *":$pkgconfig_dir:"*) ;;
+                *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
+            esac
+        done
     done
     export PKG_CONFIG_PATH
 }
@@ -335,7 +382,7 @@ packages_for_family() {
             INSTALL="brew install"
             PKG_REQUIRED="pkgconf ncurses curl make openssl@3 glib"
             PKG_RUNTIME="git mpv poppler pandoc isync msmtp calcurse links rsync"
-            PKG_OPTIONAL="nano zip unzip libmagic less fzf pulseaudio"
+            PKG_OPTIONAL="nano zip unzip libmagic less fzf"
             ;;
         freebsd)
             INSTALL="sudo pkg install"
@@ -404,9 +451,7 @@ check_cmd optional rsync "rsync"
 if [ "$family" != "msys2" ]; then
     check_cmd optional links "links"
 fi
-if [ "$family" = macos ]; then
-    printf "SKIPPED: %-16s (%s)\n" "SimpleBrowse JS" "WebKitGTK 4.1 is not packaged for macOS"
-elif [ "$family" != msys2 ]; then
+if [ "$family" != msys2 ]; then
     check_simplebrowse_js
 fi
 
@@ -416,6 +461,7 @@ fi
 
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
+    check_macos_audio_capture
 elif [ "$family" = "freebsd" ]; then
     if [ -x /usr/local/libexec/simplefiles-freebsd-unmount ]; then
         printf "FOUND:   %-16s (%s)\n" "SimpleFiles helper" \
@@ -483,12 +529,14 @@ elif [ "$family" != "msys2" ]; then
     fi
 fi
 
-if [ "$family" != "msys2" ]; then
+if [ "$family" != "msys2" ] && [ "$family" != macos ]; then
     check_cmd optional pactl "pactl"
     check_cmd optional parec "parec"
 fi
 
-if have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1; then
+if [ "$family" = macos ]; then
+    check_cmd optional launchctl "launchd reminder backend"
+elif have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1; then
     printf "FOUND:   %-16s (%s)\n" "reminder backend" "systemd --user"
 else
     check_cmd optional crontab "crontab"

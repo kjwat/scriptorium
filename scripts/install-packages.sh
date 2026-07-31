@@ -75,22 +75,74 @@ have_gnu_make() {
 }
 
 have_reminder_scheduler() {
+    if [ "$family" = macos ]; then
+        have_cmd launchctl
+        return
+    fi
     have_cmd crontab ||
         (have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1)
+}
+
+version_at_least_14_2() (
+    IFS=.
+    set -- $1
+    major=${1:-0}
+    minor=${2:-0}
+    case "$major:$minor" in
+        *[!0-9:]*|'') return 1 ;;
+    esac
+    [ "$major" -gt 14 ] ||
+        { [ "$major" -eq 14 ] && [ "$minor" -ge 2 ]; }
+)
+
+prepare_homebrew_path() {
+    [ "$family" = macos ] || return 0
+    have_cmd brew && return 0
+
+    for brew_candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        [ -x "$brew_candidate" ] || continue
+        PATH="${brew_candidate%/*}:$PATH"
+        export PATH
+        return 0
+    done
+}
+
+validate_macos_host() {
+    [ "$family" = macos ] || return 0
+
+    macos_version=$(sw_vers -productVersion 2>/dev/null || true)
+    if ! version_at_least_14_2 "$macos_version"; then
+        echo "SimpleSuite requires macOS 14.2 or newer (found ${macos_version:-unknown})." >&2
+        exit 1
+    fi
+
+    if ! have_cmd xcode-select || ! xcode-select -p >/dev/null 2>&1 ||
+       ! have_cmd xcrun || ! xcrun --find clang >/dev/null 2>&1; then
+        echo "Apple Command Line Tools are required. Run: xcode-select --install" >&2
+        exit 1
+    fi
+
+    sdk_version=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)
+    if ! version_at_least_14_2 "$sdk_version"; then
+        echo "The selected Xcode SDK must be 14.2 or newer (found ${sdk_version:-unknown})." >&2
+        exit 1
+    fi
 }
 
 configure_homebrew_pkgconfig() {
     [ "$family" = macos ] || return 0
     have_cmd brew || return 0
 
-    for formula in ncurses curl openssl@3; do
+    for formula in ncurses glib curl openssl@3; do
         formula_prefix=$(brew --prefix "$formula" 2>/dev/null) || continue
-        pkgconfig_dir=$formula_prefix/lib/pkgconfig
-        [ -d "$pkgconfig_dir" ] || continue
-        case ":${PKG_CONFIG_PATH:-}:" in
-            *":$pkgconfig_dir:"*) ;;
-            *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
-        esac
+        for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
+                             "$formula_prefix/share/pkgconfig"; do
+            [ -d "$pkgconfig_dir" ] || continue
+            case ":${PKG_CONFIG_PATH:-}:" in
+                *":$pkgconfig_dir:"*) ;;
+                *) PKG_CONFIG_PATH="$pkgconfig_dir${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" ;;
+            esac
+        done
     done
     export PKG_CONFIG_PATH
 }
@@ -141,8 +193,6 @@ dependencies_already_present() {
     case "$family" in
         macos)
             have_cmd open || return 1
-            have_cmd pactl || return 1
-            have_cmd parec || return 1
             ;;
         msys2)
             ;;
@@ -638,6 +688,8 @@ if [ "$family" = unknown ]; then
     fi
 fi
 
+prepare_homebrew_path
+validate_macos_host
 configure_homebrew_pkgconfig
 
 if dependencies_already_present; then
@@ -776,14 +828,10 @@ case "$family" in
             isync msmtp calcurse links ca_root_nss rsync
         ;;
     macos)
-        if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find clang >/dev/null 2>&1; then
-            echo "Apple Command Line Tools are required. Run: xcode-select --install" >&2
-            exit 1
-        fi
         run_package_command macos env LC_ALL=C brew install \
             pkgconf ncurses curl make openssl@3 glib \
             git mpv poppler pandoc \
-            nano zip unzip libmagic less fzf pulseaudio \
+            nano zip unzip libmagic less fzf \
             isync msmtp calcurse links rsync
         ;;
     *)
