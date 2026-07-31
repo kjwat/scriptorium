@@ -1,5 +1,5 @@
 build-base bash pkgconf ncurses-dev curl-dev openssl-dev
 git mpv poppler-utils pandoc
-nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 wl-clipboard xclip xsel
+nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel
 python3 py3-gobject3 webkit2gtk-4.1
 isync msmtp calcurse links curl ca-certificates rsync dcron

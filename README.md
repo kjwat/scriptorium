@@ -60,8 +60,9 @@ on platform availability:
   SimpleNet Wi-Fi management and adapter diagnostics
 - `pdftotext`/poppler and `pandoc` for SimplePDF
 - `zip`, `unzip`, `tar`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
-- `util-linux`, UDisks, and cron tooling for SimpleFiles drives and SimpleCal
-  reminder fallback
+- `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
+  SimpleFiles drive discovery and mount recovery, plus cron tooling for
+  SimpleCal reminder fallback
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -344,8 +345,8 @@ This repo includes destructive cleanup scripts:
   credentials after confirmation.
 - `burn.sh` invokes SimpleSuite's native burn, then removes any remaining
   Scriptorium-managed binaries, configs, typewriter/alarm assets, SimpleCal
-  reminder services, SimpleMail setup, rollback backups, and both source
-  checkouts after confirmation.
+  reminder services, SimpleMail setup, the privileged FreeBSD SimpleFiles
+  helper, rollback backups, and both source checkouts after confirmation.
 
 The single `BURN` confirmation authorizes both cleanup layers; there is no
 second SimpleSuite prompt.

@@ -7,6 +7,9 @@ DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
+SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
+FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
+export SIMPLESUITE_INSTALL_FREEBSD_HELPER FREEBSD_UNMOUNT_HELPER
 SIMPLESUITE_ASSETS="
 simplecal-alarm.mp3
 simplewords-typewriter.wav
@@ -50,6 +53,14 @@ case "$SIMPLESUITE_INSTALL_PACKAGES" in
     0 | 1 | auto) ;;
     *)
         echo "SIMPLESUITE_INSTALL_PACKAGES must be 0, 1, or auto." >&2
+        exit 2
+        ;;
+esac
+
+case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
+    auto | yes | true | 1 | require | skip | no | false | 0) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_FREEBSD_HELPER must be auto, require, or skip." >&2
         exit 2
         ;;
 esac
@@ -258,6 +269,44 @@ fi
 
 if [ "$missing" -ne 0 ]; then
     echo "SimpleSuite install did not produce its complete runtime payload." >&2
+    exit 1
+fi
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+echo "Verifying SimpleSuite config payload"
+for config_file in \
+    "$config_home/simplenews/config.example" \
+    "$config_home/simplenews/urls.example" \
+    "$config_home/simplemail/config" \
+    "$HOME/.config/simplefiles/config" \
+    "$HOME/.config/simplewords/config"; do
+    if [ -r "$config_file" ]; then
+        printf '  ok: %s\n' "$config_file"
+    else
+        printf '  missing: %s\n' "$config_file" >&2
+        missing=1
+    fi
+done
+
+if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
+    case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
+        skip | no | false | 0) ;;
+        *)
+            if [ -x "$FREEBSD_UNMOUNT_HELPER" ]; then
+                printf '  ok: %s\n' "$FREEBSD_UNMOUNT_HELPER"
+            elif [ "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" = require ]; then
+                printf '  missing: %s\n' "$FREEBSD_UNMOUNT_HELPER" >&2
+                missing=1
+            else
+                printf '  skipped: %s (run an interactive install or use require mode)\n' \
+                    "$FREEBSD_UNMOUNT_HELPER"
+            fi
+            ;;
+    esac
+fi
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite install did not produce its complete config/helper payload." >&2
     exit 1
 fi
 

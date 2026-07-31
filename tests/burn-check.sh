@@ -27,6 +27,12 @@ for stub in systemctl crontab git; do
     chmod 755 "$FAKE_BIN/$stub"
 done
 
+cat >"$FAKE_BIN/uname" <<'EOF'
+#!/bin/sh
+echo FreeBSD
+EOF
+chmod 755 "$FAKE_BIN/uname"
+
 cat >"$HOME/.local/bin/simplesuite-uninstall" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >"$HOME/native-burn-args"
@@ -34,7 +40,7 @@ exit 0
 EOF
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail'
+programs='simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -48,6 +54,7 @@ mkdir -p \
     "$HOME/.config/simplesuite" \
     "$HOME/.config/isyncrc-target" \
     "$HOME/.cache/simplewords" \
+    "$HOME/xdg-cache/simplepdf" \
     "$HOME/.local/state/simplewords" \
     "$HOME/.local/share/simplemail/mail/Inbox/cur" \
     "$HOME/.local/share/simplesuite" \
@@ -60,7 +67,13 @@ printf '%s\n' keep >"$HOME/unrelated-file"
 printf '%s\n' keep >"$HOME/.writing-clone-tmp/partial"
 printf '%s\n' keep >"$HOME/.scriptorium-backups/old/config"
 printf '%s\n' keep >"$HOME/.config/scriptorium/legacy-marker"
+printf '%s\n' keep >"$HOME/xdg-cache/simplepdf/document.txt"
 printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
+
+FAKE_FREEBSD_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount"
+mkdir -p "$(dirname "$FAKE_FREEBSD_HELPER")"
+printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_FREEBSD_HELPER"
+chmod 755 "$FAKE_FREEBSD_HELPER"
 
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source simplewords-typewriter.wav.bak simplewords-typewriter.wav.bak2'
 for asset in $assets; do
@@ -78,6 +91,8 @@ ln -s "$HOME/.mbsyncrc" "$HOME/.config/isyncrc"
 
 printf '%s\n' BURN | \
     PATH="$FAKE_BIN:$REAL_BASH_DIR:/usr/local/bin:/usr/bin:/bin" \
+    XDG_CACHE_HOME="$HOME/xdg-cache" \
+    FREEBSD_UNMOUNT_HELPER="$FAKE_FREEBSD_HELPER" \
     SIMPLESUITE_DIR="$FAKE_SUITE" \
     "$FAKE_ROOT/burn.sh" >"$TMP/burn.log"
 
@@ -93,10 +108,12 @@ assert_missing "$HOME/.config/scriptorium"
 assert_missing "$HOME/.config/simplesuite"
 assert_missing "$HOME/.config/isyncrc"
 assert_missing "$HOME/.cache/simplewords"
+assert_missing "$HOME/xdg-cache/simplepdf"
 assert_missing "$HOME/.local/state/simplewords"
 assert_missing "$HOME/.local/share/simplemail"
 assert_missing "$HOME/.local/share/simplesuite"
 assert_missing "$HOME/.scriptorium-backups"
+assert_missing "$FAKE_FREEBSD_HELPER"
 
 for program in $programs simplesuite-uninstall; do
     assert_missing "$HOME/.local/bin/$program"

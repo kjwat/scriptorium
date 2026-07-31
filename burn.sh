@@ -3,6 +3,12 @@ set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 SIMPLESUITE_DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
+HOST_OS="$(uname -s 2>/dev/null || true)"
+FREEBSD_UNMOUNT_HELPER_PATH="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 if [ -d "$SIMPLESUITE_DEST" ]; then
     SIMPLESUITE_DEST="$(CDPATH='' cd -- "$SIMPLESUITE_DEST" && pwd -P)"
@@ -33,6 +39,30 @@ run_as_root() {
     else
         printf 'Root privileges are required to remove system packages.\n' >&2
         return 127
+    fi
+}
+
+remove_freebsd_unmount_helper() {
+    helper_path="$FREEBSD_UNMOUNT_HELPER_PATH"
+    helper_parent="$(dirname -- "$helper_path")"
+
+    [ "$HOST_OS" = FreeBSD ] || return 0
+    [ -e "$helper_path" ] || [ -L "$helper_path" ] || return 0
+
+    if [ -w "$helper_path" ] || [ -w "$helper_parent" ]; then
+        /bin/rm -f -- "$helper_path"
+    elif [ "$helper_path" = /usr/local/libexec/simplefiles-freebsd-unmount ]; then
+        run_as_root /bin/rm -f -- "$helper_path"
+    else
+        printf 'Refusing privileged removal of unexpected helper path: %s\n' \
+            "$helper_path" >&2
+        return 1
+    fi
+
+    if [ -e "$helper_path" ] || [ -L "$helper_path" ]; then
+        printf 'FreeBSD SimpleFiles helper remains installed: %s\n' \
+            "$helper_path" >&2
+        return 1
     fi
 }
 
@@ -74,7 +104,8 @@ run_simplesuite_burn() {
     if ! (
         unset BINDIR DATADIR SIMPLESUITE_DATADIR DESTDIR
         PREFIX="$HOME/.local"
-        export PREFIX
+        FREEBSD_UNMOUNT_HELPER="$FREEBSD_UNMOUNT_HELPER_PATH"
+        export PREFIX FREEBSD_UNMOUNT_HELPER
         "$suite_uninstaller" --burn --yes
     ); then
         printf 'SimpleSuite native burn failed; continuing with Scriptorium fallback cleanup.\n' >&2
@@ -98,6 +129,7 @@ else
 fi
 
 run_simplesuite_burn
+remove_freebsd_unmount_helper
 
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
@@ -119,14 +151,24 @@ if [ -f "$HOME/.config/scriptorium/snapd-installed" ]; then
 fi
 
 rm -rf "$HOME/.config/calcurse"
-rm -rf "$HOME/.config/simplebrowse"
-rm -rf "$HOME/.config/simplefiles"
-rm -rf "$HOME/.config/simplepod"
-rm -rf "$HOME/.config/simplewords"
-rm -rf "$HOME/.config/simplecal"
-rm -rf "$HOME/.local/share/simplecal"
-rm -rf "$HOME/.local/state/simplecal"
-rm -rf "$HOME/.local/state/simpleclock"
+for config_base in "$HOME/.config" "$CONFIG_HOME"; do
+    for app_name in \
+        simplebrowse simplecal simplefiles simplemail simplenews simplepod \
+        simplewords; do
+        rm -rf "$config_base/$app_name"
+    done
+done
+for data_base in "$HOME/.local/share" "$DATA_HOME"; do
+    rm -rf "$data_base/simplecal" "$data_base/simplefiles" \
+        "$data_base/simplemail"
+done
+for state_base in "$HOME/.local/state" "$STATE_HOME"; do
+    for app_name in \
+        simplecal simpleclock simplefiles simplemail simplepod simplever \
+        simplewords; do
+        rm -rf "$state_base/$app_name"
+    done
+done
 rm -rf "$HOME/.local/share/simplesuite"
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now \
@@ -147,9 +189,6 @@ if command -v crontab >/dev/null 2>&1; then
     crontab "$tmp_cron" 2>/dev/null || true
     rm -f "$tmp_cron"
 fi
-rm -rf "$HOME/.config/simplenews"
-rm -rf "$HOME/.cache/simplenews"
-
 remove_scriptorium_mail_block() {
     file=$1
     begin=$2
@@ -172,23 +211,16 @@ remove_scriptorium_mail_block() {
 remove_scriptorium_mail_block "$HOME/.mbsyncrc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
 remove_scriptorium_mail_block "$HOME/.msmtprc" "# BEGIN SCRIPTORIUM SIMPLEMAIL GMAIL" "# END SCRIPTORIUM SIMPLEMAIL GMAIL"
 rm -f "$HOME/.config/isyncrc"
-rm -rf "$HOME/.config/simplemail"
-
 rm -rf "$HOME/.links"
-rm -rf "$HOME/.cache/simplebrowse"
-rm -rf "$HOME/.cache/simplefiles"
-rm -rf "$HOME/.cache/simplemail"
-rm -rf "$HOME/.cache/simplepod"
-rm -rf "$HOME/.cache/simplewords"
+for cache_base in "$HOME/.cache" "$CACHE_HOME"; do
+    for app_name in \
+        simplebrowse simplefiles simplemail simplenews simplepdf simplepod \
+        simplewords; do
+        rm -rf "$cache_base/$app_name"
+    done
+done
 rm -f "$HOME/.cache/simplever.log"
 rm -rf "$HOME/.local/share/simplebrowse"
-rm -rf "$HOME/.local/share/simplefiles"
-rm -rf "$HOME/.local/share/simplemail"
-rm -rf "$HOME/.local/state/simplefiles"
-rm -rf "$HOME/.local/state/simplemail"
-rm -rf "$HOME/.local/state/simplepod"
-rm -rf "$HOME/.local/state/simplever"
-rm -rf "$HOME/.local/state/simplewords"
 rm -rf "$HOME/.config/simplecheck"
 rm -rf "$HOME/.cache/simplecheck"
 rm -rf "$HOME/.local/state/simplecheck"

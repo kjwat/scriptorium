@@ -35,7 +35,8 @@ helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source'
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" \
-    "$HOME/.config/simplewords"
+    "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
+    "$HOME/.config/simplenews" "$HOME/.config/simplewords"
 for name in $programs $helpers; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
     chmod 755 "$HOME/.local/bin/$name"
@@ -47,6 +48,20 @@ if [ ! -e "$HOME/.config/simplewords/config" ]; then
     printf '%s\n' 'typewriter_sound=false' 'typewriter_sound_volume=70' \
         >"$HOME/.config/simplewords/config"
 fi
+printf '%s\n' 'TRASH_DIR=$HOME/.local/share/simplefiles/trash' \
+    >"$HOME/.config/simplefiles/config"
+printf '%s\n' 'maildir=$HOME/.local/share/simplemail/mail' \
+    >"$HOME/.config/simplemail/config"
+printf '%s\n' 'feed_timeout=18' \
+    >"$HOME/.config/simplenews/config.example"
+printf '%s\n' '# feeds' \
+    >"$HOME/.config/simplenews/urls.example"
+
+[ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
+[ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
+mkdir -p "$(dirname "$FREEBSD_UNMOUNT_HELPER")"
+printf '%s\n' '#!/bin/sh' 'exit 0' >"$FREEBSD_UNMOUNT_HELPER"
+chmod 755 "$FREEBSD_UNMOUNT_HELPER"
 EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
@@ -60,6 +75,8 @@ PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 SIMPLESUITE_REPO_URL="$FAKE_REPO" \
 SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
+SIMPLESUITE_INSTALL_FREEBSD_HELPER=require \
+FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install.log"
 
@@ -71,6 +88,11 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 grep -q '^typewriter_sound=false$' "$HOME/.config/simplewords/config"
 grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
+[ -r "$HOME/.config/simplefiles/config" ]
+[ -r "$HOME/.config/simplemail/config" ]
+[ -r "$HOME/.config/simplenews/config.example" ]
+[ -r "$HOME/.config/simplenews/urls.example" ]
+[ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 
 echo 'OK Scriptorium verifies the complete SimpleSuite runtime payload'

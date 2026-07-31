@@ -40,7 +40,14 @@ dep_hint() {
         unzip) echo "used by simplefiles :extract" ;;
         tar) echo "used by simplefiles :extract for TAR archives" ;;
         findmnt) echo "provided by util-linux; used by simplefiles :unmount validation" ;;
-        udisksctl) echo "provided by udisks2; used by simplefiles :unmount" ;;
+        udisksctl) echo "provided by udisks2; used by SimpleFiles mount recovery and unmount" ;;
+        bsdisks) echo "FreeBSD UDisks2 service used by GIO removable-volume discovery" ;;
+        e2fsck) echo "ext2/3/4 check and repair utility; provided by e2fsprogs" ;;
+        fsck.fat) echo "FAT check and repair utility; provided by dosfstools" ;;
+        fsck.exfat) echo "exFAT check and repair utility; provided by exfatprogs" ;;
+        exfatfsck) echo "FreeBSD exFAT check and repair utility; provided by exfat-utils" ;;
+        ntfsfix) echo "NTFS check and limited repair utility; provided by ntfs-3g or fusefs-ntfs" ;;
+        mount.exfat) echo "FreeBSD exFAT mount helper; provided by fusefs-exfat" ;;
         umount) echo "provided by util-linux; fallback for simplefiles :unmount" ;;
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
@@ -232,6 +239,18 @@ pkg_for_dep() {
         *:xdg-open) echo "xdg-utils" ;;
         *:findmnt) echo "util-linux" ;;
         *:udisksctl) echo "udisks2" ;;
+        *:bsdisks) echo "bsdisks" ;;
+        *:e2fsck) echo "e2fsprogs" ;;
+        *:fsck.fat) echo "dosfstools" ;;
+        *:fsck.exfat) echo "exfatprogs" ;;
+        *:exfatfsck) echo "exfat-utils" ;;
+        *:mount.exfat) echo "fusefs-exfat" ;;
+        *:ntfsfix)
+            case "$family" in
+                freebsd) echo "fusefs-ntfs" ;;
+                *) echo "ntfs-3g" ;;
+            esac
+            ;;
         *:crontab)
             case "$family" in
                 alpine) echo "dcron" ;;
@@ -280,37 +299,37 @@ packages_for_family() {
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
             PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
             PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack util-linux udisks2 wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools util-linux udisks2 wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
@@ -322,7 +341,7 @@ packages_for_family() {
             INSTALL="sudo pkg install"
             PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
             PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync"
-            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio wl-clipboard xclip xsel-conrad python3"
+            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
@@ -398,7 +417,27 @@ fi
 if [ "$family" = "macos" ]; then
     check_cmd optional open "open"
 elif [ "$family" = "freebsd" ]; then
-    check_cmd optional umount "unmount helper"
+    if [ -x /usr/local/libexec/simplefiles-freebsd-unmount ]; then
+        printf "FOUND:   %-16s (%s)\n" "SimpleFiles helper" \
+            "/usr/local/libexec/simplefiles-freebsd-unmount"
+    else
+        printf "PENDING: %-16s (%s)\n" "SimpleFiles helper" \
+            "build.sh installs it during the SimpleSuite step"
+    fi
+    check_cmd optional bsdisks "FreeBSD UDisks2"
+    if [ -x /usr/local/libexec/gvfs-udisks2-volume-monitor ]; then
+        printf "FOUND:   %-16s (%s)\n" "GIO volume monitor" \
+            "gvfs-udisks2-volume-monitor"
+    else
+        printf "MISSING: %-16s (%s)\n" "GIO volume monitor" \
+            "provided by gvfs"
+        add_missing optional "gvfs"
+    fi
+    check_cmd optional e2fsck "e2fsck"
+    check_cmd optional exfatfsck "exfatfsck"
+    check_cmd optional mount.exfat "mount.exfat"
+    check_cmd optional ntfsfix "ntfsfix"
+    check_cmd optional umount "unmount utility"
     check_cmd optional xdg-open "xdg-open"
     check_cmd optional ifconfig "simplenet wireless discovery"
     check_cmd optional route "simplenet routing"
@@ -422,6 +461,11 @@ elif [ "$family" != "msys2" ]; then
         printf "MISSING: %-16s (%s)\n" "unmount helper" "udisksctl or umount"
         add_missing optional "udisksctl"
     fi
+    check_cmd optional udisksctl "UDisks2"
+    check_cmd optional e2fsck "e2fsck"
+    check_cmd optional fsck.fat "fsck.fat"
+    check_cmd optional fsck.exfat "fsck.exfat"
+    check_cmd optional ntfsfix "ntfsfix"
 
     check_cmd optional xdg-open "xdg-open"
     check_cmd optional wl-copy "wl-copy"

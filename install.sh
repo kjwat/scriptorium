@@ -58,6 +58,7 @@ unset SCRIPTORIUM_BASH_BOOTSTRAPPED_PID
 set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+HOST_OS="$(uname -s 2>/dev/null || true)"
 
 declare -a SHELL_RC_FILES=("$HOME/.bashrc")
 ACTIVE_SHELL_RC_NAME=.bashrc
@@ -770,7 +771,15 @@ export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
 say "Installing SimpleSuite"
+simplesuite_helper_mode="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
+if [[ "$HOST_OS" == FreeBSD &&
+      -z "${SIMPLESUITE_INSTALL_FREEBSD_HELPER+x}" ]]; then
+    # A full interactive Scriptorium install should not silently leave the
+    # root-owned mount/recovery helper missing or stale.
+    simplesuite_helper_mode=require
+fi
 SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
+SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
     "$ROOT/scripts/install-simplesuite.sh"
 
 say "Installing SimpleCheck"
@@ -810,6 +819,19 @@ for cmd in "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
         exit 1
     }
 done
+if [[ "$HOST_OS" == FreeBSD ]]; then
+    case "$simplesuite_helper_mode" in
+        skip | no | false | 0) ;;
+        *)
+            freebsd_helper="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
+            [[ -x "$freebsd_helper" ]] || {
+                warn "FreeBSD SimpleFiles helper is missing or not executable: $freebsd_helper"
+                exit 1
+            }
+            printf '  %s\n' "$freebsd_helper"
+            ;;
+    esac
+fi
 
 say "Installing SimpleCal reminder backend"
 if ! "$HOME/.local/bin/simplecal" --install-reminders; then
