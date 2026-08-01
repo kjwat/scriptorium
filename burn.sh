@@ -5,6 +5,8 @@ ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 SIMPLESUITE_DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 FREEBSD_UNMOUNT_HELPER_PATH="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
+SIMPLESERVE_SYSTEM_DAEMON_PATH="${SIMPLESERVE_SYSTEM_DAEMON:-/usr/local/sbin/simpleserved}"
+SIMPLESERVE_SYSTEM_UNINSTALLER_PATH="${SIMPLESERVE_SYSTEM_UNINSTALLER:-/usr/local/sbin/simpleserve-system-uninstall}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -63,6 +65,46 @@ remove_freebsd_unmount_helper() {
         printf 'FreeBSD SimpleFiles helper remains installed: %s\n' \
             "$helper_path" >&2
         return 1
+    fi
+}
+
+remove_simpleserve_system_service() {
+    system_uninstaller=$SIMPLESERVE_SYSTEM_UNINSTALLER_PATH
+    system_uninstaller_parent="$(dirname -- "$system_uninstaller")"
+
+    case "$HOST_OS" in
+        FreeBSD|Linux) ;;
+        *) return 0 ;;
+    esac
+    if [ ! -e "$SIMPLESERVE_SYSTEM_DAEMON_PATH" ] &&
+       [ ! -e "$system_uninstaller" ]; then
+        return 0
+    fi
+    if [ ! -x "$system_uninstaller" ] &&
+       [ -x "$SIMPLESUITE_DEST/uninstall-simpleserve-system.sh" ]; then
+        system_uninstaller=$SIMPLESUITE_DEST/uninstall-simpleserve-system.sh
+        system_uninstaller_parent="$(dirname -- "$system_uninstaller")"
+    fi
+    [ -x "$system_uninstaller" ] || {
+        printf 'SimpleServe system uninstaller is missing: %s\n' \
+            "$system_uninstaller" >&2
+        return 1
+    }
+
+    if [ -w "$system_uninstaller" ] || [ -w "$system_uninstaller_parent" ] ||
+       [ "${SIMPLESERVE_SYSTEM_TEST_MODE:-0}" = 1 ]; then
+        "$system_uninstaller" --purge
+    else
+        case "$system_uninstaller" in
+            /usr/local/sbin/simpleserve-system-uninstall|"$SIMPLESUITE_DEST/uninstall-simpleserve-system.sh")
+                run_as_root "$system_uninstaller" --purge
+                ;;
+            *)
+                printf 'Refusing privileged execution of unexpected system uninstaller: %s\n' \
+                    "$system_uninstaller" >&2
+                return 1
+                ;;
+        esac
     fi
 }
 
@@ -129,12 +171,13 @@ else
 fi
 
 run_simplesuite_burn
+remove_simpleserve_system_service
 remove_freebsd_unmount_helper
 
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet; do
+for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved; do
     rm -f "$HOME/.local/bin/$bin"
 done
 

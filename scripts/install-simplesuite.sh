@@ -8,8 +8,10 @@ SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-js
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
+SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
-export SIMPLESUITE_INSTALL_FREEBSD_HELPER FREEBSD_UNMOUNT_HELPER
+export SIMPLESUITE_INSTALL_FREEBSD_HELPER \
+    SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM FREEBSD_UNMOUNT_HELPER
 SIMPLESUITE_BUILD_INSTALL_PACKAGES="$SIMPLESUITE_INSTALL_PACKAGES"
 SIMPLESUITE_ASSETS="
 simplecal-alarm.mp3
@@ -40,6 +42,15 @@ simplevis
 simplewords
 
 "
+SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+case "$SIMPLESUITE_HOST_OS" in
+    FreeBSD | Linux)
+        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
+simpleserve
+simpleserved
+"
+        ;;
+esac
 
 case "$SIMPLESUITE_INSTALL_REMINDERS" in
     0 | 1) ;;
@@ -61,6 +72,14 @@ case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
     auto | yes | true | 1 | require | skip | no | false | 0) ;;
     *)
         echo "SIMPLESUITE_INSTALL_FREEBSD_HELPER must be auto, require, or skip." >&2
+        exit 2
+        ;;
+esac
+
+case "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
+    auto | yes | true | 1 | require | skip | no | false | 0) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM must be auto, require, or skip." >&2
         exit 2
         ;;
 esac
@@ -188,7 +207,7 @@ fi
 
 configure_homebrew_build_environment
 
-case "$(uname -s 2>/dev/null || true)" in
+case "$SIMPLESUITE_HOST_OS" in
     Darwin|FreeBSD)
         MAKE=${MAKE:-gmake}
         export MAKE
@@ -204,6 +223,7 @@ fi
 if [ -x "$DEST/build.sh" ]; then
     (cd "$DEST" && \
         SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
+        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" \
         ./build.sh)
 elif [ -f "$DEST/Makefile" ]; then
     make_cmd=${MAKE:-make}
@@ -299,6 +319,22 @@ if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
             ;;
     esac
 fi
+
+case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
+    FreeBSD:skip|FreeBSD:no|FreeBSD:false|FreeBSD:0|Linux:skip|Linux:no|Linux:false|Linux:0) ;;
+    FreeBSD:*|Linux:*)
+        if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
+           "$DEST/verify-simpleserve-system.sh" \
+               "$HOME/.local/bin/simpleserved" >/dev/null 2>&1; then
+            printf '  ok: %s\n' /usr/local/sbin/simpleserved
+        elif [ "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" = require ]; then
+            echo "SimpleServe system service is missing, stale, or stopped." >&2
+            missing=1
+        else
+            echo "  skipped: SimpleServe system service (run an interactive install or use require mode)"
+        fi
+        ;;
+esac
 
 if [ "$missing" -ne 0 ]; then
     echo "SimpleSuite install did not produce its complete config/helper payload." >&2

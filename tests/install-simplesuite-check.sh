@@ -45,6 +45,9 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 set -eu
 
 programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenet simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
+case "$(uname -s)" in
+    FreeBSD | Linux) programs="$programs simpleserve simpleserved" ;;
+esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source'
 
@@ -75,6 +78,7 @@ case "$(uname -s)" in
     FreeBSD)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
         [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
+        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = require ]
         [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
         mkdir -p "$(dirname "$FREEBSD_UNMOUNT_HELPER")"
         printf '%s\n' '#!/bin/sh' 'exit 0' >"$FREEBSD_UNMOUNT_HELPER"
@@ -82,11 +86,13 @@ case "$(uname -s)" in
         ;;
     Darwin)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
+        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ "${MAKE:-}" = gmake ]
         printf '%s\n' yes >"$HOME/macos-build-ran"
         ;;
     Linux)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = auto ]
+        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ -z "${MAKE:-}" ]
         printf '%s\n' yes >"$HOME/linux-build-ran"
         ;;
@@ -94,10 +100,19 @@ esac
 EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
+cat >"$FAKE_REPO/verify-simpleserve-system.sh" <<'EOF'
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ]
+[ -x "$1" ]
+printf '%s\n' yes >"$HOME/simpleserve-system-verified"
+EOF
+chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
+
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
-git -C "$FAKE_REPO" add build.sh
+git -C "$FAKE_REPO" add build.sh verify-simpleserve-system.sh
 git -C "$FAKE_REPO" commit -qm fixture
 
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
@@ -107,12 +122,15 @@ SIMPLESUITE_REPO_URL="$FAKE_REPO" \
 SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
 SIMPLESUITE_INSTALL_FREEBSD_HELPER=require \
+SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require \
 FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install.log"
 
 [ -x "$HOME/.local/bin/simplewords" ]
 [ -x "$HOME/.local/bin/simplenet" ]
+[ -x "$HOME/.local/bin/simpleserve" ]
+[ -x "$HOME/.local/bin/simpleserved" ]
 [ -x "$HOME/.local/bin/simplesuite-uninstall" ]
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
@@ -124,6 +142,7 @@ grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -r "$HOME/.config/simplenews/config.example" ]
 [ -r "$HOME/.config/simplenews/urls.example" ]
 [ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
+[ -r "$HOME/simpleserve-system-verified" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 
 HOME="$TMP/macos-home"
@@ -141,6 +160,8 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 
 [ -x "$HOME/.local/bin/simplewords" ]
 [ -x "$HOME/.local/bin/simplebrowse-webkitd" ]
+[ ! -e "$HOME/.local/bin/simpleserve" ]
+[ ! -e "$HOME/simpleserve-system-verified" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^yes$' "$HOME/macos-build-ran"
@@ -159,6 +180,9 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
     >"$TMP/install-linux.log"
 
 [ -x "$HOME/.local/bin/simplewords" ]
+[ -x "$HOME/.local/bin/simpleserve" ]
+[ -x "$HOME/.local/bin/simpleserved" ]
+[ -r "$HOME/simpleserve-system-verified" ]
 [ ! -e "$HOME/package-install-ran" ]
 grep -q '^yes$' "$HOME/linux-build-ran"
 

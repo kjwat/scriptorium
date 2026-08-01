@@ -119,6 +119,13 @@ including `simplesuite-uninstall`. Shared audio assets are installed under:
 The same directory also carries the sound-provenance notice and the internal
 source-checkout record used by destructive uninstallation.
 
+On FreeBSD and Linux, installation also installs, enables, starts, and verifies
+the privileged SimpleServe service. This is the piece that turns discovered
+NFS shares into real VFS mounts. A full Scriptorium install fails clearly if
+that system service cannot be made ready; set
+`SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip` only when intentionally managing
+the daemon separately.
+
 SimpleWords typewriter audio is native and needs no additional player or audio
 development package. Its config is created at
 `~/.config/simplewords/config` only when missing. The feature remains off by
@@ -333,7 +340,9 @@ SimpleSuite files, linked dotfiles, mail config, SimpleCal config/state, and
 installed binaries. If installation fails, it asks whether to roll those user
 files back. Package-manager changes are not rolled back.
 APT source repairs and AppArmor profile changes are system-level changes and
-are not included in that rollback either.
+are not included in that rollback either. The enabled SimpleServe system
+service is likewise outside the user-file rollback; rerunning the installer
+safely updates and re-verifies it, while `simplesuite-uninstall` removes it.
 
 This repo includes destructive cleanup scripts:
 
@@ -342,7 +351,8 @@ This repo includes destructive cleanup scripts:
 - `burn.sh` invokes SimpleSuite's native burn, then removes any remaining
   Scriptorium-managed binaries, configs, typewriter/alarm assets, SimpleCal
   reminder services, SimpleMail setup, the privileged FreeBSD SimpleFiles
-  helper, rollback backups, and both source checkouts after confirmation.
+  helper, the SimpleServe system service and state, rollback backups, and both
+  source checkouts after confirmation.
 
 The single `BURN` confirmation authorizes both cleanup layers; there is no
 second SimpleSuite prompt.

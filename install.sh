@@ -376,6 +376,9 @@ declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplebrowse-jsdump
     simplesuite-uninstall
 )
+if [[ "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ]]; then
+    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
+fi
 
 track_path() {
     local path="$1"
@@ -778,8 +781,16 @@ if [[ "$HOST_OS" == FreeBSD &&
     # root-owned mount/recovery helper missing or stale.
     simplesuite_helper_mode=require
 fi
+simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
+if [[ ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
+      -z "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM+x}" ]]; then
+    # A full Scriptorium install promises a usable discovery/mount service,
+    # not merely an inert daemon binary in the user's bin directory.
+    simpleserve_service_mode=require
+fi
 SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
+SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
     "$ROOT/scripts/install-simplesuite.sh"
 
 say "Installing SimpleCheck"
@@ -829,6 +840,19 @@ if [[ "$HOST_OS" == FreeBSD ]]; then
                 exit 1
             }
             printf '  %s\n' "$freebsd_helper"
+            ;;
+    esac
+fi
+if [[ "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ]]; then
+    case "$simpleserve_service_mode" in
+        skip | no | false | 0) ;;
+        *)
+            "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
+                "$HOME/.local/bin/simpleserved" >/dev/null 2>&1 || {
+                warn "SimpleServe system service is not installed and running"
+                exit 1
+            }
+            printf '  %s\n' /usr/local/sbin/simpleserved
             ;;
     esac
 fi

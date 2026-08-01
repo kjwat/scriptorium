@@ -40,7 +40,7 @@ exit 0
 EOF
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet'
+programs='simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -75,6 +75,17 @@ mkdir -p "$(dirname "$FAKE_FREEBSD_HELPER")"
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_FREEBSD_HELPER"
 chmod 755 "$FAKE_FREEBSD_HELPER"
 
+FAKE_SIMPLESERVE_DAEMON="$HOME/system-sbin/simpleserved"
+FAKE_SIMPLESERVE_UNINSTALLER="$HOME/system-sbin/simpleserve-system-uninstall"
+mkdir -p "$(dirname "$FAKE_SIMPLESERVE_DAEMON")"
+printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_SIMPLESERVE_DAEMON"
+cat >"$FAKE_SIMPLESERVE_UNINSTALLER" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >"$HOME/system-uninstall-args"
+rm -f "$SIMPLESERVE_SYSTEM_DAEMON" "$SIMPLESERVE_SYSTEM_UNINSTALLER"
+EOF
+chmod 755 "$FAKE_SIMPLESERVE_DAEMON" "$FAKE_SIMPLESERVE_UNINSTALLER"
+
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source simplewords-typewriter.wav.bak simplewords-typewriter.wav.bak2'
 for asset in $assets; do
     printf '%s\n' keep >"$HOME/.local/share/simplesuite/$asset"
@@ -93,6 +104,9 @@ printf '%s\n' BURN | \
     PATH="$FAKE_BIN:$REAL_BASH_DIR:/usr/local/bin:/usr/bin:/bin" \
     XDG_CACHE_HOME="$HOME/xdg-cache" \
     FREEBSD_UNMOUNT_HELPER="$FAKE_FREEBSD_HELPER" \
+    SIMPLESERVE_SYSTEM_DAEMON="$FAKE_SIMPLESERVE_DAEMON" \
+    SIMPLESERVE_SYSTEM_UNINSTALLER="$FAKE_SIMPLESERVE_UNINSTALLER" \
+    SIMPLESERVE_SYSTEM_TEST_MODE=1 \
     SIMPLESUITE_DIR="$FAKE_SUITE" \
     "$FAKE_ROOT/burn.sh" >"$TMP/burn.log"
 
@@ -114,6 +128,10 @@ assert_missing "$HOME/.local/share/simplemail"
 assert_missing "$HOME/.local/share/simplesuite"
 assert_missing "$HOME/.scriptorium-backups"
 assert_missing "$FAKE_FREEBSD_HELPER"
+assert_missing "$FAKE_SIMPLESERVE_DAEMON"
+assert_missing "$FAKE_SIMPLESERVE_UNINSTALLER"
+[[ "$(cat "$HOME/system-uninstall-args")" == '--purge' ]] ||
+    fail "burn.sh did not purge the SimpleServe system service"
 
 for program in $programs simplesuite-uninstall; do
     assert_missing "$HOME/.local/bin/$program"
