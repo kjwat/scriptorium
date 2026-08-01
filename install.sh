@@ -76,6 +76,42 @@ fi
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
+choose_simpleserve_component() {
+    local requested answer
+
+    case "$HOST_OS" in
+        FreeBSD | Linux) ;;
+        *)
+            SIMPLESUITE_INSTALL_SIMPLESERVE=0
+            export SIMPLESUITE_INSTALL_SIMPLESERVE
+            return
+            ;;
+    esac
+
+    if [[ -n ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} ]]; then
+        requested=$SIMPLESUITE_INSTALL_SIMPLESERVE
+    else
+        printf '\nInstall SimpleServe for LAN file sharing? [Y/n] '
+        IFS= read -r answer || answer=
+        requested=$answer
+    fi
+    case "$requested" in
+        '' | y | Y | yes | YES | true | 1)
+            SIMPLESUITE_INSTALL_SIMPLESERVE=1
+            printf 'SimpleServe selected.\n'
+            ;;
+        n | N | no | NO | false | 0)
+            SIMPLESUITE_INSTALL_SIMPLESERVE=0
+            printf 'SimpleServe skipped.\n'
+            ;;
+        *)
+            warn "SimpleServe selection must be yes or no."
+            exit 2
+            ;;
+    esac
+    export SIMPLESUITE_INSTALL_SIMPLESERVE
+}
+
 run_as_root() {
     if [[ $(id -u) -eq 0 ]]; then
         "$@"
@@ -376,10 +412,6 @@ declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplebrowse-jsdump
     simplesuite-uninstall
 )
-if [[ "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
-fi
-
 track_path() {
     local path="$1"
     local index=${#ROLLBACK_PATHS[@]}
@@ -597,9 +629,13 @@ trap installer_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-prepare_rollback
-
 say "Scriptorium installer"
+choose_simpleserve_component
+if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
+    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
+fi
+
+prepare_rollback
 
 say "Installing package dependencies"
 CHANGES_MADE=1
@@ -782,13 +818,16 @@ if [[ "$HOST_OS" == FreeBSD &&
     simplesuite_helper_mode=require
 fi
 simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
-if [[ ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
+if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 0 ]]; then
+    simpleserve_service_mode=skip
+elif [[ ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
       -z "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM+x}" ]]; then
     # A full Scriptorium install promises a usable discovery/mount service,
     # not merely an inert daemon binary in the user's bin directory.
     simpleserve_service_mode=require
 fi
 SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
+SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
     "$ROOT/scripts/install-simplesuite.sh"
@@ -843,7 +882,8 @@ if [[ "$HOST_OS" == FreeBSD ]]; then
             ;;
     esac
 fi
-if [[ "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ]]; then
+if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
+      ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) ]]; then
     case "$simpleserve_service_mode" in
         skip | no | false | 0) ;;
         *)

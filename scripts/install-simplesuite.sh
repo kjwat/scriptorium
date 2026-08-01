@@ -7,10 +7,11 @@ DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
+SIMPLESUITE_INSTALL_SIMPLESERVE="${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}"
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
-export SIMPLESUITE_INSTALL_FREEBSD_HELPER \
+export SIMPLESUITE_INSTALL_SIMPLESERVE SIMPLESUITE_INSTALL_FREEBSD_HELPER \
     SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM FREEBSD_UNMOUNT_HELPER
 SIMPLESUITE_BUILD_INSTALL_PACKAGES="$SIMPLESUITE_INSTALL_PACKAGES"
 SIMPLESUITE_ASSETS="
@@ -43,12 +44,23 @@ simplewords
 
 "
 SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+
+case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
+    0 | 1) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+
 case "$SIMPLESUITE_HOST_OS" in
     FreeBSD | Linux)
+        if [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" -eq 1 ]; then
         SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
 simpleserve
 simpleserved
 "
+        fi
         ;;
 esac
 
@@ -223,6 +235,7 @@ fi
 if [ -x "$DEST/build.sh" ]; then
     (cd "$DEST" && \
         SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
+        SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
         SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" \
         ./build.sh)
 elif [ -f "$DEST/Makefile" ]; then
@@ -320,9 +333,10 @@ if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
     esac
 fi
 
-case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
-    FreeBSD:skip|FreeBSD:no|FreeBSD:false|FreeBSD:0|Linux:skip|Linux:no|Linux:false|Linux:0) ;;
-    FreeBSD:*|Linux:*)
+case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
+    FreeBSD:0:*|Linux:0:*) ;;
+    FreeBSD:1:skip|FreeBSD:1:no|FreeBSD:1:false|FreeBSD:1:0|Linux:1:skip|Linux:1:no|Linux:1:false|Linux:1:0) ;;
+    FreeBSD:1:*|Linux:1:*)
         if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
            "$DEST/verify-simpleserve-system.sh" \
                "$HOME/.local/bin/simpleserved" >/dev/null 2>&1; then

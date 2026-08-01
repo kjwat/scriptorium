@@ -41,7 +41,7 @@ case "${1-}" in
         ;;
     install)
         printf '%s\n' "$*" >>"$FAKE_APT_LOG"
-        for runtime_command in blkid avahi-daemon avahi-browse \
+        for runtime_command in less blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
             chmod 755 "$FAKE_BIN/$runtime_command"
@@ -99,52 +99,20 @@ PATH="$fake_bin" \
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
 
-package_block() {
-    family_name=$1
-    awk -v family_name="$family_name" '
-        $0 ~ "^    " family_name "\\)" {
-            capture = 1
-            block = ""
-            has_install = 0
-        }
-        capture {
-            block = block $0 "\n"
-            if ($0 ~ /run_package_command/)
-                has_install = 1
-        }
-        capture && /;;[[:space:]]*$/ {
-            if (has_install) {
-                printf "%s", block
-                exit
-            }
-            capture = 0
-        }
-    ' "$repo/scripts/install-packages.sh"
-}
+rm -f "$fake_bin/less" "$fake_bin/blkid" "$fake_bin/avahi-daemon" \
+    "$fake_bin/avahi-browse" "$fake_bin/avahi-publish-service" \
+    "$fake_bin/exportfs" "$fake_bin/mount.nfs"
+: >"$apt_log"
+HOME="$tmp/without-simpleserve-home" FAKE_APT_LOG="$apt_log" \
+FAKE_BIN="$fake_bin" PATH="$fake_bin" SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
+    "$fixture/scripts/install-packages.sh" \
+    >"$tmp/install-without-simpleserve.log" 2>&1
+grep -q '^install -y ' "$apt_log"
+if grep -Eq 'nfs-kernel-server|nfs-common|avahi-daemon|avahi-utils' "$apt_log"; then
+    echo 'linux-package-bootstrap-check: disabled SimpleServe packages were installed' >&2
+    exit 1
+fi
+grep -q 'Package dependency installation verified' \
+    "$tmp/install-without-simpleserve.log"
 
-assert_family_packages() {
-    family_name=$1
-    shift
-    block=$(package_block "$family_name")
-    [ -n "$block" ] || {
-        echo "linux-package-bootstrap-check: no install block for $family_name" >&2
-        exit 1
-    }
-    for package_name in "$@"; do
-        printf '%s\n' "$block" |
-            grep -Eq "(^|[[:space:]])${package_name}([[:space:]]|$)" || {
-            echo "linux-package-bootstrap-check: $family_name omitted $package_name" >&2
-            exit 1
-        }
-    done
-}
-
-assert_family_packages debian nfs-kernel-server nfs-common avahi-daemon avahi-utils
-assert_family_packages void nfs-utils avahi
-assert_family_packages arch nfs-utils avahi
-assert_family_packages alpine nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools
-assert_family_packages fedora nfs-utils avahi avahi-tools
-assert_family_packages suse nfs-kernel-server nfs-client avahi avahi-utils
-assert_family_packages freebsd avahi-app
-
-echo 'OK Scriptorium installs and verifies SimpleServe runtime packages on supported Unix platforms'
+echo 'OK Scriptorium includes or omits SimpleServe runtime packages as selected'

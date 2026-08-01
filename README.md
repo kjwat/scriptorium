@@ -24,6 +24,12 @@ receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
 installation instead prints the shell file to source before using the commands.
+On FreeBSD and Linux, the installer also asks whether to include SimpleServe;
+answering no omits its binaries, NFS/Avahi packages, service installation, and
+verification. On a reinstall it also removes an existing SimpleServe service
+and its managed boot-mount block while preserving saved share configuration.
+For unattended installs, set
+`SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
 
 ## What It Installs
 
@@ -46,6 +52,9 @@ SimpleSuite programs:
 - `simplever`
 - `simplevis`
 
+When selected on FreeBSD or Linux, the installer also includes `simpleserve`
+and its `simpleserved` system daemon.
+
 Scriptorium also builds and installs `simplecheck`, its ncurses dashboard for
 the `~/writing`, `~/scriptorium`, and `~/simplesuite` Git repositories.
 
@@ -64,8 +73,8 @@ on platform availability:
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for
   SimpleCal reminder fallback
-- NFS server/client tools and the Avahi daemon/CLI utilities for SimpleServe
-  exports, discovery, and real filesystem mounts
+- when SimpleServe is selected, NFS server/client tools and the Avahi
+  daemon/CLI utilities for exports, discovery, and real filesystem mounts
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -121,13 +130,18 @@ including `simplesuite-uninstall`. Shared audio assets are installed under:
 The same directory also carries the sound-provenance notice and the internal
 source-checkout record used by destructive uninstallation.
 
-On FreeBSD and Linux, installation also installs, enables, starts, and verifies
-the privileged SimpleServe service. This is the piece that turns discovered
-NFS shares into real VFS mounts. A full Scriptorium install fails clearly if
+When SimpleServe is selected on FreeBSD or Linux, installation also installs,
+enables, starts, and verifies its privileged service. This is the piece that
+turns discovered NFS shares into real VFS mounts. The install fails clearly if
 its NFS or Avahi runtime commands are absent or that system service cannot be
 made ready; set
 `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip` only when intentionally managing
 the daemon separately.
+
+On Linux, SimpleServe records shared local drives by UUID in a marked managed
+block in `/etc/fstab`, using `nofail` so an unplugged disk cannot block boot.
+Unsharing a drive removes its entry, and both normal and purge uninstall remove
+the entire managed block while preserving unrelated fstab mounts.
 
 SimpleWords typewriter audio is native and needs no additional player or audio
 development package. Its config is created at

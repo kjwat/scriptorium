@@ -2,6 +2,15 @@
 set -u
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
+
+case "$install_simpleserve" in
+    0 | 1) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
 
 missing_required=()
 missing_runtime=()
@@ -378,41 +387,53 @@ pkg_for_dep() {
 
 
 packages_for_family() {
+    local simpleserve_packages=
+
+    if [ "$install_simpleserve" -eq 1 ]; then
+        case "$family" in
+            void | arch) simpleserve_packages="nfs-utils avahi" ;;
+            debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils" ;;
+            fedora) simpleserve_packages="nfs-utils avahi avahi-tools" ;;
+            alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools" ;;
+            suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils" ;;
+            freebsd) simpleserve_packages="avahi-app" ;;
+        esac
+    fi
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils avahi"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
             PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-kernel-server nfs-common avahi-daemon avahi-utils"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
-            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux nfs-utils avahi"
+            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils avahi avahi-tools"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
-            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-kernel-server nfs-client avahi avahi-utils"
+            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
@@ -424,7 +445,7 @@ packages_for_family() {
         freebsd)
             INSTALL="sudo pkg install"
             PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
-            PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs avahi-app"
+            PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3"
             ;;
         msys2)
@@ -473,7 +494,8 @@ check_cmd runtime mbsync "mbsync"
 check_cmd runtime msmtp "msmtp"
 check_cmd runtime curl "curl"
 
-if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
+if [ "$install_simpleserve" -eq 1 ] &&
+   [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
     check_cmd runtime avahi-daemon "SimpleServe mDNS service"
     check_cmd runtime avahi-browse "SimpleServe discovery"
     check_cmd runtime avahi-publish-service "SimpleServe advertisement"

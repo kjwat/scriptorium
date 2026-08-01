@@ -46,7 +46,11 @@ set -eu
 
 programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenet simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
 case "$(uname -s)" in
-    FreeBSD | Linux) programs="$programs simpleserve simpleserved" ;;
+    FreeBSD | Linux)
+        if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}" -eq 1 ]; then
+            programs="$programs simpleserve simpleserved"
+        fi
+        ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source'
@@ -58,6 +62,8 @@ for name in $programs $helpers; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
     chmod 755 "$HOME/.local/bin/$name"
 done
+printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
+    >"$HOME/simpleserve-component-selection"
 for name in $assets; do
     printf '%s\n' fixture >"$HOME/.local/share/simplesuite/$name"
 done
@@ -77,6 +83,7 @@ printf '%s\n' '# feeds' \
 case "$(uname -s)" in
     FreeBSD)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
+        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-}" = 1 ]
         [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = require ]
         [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
@@ -186,4 +193,24 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ ! -e "$HOME/package-install-ran" ]
 grep -q '^yes$' "$HOME/linux-build-ran"
 
-echo 'OK Scriptorium verifies FreeBSD, macOS, and Linux SimpleSuite bootstrap handoffs'
+HOME="$TMP/linux-without-simpleserve-home"
+export HOME
+mkdir -p "$HOME"
+
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux \
+FAKE_BREW_ROOT="$TMP/homebrew" \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" \
+SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+    >"$TMP/install-linux-without-simpleserve.log"
+
+[ -x "$HOME/.local/bin/simplewords" ]
+[ ! -e "$HOME/.local/bin/simpleserve" ]
+[ ! -e "$HOME/.local/bin/simpleserved" ]
+[ ! -e "$HOME/simpleserve-system-verified" ]
+grep -q '^0$' "$HOME/simpleserve-component-selection"
+
+echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'

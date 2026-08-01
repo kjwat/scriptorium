@@ -3,6 +3,7 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 family="$("$ROOT/scripts/detect-platform.sh")"
+install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
 package_log=
 package_status_file=
 
@@ -44,6 +45,15 @@ cleanup_package_files() {
 }
 
 trap cleanup_package_files EXIT
+
+case "$install_simpleserve" in
+    0 | 1) ;;
+    *)
+        echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
+export SIMPLESUITE_INSTALL_SIMPLESERVE
 
 have_cmd() {
     command -v "$1" >/dev/null 2>&1
@@ -212,20 +222,27 @@ dependencies_already_present() {
             (have_cmd xclip || have_cmd xsel) || return 1
             have_cmd pactl || return 1
             have_cmd parec || return 1
-            for dependency_command in \
-                blkid avahi-daemon avahi-browse avahi-publish-service \
-                mount_nfs nfsd; do
-                have_cmd "$dependency_command" || return 1
-            done
+            if [ "$install_simpleserve" -eq 1 ]; then
+                for dependency_command in \
+                    blkid avahi-daemon avahi-browse avahi-publish-service \
+                    mount_nfs nfsd; do
+                    have_cmd "$dependency_command" || return 1
+                done
+            fi
             ;;
         *)
             for dependency_command in \
                 xdg-open gio findmnt udisksctl e2fsck fsck.fat fsck.exfat \
-                ntfsfix wl-copy wl-paste pactl parec blkid \
-                avahi-daemon avahi-browse avahi-publish-service \
-                exportfs mount.nfs; do
+                ntfsfix wl-copy wl-paste pactl parec; do
                 have_cmd "$dependency_command" || return 1
             done
+            if [ "$install_simpleserve" -eq 1 ]; then
+                for dependency_command in \
+                    blkid avahi-daemon avahi-browse avahi-publish-service \
+                    exportfs mount.nfs; do
+                    have_cmd "$dependency_command" || return 1
+                done
+            fi
             (have_cmd xclip || have_cmd xsel) || return 1
             ;;
     esac
@@ -748,6 +765,18 @@ if [ "$family" != macos ] && [ "$(id -u)" -ne 0 ] && ! have_cmd sudo; then
     exit 1
 fi
 
+simpleserve_packages=
+if [ "$install_simpleserve" -eq 1 ]; then
+    case "$family" in
+        debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils" ;;
+        void | arch) simpleserve_packages="nfs-utils avahi" ;;
+        alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools" ;;
+        fedora) simpleserve_packages="nfs-utils avahi avahi-tools" ;;
+        suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils" ;;
+        freebsd) simpleserve_packages="avahi-app" ;;
+    esac
+fi
+
 case "$family" in
     debian)
         check_repository_configuration debian
@@ -766,7 +795,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync cron \
-            nfs-kernel-server nfs-common avahi-daemon avahi-utils
+            $simpleserve_packages
         ;;
     void)
         check_repository_configuration void
@@ -776,7 +805,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
             isync msmtp calcurse links curl ca-certificates rsync cronie \
-            nfs-utils avahi
+            $simpleserve_packages
         ;;
     arch)
         check_repository_configuration arch
@@ -801,7 +830,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync cronie \
-            nfs-utils avahi
+            $simpleserve_packages
         ;;
     alpine)
         check_repository_configuration alpine
@@ -811,7 +840,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync dcron \
-            nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools
+            $simpleserve_packages
         ;;
     fedora)
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
@@ -820,7 +849,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
             isync msmtp calcurse links curl ca-certificates rsync cronie \
-            nfs-utils avahi avahi-tools
+            $simpleserve_packages
         ;;
     suse)
         run_package_command suse as_root env LC_ALL=C zypper install -y \
@@ -829,7 +858,7 @@ case "$family" in
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync cron \
-            nfs-kernel-server nfs-client avahi avahi-utils
+            $simpleserve_packages
         ;;
     freebsd)
         run_package_command freebsd as_root env LC_ALL=C pkg update
@@ -838,7 +867,7 @@ case "$family" in
             git mpv poppler-utils hs-pandoc \
             nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad \
             python3 \
-            isync msmtp calcurse links ca_root_nss rsync avahi-app
+            isync msmtp calcurse links ca_root_nss rsync $simpleserve_packages
         ;;
     macos)
         run_package_command macos env LC_ALL=C brew install \
