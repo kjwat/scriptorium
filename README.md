@@ -64,6 +64,8 @@ on platform availability:
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for
   SimpleCal reminder fallback
+- NFS server/client tools and the Avahi daemon/CLI utilities for SimpleServe
+  exports, discovery, and real filesystem mounts
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -122,7 +124,8 @@ source-checkout record used by destructive uninstallation.
 On FreeBSD and Linux, installation also installs, enables, starts, and verifies
 the privileged SimpleServe service. This is the piece that turns discovered
 NFS shares into real VFS mounts. A full Scriptorium install fails clearly if
-that system service cannot be made ready; set
+its NFS or Avahi runtime commands are absent or that system service cannot be
+made ready; set
 `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip` only when intentionally managing
 the daemon separately.
 

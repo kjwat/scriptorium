@@ -57,6 +57,7 @@ dep_hint() {
         gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
         wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;
         xclip|xsel) echo "used by simplewords X11 clipboard" ;;
+        avahi-daemon) echo "SimpleServe mDNS service; provided by Avahi" ;;
         avahi-browse|avahi-publish-service) echo "SimpleServe mDNS discovery; provided by Avahi command-line utilities" ;;
         exportfs) echo "SimpleServe Linux NFS export manager; provided by the NFS server package" ;;
         mount.nfs) echo "SimpleServe Linux kernel NFS mount helper; provided by NFS client utilities" ;;
@@ -381,38 +382,38 @@ packages_for_family() {
         void)
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie nfs-utils avahi"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils avahi"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
             PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron nfs-kernel-server nfs-common avahi-daemon avahi-utils"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-kernel-server nfs-common avahi-daemon avahi-utils"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -Syu --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
-            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie nfs-utils avahi"
+            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux nfs-utils avahi"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie nfs-utils avahi avahi-tools"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils avahi avahi-tools"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools"
+            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
-            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron nfs-kernel-server nfs-client avahi-utils"
+            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux nfs-kernel-server nfs-client avahi avahi-utils"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
@@ -423,8 +424,8 @@ packages_for_family() {
         freebsd)
             INSTALL="sudo pkg install"
             PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
-            PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync"
-            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3 avahi-app"
+            PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs avahi-app"
+            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
@@ -472,6 +473,20 @@ check_cmd runtime mbsync "mbsync"
 check_cmd runtime msmtp "msmtp"
 check_cmd runtime curl "curl"
 
+if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
+    check_cmd runtime avahi-daemon "SimpleServe mDNS service"
+    check_cmd runtime avahi-browse "SimpleServe discovery"
+    check_cmd runtime avahi-publish-service "SimpleServe advertisement"
+    check_cmd runtime blkid "SimpleServe filesystem UUIDs"
+    if [ "$family" = "freebsd" ]; then
+        check_cmd runtime mount_nfs "SimpleServe NFS client"
+        check_cmd runtime nfsd "SimpleServe NFS server"
+    else
+        check_cmd runtime mount.nfs "SimpleServe NFS client"
+        check_cmd runtime exportfs "SimpleServe NFS server"
+    fi
+fi
+
 echo
 echo "=== Optional / feature dependencies ==="
 check_any_editor
@@ -489,19 +504,6 @@ if [ "$family" != "msys2" ]; then
 fi
 if [ "$family" != msys2 ]; then
     check_simplebrowse_js
-fi
-
-if [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
-    check_cmd optional avahi-browse "SimpleServe discovery"
-    check_cmd optional avahi-publish-service "SimpleServe advertisement"
-    check_cmd optional blkid "SimpleServe filesystem UUIDs"
-    if [ "$family" = "freebsd" ]; then
-        check_cmd optional mount_nfs "SimpleServe NFS client"
-        check_cmd optional nfsd "SimpleServe NFS server"
-    else
-        check_cmd optional mount.nfs "SimpleServe NFS client"
-        check_cmd optional exportfs "SimpleServe NFS server"
-    fi
 fi
 
 if [ "$family" != "msys2" ]; then

@@ -212,11 +212,18 @@ dependencies_already_present() {
             (have_cmd xclip || have_cmd xsel) || return 1
             have_cmd pactl || return 1
             have_cmd parec || return 1
+            for dependency_command in \
+                blkid avahi-daemon avahi-browse avahi-publish-service \
+                mount_nfs nfsd; do
+                have_cmd "$dependency_command" || return 1
+            done
             ;;
         *)
             for dependency_command in \
                 xdg-open gio findmnt udisksctl e2fsck fsck.fat fsck.exfat \
-                ntfsfix wl-copy wl-paste pactl parec; do
+                ntfsfix wl-copy wl-paste pactl parec blkid \
+                avahi-daemon avahi-browse avahi-publish-service \
+                exportfs mount.nfs; do
                 have_cmd "$dependency_command" || return 1
             done
             (have_cmd xclip || have_cmd xsel) || return 1
@@ -758,7 +765,8 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron
+            isync msmtp calcurse links curl ca-certificates rsync cron \
+            nfs-kernel-server nfs-common avahi-daemon avahi-utils
         ;;
     void)
         check_repository_configuration void
@@ -767,7 +775,8 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie
+            isync msmtp calcurse links curl ca-certificates rsync cronie \
+            nfs-utils avahi
         ;;
     arch)
         check_repository_configuration arch
@@ -791,7 +800,8 @@ case "$family" in
             git mpv poppler pandoc-cli \
             nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
-            isync msmtp calcurse links ca-certificates rsync cronie
+            isync msmtp calcurse links ca-certificates rsync cronie \
+            nfs-utils avahi
         ;;
     alpine)
         check_repository_configuration alpine
@@ -800,7 +810,8 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync dcron
+            isync msmtp calcurse links curl ca-certificates rsync dcron \
+            nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools
         ;;
     fedora)
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
@@ -808,7 +819,8 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie
+            isync msmtp calcurse links curl ca-certificates rsync cronie \
+            nfs-utils avahi avahi-tools
         ;;
     suse)
         run_package_command suse as_root env LC_ALL=C zypper install -y \
@@ -816,7 +828,8 @@ case "$family" in
             git mpv poppler-tools pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron
+            isync msmtp calcurse links curl ca-certificates rsync cron \
+            nfs-kernel-server nfs-client avahi avahi-utils
         ;;
     freebsd)
         run_package_command freebsd as_root env LC_ALL=C pkg update
@@ -825,7 +838,7 @@ case "$family" in
             git mpv poppler-utils hs-pandoc \
             nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad \
             python3 \
-            isync msmtp calcurse links ca_root_nss rsync
+            isync msmtp calcurse links ca_root_nss rsync avahi-app
         ;;
     macos)
         run_package_command macos env LC_ALL=C brew install \

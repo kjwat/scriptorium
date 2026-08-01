@@ -73,17 +73,21 @@ esac
 EOF
 
 for command_name in \
-    git pdftotext pandoc zip unzip tar file less fzf links mbsync msmtp \
+    cc git pdftotext pandoc zip unzip tar file less fzf links mbsync msmtp \
     calcurse curl rsync nano open launchctl; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$command_name"
 done
 chmod 755 "$fake_bin"/*
 
+for utility in chmod dirname env grep mkdir mktemp rm tee; do
+    ln -s "$(command -v "$utility")" "$fake_bin/$utility"
+done
+
 HOME="$home" \
 FAKE_BIN="$fake_bin" \
 FAKE_BREW_ROOT="$brew_root" \
 FAKE_BREW_LOG="$brew_log" \
-PATH="$fake_bin:/usr/bin:/bin" \
+PATH="$fake_bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^pkgconf ncurses curl make openssl@3 glib git mpv poppler pandoc nano zip unzip libmagic less fzf isync msmtp calcurse links rsync$' \
