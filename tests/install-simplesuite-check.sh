@@ -195,7 +195,11 @@ grep -q '^yes$' "$HOME/linux-build-ran"
 
 HOME="$TMP/linux-without-simpleserve-home"
 export HOME
-mkdir -p "$HOME"
+mkdir -p "$HOME/.local/bin"
+printf '%s\n' preserved-client >"$HOME/.local/bin/simpleserve"
+printf '%s\n' preserved-daemon >"$HOME/.local/bin/simpleserved"
+chmod 755 "$HOME/.local/bin/simpleserve" "$HOME/.local/bin/simpleserved"
+printf '%s\n' preserved-system-service >"$HOME/simpleserve-system-verified"
 
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 FAKE_UNAME=Linux \
@@ -208,9 +212,9 @@ SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
     >"$TMP/install-linux-without-simpleserve.log"
 
 [ -x "$HOME/.local/bin/simplewords" ]
-[ ! -e "$HOME/.local/bin/simpleserve" ]
-[ ! -e "$HOME/.local/bin/simpleserved" ]
-[ ! -e "$HOME/simpleserve-system-verified" ]
+grep -q '^preserved-client$' "$HOME/.local/bin/simpleserve"
+grep -q '^preserved-daemon$' "$HOME/.local/bin/simpleserved"
+grep -q '^preserved-system-service$' "$HOME/simpleserve-system-verified"
 grep -q '^0$' "$HOME/simpleserve-component-selection"
 
 echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'

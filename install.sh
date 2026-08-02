@@ -91,7 +91,7 @@ choose_simpleserve_component() {
     if [[ -n ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} ]]; then
         requested=$SIMPLESUITE_INSTALL_SIMPLESERVE
     else
-        printf '\nInstall SimpleServe for LAN file sharing? [Y/n] '
+        printf '\nInstall or update SimpleServe for LAN file sharing? [Y/n] '
         IFS= read -r answer || answer=
         requested=$answer
     fi
@@ -102,7 +102,7 @@ choose_simpleserve_component() {
             ;;
         n | N | no | NO | false | 0)
             SIMPLESUITE_INSTALL_SIMPLESERVE=0
-            printf 'SimpleServe skipped.\n'
+            printf 'SimpleServe skipped; any existing installation will be left unchanged.\n'
             ;;
         *)
             warn "SimpleServe selection must be yes or no."

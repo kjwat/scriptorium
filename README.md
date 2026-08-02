@@ -24,10 +24,11 @@ receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
 installation instead prints the shell file to source before using the commands.
-On FreeBSD and Linux, the installer also asks whether to include SimpleServe;
-answering no omits its binaries, NFS/Avahi packages, service installation, and
-verification. On a reinstall it also removes an existing SimpleServe service
-and its managed boot-mount block while preserving saved share configuration.
+On FreeBSD and Linux, the installer also asks whether to install or update
+SimpleServe. Answering no skips its binaries, NFS/Avahi packages, service
+installation, and verification for that run. The choice is non-destructive:
+an existing SimpleServe installation, exports, and managed boot mounts are left
+unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
 For unattended installs, set
 `SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
 
