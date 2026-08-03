@@ -258,6 +258,9 @@ detect_platform() {
     os="$(uname -s 2>/dev/null || echo unknown)"
     distro="unknown"
     family="$("$ROOT/scripts/detect-platform.sh")"
+    if [ "$family" = unknown ] && have_cmd pacman; then
+        family=arch
+    fi
     wsl=0
 
     case "$os" in

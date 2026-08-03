@@ -233,7 +233,7 @@ dependencies_already_present() {
         *)
             for dependency_command in \
                 xdg-open gio findmnt udisksctl e2fsck fsck.fat fsck.exfat \
-                ntfsfix wl-copy wl-paste pactl parec; do
+                wl-copy wl-paste pactl parec; do
                 have_cmd "$dependency_command" || return 1
             done
             if [ "$install_simpleserve" -eq 1 ]; then
