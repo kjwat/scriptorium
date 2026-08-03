@@ -413,10 +413,17 @@ packages_for_family() {
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
-            INSTALL="sudo pacman -Syu --needed"
+            INSTALL="sudo pacman -S --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
             PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
+            arch_audio="libpulse"
+
+            if ! pacman -Qq pipewire-jack >/dev/null 2>&1 &&
+               ! pacman -Qq jack2 >/dev/null 2>&1; then
+                arch_audio="$arch_audio pipewire-jack"
+            fi
+
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf $arch_audio udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
