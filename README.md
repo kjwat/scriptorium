@@ -25,7 +25,7 @@ When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
 installation instead prints the shell file to source before using the commands.
 On FreeBSD and Linux, the installer also asks whether to install or update
-SimpleServe. Answering no skips its binaries, NFS/Avahi packages, service
+SimpleServe. Answering no skips its binaries, NFS/Samba/Avahi packages, service
 installation, and verification for that run. The choice is non-destructive:
 an existing SimpleServe installation, exports, and managed boot mounts are left
 unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
@@ -74,8 +74,10 @@ on platform availability:
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for
   SimpleCal reminder fallback
-- when SimpleServe is selected, NFS server/client tools and the Avahi
-  daemon/CLI utilities for exports, discovery, and real filesystem mounts
+- when SimpleServe is selected, NFS server/client tools, the Linux Samba
+  server, and Avahi daemon/CLI utilities for dual-protocol exports, discovery,
+  and real filesystem mounts; systems that skip SimpleServe install none of
+  this server stack
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -133,16 +135,19 @@ source-checkout record used by destructive uninstallation.
 
 When SimpleServe is selected on FreeBSD or Linux, installation also installs,
 enables, starts, and verifies its privileged service. This is the piece that
-turns discovered NFS shares into real VFS mounts. The install fails clearly if
-its NFS or Avahi runtime commands are absent or that system service cannot be
-made ready; set
+turns discovered NFS shares into real VFS mounts and exports every active Linux
+share over SMB as well. The install fails clearly if its NFS, Samba, or Avahi
+runtime commands are absent or that system service cannot be made ready; set
 `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip` only when intentionally managing
 the daemon separately.
 
 On Linux, SimpleServe records shared local drives by UUID in a marked managed
 block in `/etc/fstab`, using `nofail` so an unplugged disk cannot block boot.
 Unsharing a drive removes its entry, and both normal and purge uninstall remove
-the entire managed block while preserving unrelated fstab mounts.
+the entire managed block while preserving unrelated fstab mounts. SimpleServe
+keeps Linux SMB shares in `/etc/samba/simpleserve.conf`; uninstall removes that
+generated file and its marked `smb.conf` include while preserving unrelated
+Samba settings and shares.
 
 SimpleWords typewriter audio is native and needs no additional player or audio
 development package. Its config is created at
@@ -360,7 +365,8 @@ files back. Package-manager changes are not rolled back.
 APT source repairs and AppArmor profile changes are system-level changes and
 are not included in that rollback either. The enabled SimpleServe system
 service is likewise outside the user-file rollback; rerunning the installer
-safely updates and re-verifies it, while `simplesuite-uninstall` removes it.
+safely updates and re-verifies it, while `simplesuite-uninstall` removes it and
+its managed NFS/SMB configuration.
 
 This repo includes destructive cleanup scripts:
 

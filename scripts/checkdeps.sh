@@ -70,6 +70,8 @@ dep_hint() {
         avahi-browse|avahi-publish-service) echo "SimpleServe mDNS discovery; provided by Avahi command-line utilities" ;;
         exportfs) echo "SimpleServe Linux NFS export manager; provided by the NFS server package" ;;
         mount.nfs) echo "SimpleServe Linux kernel NFS mount helper; provided by NFS client utilities" ;;
+        smbd) echo "SimpleServe Linux SMB server; provided by Samba" ;;
+        testparm) echo "SimpleServe Samba configuration validator; provided by Samba" ;;
         mount_nfs|nfsd) echo "SimpleServe FreeBSD NFS support; provided by the base system" ;;
         blkid) echo "SimpleServe filesystem UUID lookup; provided by util-linux or e2fsprogs" ;;
         *) echo "provided by $1" ;;
@@ -372,6 +374,12 @@ pkg_for_dep() {
                 *) echo "nfs-utils" ;;
             esac
             ;;
+        *:smbd|*:testparm)
+            case "$family" in
+                alpine) echo "samba samba-server-openrc" ;;
+                *) echo "samba" ;;
+            esac
+            ;;
         *:blkid)
             case "$family" in
                 freebsd) echo "e2fsprogs" ;;
@@ -394,11 +402,11 @@ packages_for_family() {
 
     if [ "$install_simpleserve" -eq 1 ]; then
         case "$family" in
-            void | arch) simpleserve_packages="nfs-utils avahi" ;;
-            debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils" ;;
-            fedora) simpleserve_packages="nfs-utils avahi avahi-tools" ;;
-            alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools" ;;
-            suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils" ;;
+            void | arch) simpleserve_packages="nfs-utils avahi samba" ;;
+            debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils samba" ;;
+            fedora) simpleserve_packages="nfs-utils avahi avahi-tools samba" ;;
+            alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools samba samba-server-openrc" ;;
+            suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils samba" ;;
             freebsd) simpleserve_packages="avahi-app" ;;
         esac
     fi
@@ -516,6 +524,8 @@ if [ "$install_simpleserve" -eq 1 ] &&
     else
         check_cmd runtime mount.nfs "SimpleServe NFS client"
         check_cmd runtime exportfs "SimpleServe NFS server"
+        check_cmd runtime smbd "SimpleServe SMB server"
+        check_cmd runtime testparm "SimpleServe SMB validation"
     fi
 fi
 

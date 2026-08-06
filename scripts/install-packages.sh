@@ -242,6 +242,8 @@ dependencies_already_present() {
                     exportfs mount.nfs; do
                     have_cmd "$dependency_command" || return 1
                 done
+                have_cmd smbd || return 1
+                have_cmd testparm || return 1
             fi
             (have_cmd xclip || have_cmd xsel) || return 1
             ;;
@@ -768,11 +770,11 @@ fi
 simpleserve_packages=
 if [ "$install_simpleserve" -eq 1 ]; then
     case "$family" in
-        debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils" ;;
-        void | arch) simpleserve_packages="nfs-utils avahi" ;;
-        alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools" ;;
-        fedora) simpleserve_packages="nfs-utils avahi avahi-tools" ;;
-        suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils" ;;
+        debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils samba" ;;
+        void | arch) simpleserve_packages="nfs-utils avahi samba" ;;
+        alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools samba samba-server-openrc" ;;
+        fedora) simpleserve_packages="nfs-utils avahi avahi-tools samba" ;;
+        suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils samba" ;;
         freebsd) simpleserve_packages="avahi-app" ;;
     esac
 fi
