@@ -187,3 +187,10 @@ STATUS=fired
 FIRED_AT=2026-07-25T21:31:52
 FIRED_ON=thetyper
 
+EVENT_ID=2026-10-13-0000-call-progressive-to-renew-your-policy
+OCCURRENCE_ID=2026-10-13-0000-call-progressive-to-renew-your-policy
+DUE=2026-10-13T09:59:00
+STATUS=pending
+FIRED_AT=
+FIRED_ON=
+
