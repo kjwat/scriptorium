@@ -42,7 +42,7 @@ case "${1-}" in
     install)
         printf '%s\n' "$*" >>"$FAKE_APT_LOG"
         for runtime_command in less blkid avahi-daemon avahi-browse \
-            avahi-publish-service exportfs mount.nfs smbd testparm; do
+            avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
             chmod 755 "$FAKE_BIN/$runtime_command"
         done
@@ -80,7 +80,8 @@ PATH="$fake_bin" \
 
 grep -q '^install -y ' "$apt_log"
 for package_name in \
-    nfs-kernel-server nfs-common avahi-daemon avahi-utils samba; do
+    libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils \
+    cifs-utils samba; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$apt_log" || {
         echo "linux-package-bootstrap-check: apt transaction omitted $package_name" >&2
@@ -101,7 +102,7 @@ grep -q 'Package dependencies already present' "$tmp/recheck.log"
 
 rm -f "$fake_bin/less" "$fake_bin/blkid" "$fake_bin/avahi-daemon" \
     "$fake_bin/avahi-browse" "$fake_bin/avahi-publish-service" \
-    "$fake_bin/exportfs" "$fake_bin/mount.nfs" "$fake_bin/smbd" \
+    "$fake_bin/exportfs" "$fake_bin/mount.nfs" "$fake_bin/mount.cifs" "$fake_bin/smbd" \
     "$fake_bin/testparm"
 : >"$apt_log"
 HOME="$tmp/without-simpleserve-home" FAKE_APT_LOG="$apt_log" \
@@ -109,7 +110,7 @@ FAKE_BIN="$fake_bin" PATH="$fake_bin" SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
     "$fixture/scripts/install-packages.sh" \
     >"$tmp/install-without-simpleserve.log" 2>&1
 grep -q '^install -y ' "$apt_log"
-if grep -Eq 'nfs-kernel-server|nfs-common|avahi-daemon|avahi-utils|samba' \
+if grep -Eq 'libavahi-client-dev|nfs-kernel-server|nfs-common|avahi-daemon|avahi-utils|cifs-utils|samba' \
     "$apt_log"; then
     echo 'linux-package-bootstrap-check: disabled SimpleServe packages were installed' >&2
     exit 1
@@ -117,4 +118,45 @@ fi
 grep -q 'Package dependency installation verified' \
     "$tmp/install-without-simpleserve.log"
 
-echo 'OK Scriptorium includes or omits SimpleServe server packages as selected'
+rm -f "$fake_bin/blkid" "$fake_bin/avahi-daemon" \
+    "$fake_bin/avahi-browse" "$fake_bin/avahi-publish-service" \
+    "$fake_bin/exportfs" "$fake_bin/mount.nfs" "$fake_bin/mount.cifs" \
+    "$fake_bin/smbd" "$fake_bin/testparm"
+: >"$apt_log"
+HOME="$tmp/client-home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=client \
+    "$fixture/scripts/install-packages.sh" >"$tmp/install-client.log" 2>&1
+for package_name in \
+    libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils; do
+    grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
+        "$apt_log" || {
+        echo "linux-package-bootstrap-check: client transaction omitted $package_name" >&2
+        exit 1
+    }
+done
+if grep -Eq 'nfs-kernel-server|samba' "$apt_log"; then
+    echo 'linux-package-bootstrap-check: client role installed server packages' >&2
+    exit 1
+fi
+
+rm -f "$fake_bin/blkid" "$fake_bin/avahi-daemon" \
+    "$fake_bin/avahi-browse" "$fake_bin/avahi-publish-service" \
+    "$fake_bin/exportfs" "$fake_bin/mount.nfs" "$fake_bin/mount.cifs" \
+    "$fake_bin/smbd" "$fake_bin/testparm"
+: >"$apt_log"
+HOME="$tmp/promotion-home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=server \
+SCRIPTORIUM_PACKAGES_SCOPE=network \
+    "$fixture/scripts/install-packages.sh" >"$tmp/install-promotion.log" 2>&1
+grep -Eq '^install -y .*nfs-kernel-server.*samba' "$apt_log" || {
+    echo 'linux-package-bootstrap-check: server promotion omitted publishing packages' >&2
+    exit 1
+}
+if grep -Eq 'build-essential|mpv|pandoc|isync|calcurse' "$apt_log"; then
+    echo 'linux-package-bootstrap-check: server promotion reinstalled unrelated Scriptorium packages' >&2
+    exit 1
+fi
+grep -q 'Trident server package installation verified' \
+    "$tmp/install-promotion.log"
+
+echo 'OK Scriptorium splits client, server, and disabled Trident packages'

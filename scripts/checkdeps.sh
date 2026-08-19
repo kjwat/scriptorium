@@ -2,15 +2,33 @@
 set -u
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
-install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
-
-case "$install_simpleserve" in
-    0 | 1) ;;
-    *)
-        echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+if [[ ${SIMPLESUITE_NETWORK_ROLE+x} == x ]]; then
+    network_role=$SIMPLESUITE_NETWORK_ROLE
+    case "$network_role" in
+        none) resolved_simpleserve=0 ;;
+        client | server) resolved_simpleserve=1 ;;
+        *)
+            echo "SIMPLESUITE_NETWORK_ROLE must be none, client, or server." >&2
+            exit 2
+            ;;
+    esac
+    if [[ ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} == x &&
+          $SIMPLESUITE_INSTALL_SIMPLESERVE != "$resolved_simpleserve" ]]; then
+        echo "SIMPLESUITE_NETWORK_ROLE conflicts with SIMPLESUITE_INSTALL_SIMPLESERVE." >&2
         exit 2
-        ;;
-esac
+    fi
+    install_simpleserve=$resolved_simpleserve
+else
+    install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
+    case "$install_simpleserve" in
+        0) network_role=none ;;
+        1) network_role=server ;;
+        *)
+            echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+            exit 2
+            ;;
+    esac
+fi
 
 missing_required=()
 missing_runtime=()
@@ -70,6 +88,7 @@ dep_hint() {
         avahi-browse|avahi-publish-service) echo "SimpleServe mDNS discovery; provided by Avahi command-line utilities" ;;
         exportfs) echo "SimpleServe Linux NFS export manager; provided by the NFS server package" ;;
         mount.nfs) echo "SimpleServe Linux kernel NFS mount helper; provided by NFS client utilities" ;;
+        mount.cifs) echo "SMB client mount helper; provided by cifs-utils" ;;
         smbd) echo "SimpleServe Linux SMB server; provided by Samba" ;;
         testparm) echo "SimpleServe Samba configuration validator; provided by Samba" ;;
         mount_nfs|nfsd) echo "SimpleServe FreeBSD NFS support; provided by the base system" ;;
@@ -84,6 +103,7 @@ pc_hint() {
         gio-2.0) echo "provided by GLib/GIO development package; used by simplefiles removable-volume discovery" ;;
         libcurl) echo "provided by libcurl/curl development package; used by simplebrowse, simplepod, and simplenews" ;;
         openssl) echo "provided by OpenSSL development package; used by simplepod PodcastIndex authentication" ;;
+        avahi-client) echo "native SimpleServe discovery; provided by Avahi client development headers and libraries" ;;
     esac
 }
 
@@ -402,13 +422,22 @@ packages_for_family() {
 
     if [ "$install_simpleserve" -eq 1 ]; then
         case "$family" in
-            void | arch) simpleserve_packages="nfs-utils avahi samba" ;;
-            debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils samba" ;;
-            fedora) simpleserve_packages="nfs-utils avahi avahi-tools samba" ;;
-            alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools samba samba-server-openrc" ;;
-            suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils samba" ;;
+            void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils" ;;
+            arch) simpleserve_packages="nfs-utils avahi cifs-utils" ;;
+            debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils" ;;
+            fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils" ;;
+            alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils" ;;
+            suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils" ;;
             freebsd) simpleserve_packages="avahi-app" ;;
         esac
+        if [ "$network_role" = server ]; then
+            case "$family" in
+                debian | suse) simpleserve_packages="$simpleserve_packages nfs-kernel-server samba" ;;
+                void | arch | fedora) simpleserve_packages="$simpleserve_packages samba" ;;
+                alpine) simpleserve_packages="$simpleserve_packages nfs-utils-openrc samba samba-server-openrc" ;;
+                freebsd) simpleserve_packages="$simpleserve_packages e2fsprogs" ;;
+            esac
+        fi
     fi
     case "$family" in
         void)
@@ -501,6 +530,10 @@ check_pc  required ncursesw "ncursesw"
 check_pc  required gio-2.0 "GIO"
 check_pc  required libcurl "libcurl"
 check_pc  required openssl "OpenSSL"
+if [ "$install_simpleserve" -eq 1 ] &&
+   [ "$family" != macos ] && [ "$family" != msys2 ]; then
+    check_pc required avahi-client "Avahi client"
+fi
 
 echo
 echo "=== Runtime dependencies ==="
@@ -512,20 +545,36 @@ check_cmd runtime mbsync "mbsync"
 check_cmd runtime msmtp "msmtp"
 check_cmd runtime curl "curl"
 
-if [ "$install_simpleserve" -eq 1 ] &&
-   [ "$family" != "macos" ] && [ "$family" != "msys2" ]; then
-    check_cmd runtime avahi-daemon "SimpleServe mDNS service"
-    check_cmd runtime avahi-browse "SimpleServe discovery"
-    check_cmd runtime avahi-publish-service "SimpleServe advertisement"
-    check_cmd runtime blkid "SimpleServe filesystem UUIDs"
-    if [ "$family" = "freebsd" ]; then
+if [ "$install_simpleserve" -eq 1 ] && [ "$family" != msys2 ]; then
+    if [ "$family" = macos ]; then
+        check_cmd runtime dns-sd "SimpleServe Bonjour"
+        check_cmd runtime launchctl "SimpleServe service manager"
         check_cmd runtime mount_nfs "SimpleServe NFS client"
-        check_cmd runtime nfsd "SimpleServe NFS server"
     else
+        check_cmd runtime avahi-daemon "SimpleServe mDNS service"
+        check_cmd runtime avahi-browse "SimpleServe discovery"
+    fi
+    if [ "$family" = freebsd ]; then
+        check_cmd runtime mount_nfs "SimpleServe NFS client"
+    elif [ "$family" != macos ]; then
         check_cmd runtime mount.nfs "SimpleServe NFS client"
-        check_cmd runtime exportfs "SimpleServe NFS server"
-        check_cmd runtime smbd "SimpleServe SMB server"
-        check_cmd runtime testparm "SimpleServe SMB validation"
+        check_cmd runtime mount.cifs "SMB client"
+    fi
+    if [ "$network_role" = server ]; then
+        if [ "$family" = macos ]; then
+            check_cmd runtime nfsd "SimpleServe NFS server"
+            check_cmd runtime sharing "SimpleServe SMB sharing"
+        else
+            check_cmd runtime avahi-publish-service "SimpleServe advertisement"
+            check_cmd runtime blkid "SimpleServe filesystem UUIDs"
+        fi
+        if [ "$family" = freebsd ]; then
+            check_cmd runtime nfsd "SimpleServe NFS server"
+        elif [ "$family" != macos ]; then
+            check_cmd runtime exportfs "SimpleServe NFS server"
+            check_cmd runtime smbd "SimpleServe SMB server"
+            check_cmd runtime testparm "SimpleServe SMB validation"
+        fi
     fi
 fi
 

@@ -10,6 +10,12 @@ FIXTURE=$TEST_ROOT/website-source
 TARGET=$HOME/website
 mkdir -p "$HOME" "$FIXTURE/tools"
 
+cat > "$HOME/setup-network-server" <<'EOF'
+#!/bin/sh
+printf '%s\n' "${1-none}" >> "$HOME/setup-network-server-calls"
+EOF
+chmod 755 "$HOME/setup-network-server"
+
 cat > "$FIXTURE/tools/setup_server.sh" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$@" > "$HOME/setup-server-arguments"
@@ -23,6 +29,7 @@ git -C "$FIXTURE" add tools/setup_server.sh
 git -C "$FIXTURE" commit -qm initial
 
 WEBSITE_DIR=$TARGET WEBSITE_REPO_URL=$FIXTURE \
+SCRIPTORIUM_NETWORK_SETUP=$HOME/setup-network-server \
     "$SOURCE_ROOT/setup-server.sh" --no-public-check --non-interactive
 
 test -d "$TARGET/.git"
@@ -34,14 +41,20 @@ printf '%s\n' updated > "$FIXTURE/version"
 git -C "$FIXTURE" add version
 git -C "$FIXTURE" commit -qm update
 WEBSITE_DIR=$TARGET WEBSITE_REPO_URL=$FIXTURE \
+SCRIPTORIUM_NETWORK_SETUP=$HOME/setup-network-server \
     "$SOURCE_ROOT/setup-server.sh" --verify-only
 test "$(cat "$HOME/setup-server-head")" = "$(git -C "$FIXTURE" rev-parse --short HEAD)"
 
 printf '%s\n' dirty > "$TARGET/local-change"
 if WEBSITE_DIR=$TARGET WEBSITE_REPO_URL=$FIXTURE \
+    SCRIPTORIUM_NETWORK_SETUP=$HOME/setup-network-server \
     "$SOURCE_ROOT/setup-server.sh" --verify-only > /dev/null 2>&1; then
     printf 'setup-server-bootstrap-check: dirty checkout was accepted\n' >&2
     exit 1
 fi
 
-printf 'OK setup-server clones, updates, delegates, and protects dirty checkouts\n'
+test "$(sed -n '1p' "$HOME/setup-network-server-calls")" = none
+test "$(sed -n '2p' "$HOME/setup-network-server-calls")" = --verify-only
+test "$(wc -l < "$HOME/setup-network-server-calls")" -eq 2
+
+printf 'OK setup-server promotes networking, clones, updates, delegates, and protects dirty checkouts\n'

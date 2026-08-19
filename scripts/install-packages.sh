@@ -3,9 +3,45 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 family="$("$ROOT/scripts/detect-platform.sh")"
-install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
+package_scope=${SCRIPTORIUM_PACKAGES_SCOPE:-all}
 package_log=
 package_status_file=
+
+case "$package_scope" in
+    all | network) ;;
+    *)
+        echo "SCRIPTORIUM_PACKAGES_SCOPE must be all or network." >&2
+        exit 2
+        ;;
+esac
+
+if [ "${SIMPLESUITE_NETWORK_ROLE+x}" = x ]; then
+    network_role=$SIMPLESUITE_NETWORK_ROLE
+    case "$network_role" in
+        none) resolved_simpleserve=0 ;;
+        client | server) resolved_simpleserve=1 ;;
+        *)
+            echo "SIMPLESUITE_NETWORK_ROLE must be none, client, or server." >&2
+            exit 2
+            ;;
+    esac
+    if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE+x}" = x ] &&
+       [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" != "$resolved_simpleserve" ]; then
+        echo "SIMPLESUITE_NETWORK_ROLE conflicts with SIMPLESUITE_INSTALL_SIMPLESERVE." >&2
+        exit 2
+    fi
+    install_simpleserve=$resolved_simpleserve
+else
+    install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
+    case "$install_simpleserve" in
+        0) network_role=none ;;
+        1) network_role=server ;;
+        *)
+            echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
+            exit 2
+            ;;
+    esac
+fi
 
 platform_id() {
     if [ "$(uname -s 2>/dev/null || echo unknown)" = Darwin ]; then
@@ -53,7 +89,8 @@ case "$install_simpleserve" in
         exit 2
         ;;
 esac
-export SIMPLESUITE_INSTALL_SIMPLESERVE
+export SIMPLESUITE_INSTALL_SIMPLESERVE="$install_simpleserve"
+export SIMPLESUITE_NETWORK_ROLE="$network_role"
 
 have_cmd() {
     command -v "$1" >/dev/null 2>&1
@@ -91,6 +128,48 @@ have_reminder_scheduler() {
     fi
     have_cmd crontab ||
         (have_cmd systemctl && systemctl --user show-environment >/dev/null 2>&1)
+}
+
+network_dependencies_already_present() {
+    [ "$network_role" != none ] || return 0
+
+    case "$family" in
+        macos)
+            have_cmd dns-sd || return 1
+            have_cmd launchctl || return 1
+            have_cmd mount_nfs || return 1
+            if [ "$network_role" = server ]; then
+                have_cmd nfsd || return 1
+                have_cmd sharing || return 1
+            fi
+            ;;
+        freebsd)
+            have_pkgconfig avahi-client || return 1
+            have_cmd avahi-daemon || return 1
+            have_cmd avahi-browse || return 1
+            have_cmd mount_nfs || return 1
+            if [ "$network_role" = server ]; then
+                have_cmd blkid || return 1
+                have_cmd avahi-publish-service || return 1
+                have_cmd nfsd || return 1
+            fi
+            ;;
+        *)
+            have_pkgconfig avahi-client || return 1
+            have_cmd avahi-daemon || return 1
+            have_cmd avahi-browse || return 1
+            have_cmd mount.nfs || return 1
+            have_cmd mount.cifs || return 1
+            if [ "$network_role" = server ]; then
+                have_cmd blkid || return 1
+                have_cmd avahi-publish-service || return 1
+                have_cmd exportfs || return 1
+                have_cmd smbd || return 1
+                have_cmd testparm || return 1
+            fi
+            ;;
+    esac
+    return 0
 }
 
 version_at_least_14_2() (
@@ -222,13 +301,6 @@ dependencies_already_present() {
             (have_cmd xclip || have_cmd xsel) || return 1
             have_cmd pactl || return 1
             have_cmd parec || return 1
-            if [ "$install_simpleserve" -eq 1 ]; then
-                for dependency_command in \
-                    blkid avahi-daemon avahi-browse avahi-publish-service \
-                    mount_nfs nfsd; do
-                    have_cmd "$dependency_command" || return 1
-                done
-            fi
             ;;
         *)
             for dependency_command in \
@@ -236,18 +308,11 @@ dependencies_already_present() {
                 wl-copy wl-paste pactl parec; do
                 have_cmd "$dependency_command" || return 1
             done
-            if [ "$install_simpleserve" -eq 1 ]; then
-                for dependency_command in \
-                    blkid avahi-daemon avahi-browse avahi-publish-service \
-                    exportfs mount.nfs; do
-                    have_cmd "$dependency_command" || return 1
-                done
-                have_cmd smbd || return 1
-                have_cmd testparm || return 1
-            fi
             (have_cmd xclip || have_cmd xsel) || return 1
             ;;
     esac
+
+    network_dependencies_already_present || return 1
 
     return 0
 }
@@ -718,7 +783,17 @@ prepare_homebrew_path
 validate_macos_host
 configure_homebrew_pkgconfig
 
-if dependencies_already_present; then
+if [ "$package_scope" = network ]; then
+    if [ "$network_role" = none ]; then
+        printf 'Trident networking is disabled; no network packages requested.\n'
+        exit 0
+    fi
+    if network_dependencies_already_present; then
+        printf 'Trident %s dependencies already present; skipping package manager install.\n' \
+            "$network_role"
+        exit 0
+    fi
+elif dependencies_already_present; then
     printf 'Package dependencies already present; skipping package manager install.\n'
     exit 0
 fi
@@ -770,13 +845,73 @@ fi
 simpleserve_packages=
 if [ "$install_simpleserve" -eq 1 ]; then
     case "$family" in
-        debian) simpleserve_packages="nfs-kernel-server nfs-common avahi-daemon avahi-utils samba" ;;
-        void | arch) simpleserve_packages="nfs-utils avahi samba" ;;
-        alpine) simpleserve_packages="nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools samba samba-server-openrc" ;;
-        fedora) simpleserve_packages="nfs-utils avahi avahi-tools samba" ;;
-        suse) simpleserve_packages="nfs-kernel-server nfs-client avahi avahi-utils samba" ;;
+        debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils" ;;
+        void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils" ;;
+        arch) simpleserve_packages="nfs-utils avahi cifs-utils" ;;
+        alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils" ;;
+        fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils" ;;
+        suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils" ;;
         freebsd) simpleserve_packages="avahi-app" ;;
     esac
+    if [ "$network_role" = server ]; then
+        case "$family" in
+            debian | suse) simpleserve_packages="$simpleserve_packages nfs-kernel-server samba" ;;
+            void | arch | fedora) simpleserve_packages="$simpleserve_packages samba" ;;
+            alpine) simpleserve_packages="$simpleserve_packages nfs-utils-openrc samba samba-server-openrc" ;;
+            freebsd) simpleserve_packages="$simpleserve_packages e2fsprogs" ;;
+        esac
+    fi
+fi
+
+if [ "$package_scope" = network ]; then
+    case "$family" in
+        debian)
+            check_repository_configuration debian
+            run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get update
+            # shellcheck disable=SC2086
+            run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y $simpleserve_packages
+            ;;
+        arch)
+            check_repository_configuration arch
+            # Arch supports only full-system upgrade transactions.
+            # shellcheck disable=SC2086
+            run_package_command arch as_root env LC_ALL=C pacman -Syu --needed $simpleserve_packages
+            ;;
+        fedora)
+            # shellcheck disable=SC2086
+            run_package_command fedora as_root env LC_ALL=C dnf install -y $simpleserve_packages
+            ;;
+        alpine)
+            check_repository_configuration alpine
+            # shellcheck disable=SC2086
+            run_package_command alpine as_root env LC_ALL=C apk add $simpleserve_packages
+            ;;
+        void)
+            check_repository_configuration void
+            # shellcheck disable=SC2086
+            run_package_command void as_root env LC_ALL=C xbps-install -Sy $simpleserve_packages
+            ;;
+        suse)
+            # shellcheck disable=SC2086
+            run_package_command suse as_root env LC_ALL=C zypper install -y $simpleserve_packages
+            ;;
+        freebsd)
+            run_package_command freebsd as_root env LC_ALL=C pkg update
+            # shellcheck disable=SC2086
+            run_package_command freebsd as_root env LC_ALL=C pkg install -y $simpleserve_packages
+            ;;
+        macos)
+            # SimpleServe's client and server transports are operating-system tools.
+            ;;
+    esac
+    if ! network_dependencies_already_present; then
+        printf 'Trident %s package installation completed, but required commands are still missing.\n' \
+            "$network_role" >&2
+        "$ROOT/scripts/checkdeps.sh" || true
+        exit 1
+    fi
+    printf 'Trident %s package installation verified.\n' "$network_role"
+    exit 0
 fi
 
 case "$family" in

@@ -64,6 +64,8 @@ for name in $programs $helpers; do
 done
 printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
     >"$HOME/simpleserve-component-selection"
+printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
+    >"$HOME/simpleserve-network-role"
 for name in $assets; do
     printf '%s\n' fixture >"$HOME/.local/share/simplesuite/$name"
 done
@@ -84,6 +86,7 @@ case "$(uname -s)" in
     FreeBSD)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-}" = 1 ]
+        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
         [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = require ]
         [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
@@ -93,12 +96,21 @@ case "$(uname -s)" in
         ;;
     Darwin)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
+        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ "${MAKE:-}" = gmake ]
         printf '%s\n' yes >"$HOME/macos-build-ran"
         ;;
     Linux)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = auto ]
+        if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-}" = 1 ]; then
+            case "${SIMPLESUITE_NETWORK_ROLE:-}" in
+                client | server) ;;
+                *) exit 1 ;;
+            esac
+        else
+            [ "${SIMPLESUITE_NETWORK_ROLE:-}" = none ]
+        fi
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ -z "${MAKE:-}" ]
         printf '%s\n' yes >"$HOME/linux-build-ran"
@@ -113,6 +125,8 @@ set -eu
 [ "$#" -eq 1 ]
 [ -x "$1" ]
 printf '%s\n' yes >"$HOME/simpleserve-system-verified"
+printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
+    >"$HOME/simpleserve-system-role-verified"
 EOF
 chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
 
@@ -151,6 +165,7 @@ grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 grep -q '^yes$' "$HOME/package-install-ran"
+grep -q '^server$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/macos-home"
 export HOME
@@ -173,6 +188,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^yes$' "$HOME/macos-build-ran"
+grep -q '^server$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/linux-home"
 export HOME
@@ -193,6 +209,26 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -r "$HOME/simpleserve-system-verified" ]
 [ ! -e "$HOME/package-install-ran" ]
 grep -q '^yes$' "$HOME/linux-build-ran"
+grep -q '^server$' "$HOME/simpleserve-network-role"
+
+HOME="$TMP/linux-client-home"
+export HOME
+mkdir -p "$HOME"
+
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux \
+FAKE_BREW_ROOT="$TMP/homebrew" \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" \
+SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+SIMPLESUITE_NETWORK_ROLE=client \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+    >"$TMP/install-linux-client.log"
+
+[ -x "$HOME/.local/bin/simpleserve" ]
+[ -x "$HOME/.local/bin/simpleserved" ]
+grep -q '^client$' "$HOME/simpleserve-network-role"
+grep -q '^client$' "$HOME/simpleserve-system-role-verified"
 
 HOME="$TMP/linux-without-simpleserve-home"
 export HOME
@@ -217,5 +253,6 @@ grep -q '^preserved-client$' "$HOME/.local/bin/simpleserve"
 grep -q '^preserved-daemon$' "$HOME/.local/bin/simpleserved"
 grep -q '^preserved-system-service$' "$HOME/simpleserve-system-verified"
 grep -q '^0$' "$HOME/simpleserve-component-selection"
+grep -q '^none$' "$HOME/simpleserve-network-role"
 
 echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'

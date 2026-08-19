@@ -79,44 +79,141 @@ fi
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
-choose_simpleserve_component() {
-    local requested answer
+detect_existing_network_role() {
+    local role_file=${SCRIPTORIUM_SIMPLESERVE_ROLE_FILE:-/etc/simpleserve-role}
+    local legacy_daemon=${SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON:-/usr/local/sbin/simpleserved}
+    local existing status cli
+
+    if [[ -e $role_file ]]; then
+        if [[ ! -r $role_file ]]; then
+            warn "Cannot read the existing SimpleServe role: $role_file"
+            return 2
+        fi
+        existing=$(tr -d '[:space:]' <"$role_file")
+        case $existing in
+            client | server)
+                printf '%s\n' "$existing"
+                return 0
+                ;;
+            *)
+                warn "$role_file must contain exactly client or server."
+                return 2
+                ;;
+        esac
+    fi
+
+    for cli in "$HOME/.local/bin/simpleserve" "$(command -v simpleserve 2>/dev/null || true)"; do
+        [[ -n $cli && -x $cli ]] || continue
+        status=$($cli status 2>/dev/null || true)
+        case $status in
+            *'Role: client (mount only)'* | *'Roles: client'*)
+                printf '%s\n' client
+                return 0
+                ;;
+            *'Role: server (publish + mount)'* | *'Roles: server'*)
+                printf '%s\n' server
+                return 0
+                ;;
+        esac
+    done
+
+    # Before explicit roles existed, every installed daemon was publisher-capable.
+    if [[ -x $legacy_daemon ]]; then
+        printf '%s\n' server
+        return 0
+    fi
+    return 1
+}
+
+choose_network_role() {
+    local requested answer existing_status platform_family platform_supported=0
 
     case "$HOST_OS" in
         Darwin | FreeBSD | Linux) ;;
         *)
+            SCRIPTORIUM_NETWORK_ROLE=none
+            SIMPLESUITE_NETWORK_ROLE=none
             SIMPLESUITE_INSTALL_SIMPLESERVE=0
-            export SIMPLESUITE_INSTALL_SIMPLESERVE
+            export SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+                SIMPLESUITE_INSTALL_SIMPLESERVE
             return
             ;;
     esac
 
-    if [[ -n ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} ]]; then
-        requested=$SIMPLESUITE_INSTALL_SIMPLESERVE
+    platform_family=$($ROOT/scripts/detect-platform.sh)
+    case $platform_family in
+        debian | arch | fedora | alpine | void | suse | freebsd | macos)
+            platform_supported=1
+            ;;
+    esac
+    [[ $platform_supported -eq 1 ]] || {
+        warn "Keelan's Networking Trident does not support this platform."
+        exit 2
+    }
+
+    if [[ -n ${SCRIPTORIUM_NETWORK_ROLE+x} ]]; then
+        requested=$SCRIPTORIUM_NETWORK_ROLE
+    elif [[ -n ${SIMPLESUITE_NETWORK_ROLE+x} ]]; then
+        requested=$SIMPLESUITE_NETWORK_ROLE
+    elif [[ -n ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} ]]; then
+        case $SIMPLESUITE_INSTALL_SIMPLESERVE in
+            0) requested=none ;;
+            1) requested=server ;;
+            *)
+                warn "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1."
+                exit 2
+                ;;
+        esac
     else
-        printf '\nInstall or update SimpleServe for LAN file sharing? [Y/n] '
-        IFS= read -r answer || answer=
-        requested=$answer
+        set +e
+        requested=$(detect_existing_network_role)
+        existing_status=$?
+        set -e
+        case $existing_status in
+            0)
+                printf '\nPreserving existing Trident role: %s.\n' "$requested"
+                ;;
+            1)
+                printf "\nJoin Keelan's Networking Trident? [Y/n] "
+                IFS= read -r answer || answer=
+                case $answer in
+                    '' | y | Y | yes | YES) requested=client ;;
+                    n | N | no | NO) requested=none ;;
+                    *)
+                        warn "Trident selection must be yes or no."
+                        exit 2
+                        ;;
+                esac
+                ;;
+            *) exit "$existing_status" ;;
+        esac
     fi
     case "$requested" in
-        '' | y | Y | yes | YES | true | 1)
+        client)
             SIMPLESUITE_INSTALL_SIMPLESERVE=1
-            printf 'SimpleServe selected.\n'
+            printf 'Trident client selected: this machine can discover and mount shares, but cannot publish them.\n'
             ;;
-        n | N | no | NO | false | 0)
+        server)
+            SIMPLESUITE_INSTALL_SIMPLESERVE=1
+            printf 'Trident server selected: this machine can publish and mount shares.\n'
+            ;;
+        none)
             SIMPLESUITE_INSTALL_SIMPLESERVE=0
-            printf 'SimpleServe skipped; any existing installation will be left unchanged.\n'
+            printf 'Trident skipped; any existing installation will be left unchanged.\n'
             ;;
         *)
-            warn "SimpleServe selection must be yes or no."
+            warn "SCRIPTORIUM_NETWORK_ROLE must be none, client, or server."
             exit 2
             ;;
     esac
-    export SIMPLESUITE_INSTALL_SIMPLESERVE
+    SCRIPTORIUM_NETWORK_ROLE=$requested
+    SIMPLESUITE_NETWORK_ROLE=$requested
+    export SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SIMPLESUITE_INSTALL_SIMPLESERVE
 }
 
 choose_tailscale_component() {
-    local requested answer platform_family platform_supported=0
+    local requested platform_family platform_supported=0
 
     platform_family=$("$ROOT/scripts/detect-platform.sh")
     case $platform_family in
@@ -127,10 +224,8 @@ choose_tailscale_component() {
     if [[ -n ${SCRIPTORIUM_INSTALL_TAILSCALE+x} ]]; then
         requested=$SCRIPTORIUM_INSTALL_TAILSCALE
     elif [[ $platform_supported -eq 1 &&
-            $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
-        printf '\nInstall and connect Tailscale for SimpleServe remote access? [Y/n] '
-        IFS= read -r answer || answer=
-        requested=$answer
+            $SCRIPTORIUM_NETWORK_ROLE != none ]]; then
+        requested=1
     else
         requested=0
     fi
@@ -142,7 +237,7 @@ choose_tailscale_component() {
                 exit 2
             }
             SCRIPTORIUM_INSTALL_TAILSCALE=1
-            printf 'Tailscale selected. Existing connected nodes will be preserved.\n'
+            printf 'Tailscale selected automatically for the Trident. Existing connected nodes will be preserved.\n'
             ;;
         n | N | no | NO | false | 0)
             SCRIPTORIUM_INSTALL_TAILSCALE=0
@@ -676,7 +771,7 @@ trap 'exit 143' TERM
 
 say "Scriptorium installer"
 printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, and the website bootstrap."
-choose_simpleserve_component
+choose_network_role
 choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
     EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
@@ -886,6 +981,7 @@ elif [[ ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux )
 fi
 SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
 SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
+SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
     "$ROOT/scripts/install-simplesuite.sh"
@@ -952,7 +1048,8 @@ if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
     case "$simpleserve_service_mode" in
         skip | no | false | 0) ;;
         *)
-            "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
+            SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
+                "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
                 "$HOME/.local/bin/simpleserved" >/dev/null 2>&1 || {
                 warn "SimpleServe system service is not installed and running"
                 exit 1

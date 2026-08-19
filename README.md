@@ -14,7 +14,8 @@ Tumbleweed, FreeBSD, and macOS.
 
 ## Keelan's Networking Trident
 
-- **Intranet:** SimpleServe publishes and discovers local NFS/SMB shares.
+- **Intranet:** SimpleServe clients discover and mount shares; explicitly
+  promoted servers also publish them over NFS/SMB.
 - **Extranet:** Tailscale carries those same shares over the encrypted tailnet.
 - **Website:** `setup-server` provisions Caddy, the Stripe store, blog sync, and
   the Cloudflare tunnel from `~/website`.
@@ -38,30 +39,36 @@ receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
 installation instead prints the shell file to source before using the commands.
-On FreeBSD, Linux, and macOS, the installer also asks whether to install or update
-SimpleServe. Answering no skips its binaries, NFS/Samba/Avahi packages, service
-installation, and verification for that run. The choice is non-destructive:
-an existing SimpleServe installation, exports, and managed boot mounts are left
-unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
-For unattended installs, set
-`SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
+On FreeBSD, Linux, and macOS, the installer asks one networking question:
+`Join Keelan's Networking Trident?` Answering yes creates a **client**. It
+installs only discovery/mount dependencies, installs Tailscale, and enables a
+mount-only SimpleServe service. Client mode is enforced: `simpleserve share`
+is rejected and NFS/Samba publishing services are not installed or enabled.
+Answering no leaves any existing networking installation untouched.
 
-When SimpleServe is selected, the installer also asks whether to install and
-connect Tailscale. The default is yes. It uses the platform's native trusted
-package source—Tailscale's signed repositories where required—then enables the
-daemon through systemd, OpenRC, runit, FreeBSD rc.d, or the supported macOS
-Homebrew/app path. It verifies a live `100.64.0.0/10` address before
-SimpleServe is built. If the machine is already connected, the hard no-op path
-does not touch its package database, service, node identity, or preferences,
-and `tailscale up` is not run again. A new interactive machine prints a browser
-login URL that can be approved from any device.
+An existing `/etc/simpleserve-role` is preserved automatically, so rerunning
+Scriptorium on a server cannot silently demote it. Pre-role legacy server
+installs are also recognized as servers. For unattended installs, set
+`SCRIPTORIUM_NETWORK_ROLE=client`, `server`, or `none`. The older
+`SIMPLESUITE_INSTALL_SIMPLESERVE=1|0` switch remains compatible (`1` retains
+its historical server meaning).
+
+Tailscale follows the Trident choice automatically; there is no second prompt.
+It uses the platform's native trusted package source—Tailscale's signed
+repositories where required—then enables the daemon through systemd, OpenRC,
+runit, FreeBSD rc.d, or the supported macOS Homebrew/app path. It verifies a
+live `100.64.0.0/10` address before SimpleServe is built. If the machine is
+already connected, the hard no-op path does not touch its package database,
+service, node identity, or preferences, and `tailscale up` is not run again. A
+new interactive machine prints a browser login URL that can be approved from
+any device.
 
 For a completely unattended run, create a one-off or otherwise appropriately
 scoped auth key in the Tailscale admin console, place it in a protected file,
 and pass its absolute path:
 
 ```sh
-SIMPLESUITE_INSTALL_SIMPLESERVE=1 \
+SCRIPTORIUM_NETWORK_ROLE=client \
 SCRIPTORIUM_INSTALL_TAILSCALE=1 \
 TAILSCALE_AUTH_KEY_FILE=/private/tailscale-auth.key \
 ./install.sh
@@ -76,21 +83,40 @@ to `TAILSCALE_ACCEPT_DNS=0`, matching the current server and leaving system DNS
 alone; set it to `1` if tailnet DNS should replace that behavior. An optional
 `TAILSCALE_HOSTNAME` supplies an explicit MagicDNS machine name.
 
-On any supported machine that will host `keelanwatlington.com`, the same
-installation also provides a `setup-server` command. Run it after Scriptorium
-has configured GitHub access:
+### Two-machine fresh start
+
+On the writing machine, run `./install.sh`, join the Trident, then connect to
+the server's advertised drive:
+
+```sh
+simpleserve connect
+```
+
+With one discovered share, `connect` asks for confirmation; with several, it
+shows a numbered choice. The selected share is mounted under
+`~/SimpleServe/SERVER/SHARE` and remembered across restarts. The writing
+machine remains unable to publish files.
+
+On the machine that will host `keelanwatlington.com`, run `./install.sh`, join
+the Trident, and then run the installed command after GitHub access is ready:
 
 ```sh
 setup-server
 ```
 
-It safely clones or fast-forwards `~/website`, then runs the website
-repository's own idempotent installer for Caddy, Cloudflare Tunnel, the Stripe
-fulfillment service, generated-blog checks, protected local state, and final
-local/public health verification. It refuses to update a dirty website
-checkout. The website prong uses systemd on Debian/Fedora/Arch/openSUSE,
+`setup-server` safely clones or fast-forwards `~/website`, installs any missing
+server-only NFS/Samba dependencies, and explicitly promotes SimpleServe to
+`server (publish + mount)` before touching website services. It then runs the website repository's
+idempotent installer for Caddy, Cloudflare Tunnel, the Stripe fulfillment
+service, generated-blog checks, protected local state, and final local/public
+health verification. It refuses to update a dirty website checkout. The
+website prong uses systemd on Debian/Fedora/Arch/openSUSE,
 OpenRC on Alpine, runit on Void, rc.d on FreeBSD, and launchd on macOS. An
 unchanged rerun rewrites no managed file and restarts no healthy service.
+
+After promotion, register each local filesystem the server should expose, for
+example `simpleserve share /media/T7 --name Writing`. Server mode can also
+mount shares from another Trident server.
 
 When replacing the current website host, first make its protected migration
 bundle with `python3 ~/website/tools/backup_server_state.py /private/path`,
