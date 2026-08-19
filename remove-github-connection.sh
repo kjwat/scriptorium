@@ -8,6 +8,7 @@ repos=(
     "$HOME/writing"
     "$HOME/scriptorium"
     "$HOME/simplesuite"
+    "$HOME/website"
 )
 
 say() {
@@ -101,7 +102,7 @@ fi
 # Remove global Git identity and GitHub-specific authentication settings.
 unset_git_keys "global" --global
 
-# Remove the same settings from the three Scriptorium repositories and scrub
+# Remove the same settings from the four SimpleCheck repositories and scrub
 # any token accidentally embedded in their remote URLs.
 for repo in "${repos[@]}"; do
     scrub_remote "$repo"

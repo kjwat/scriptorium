@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define REPO_COUNT 3
+#define REPO_COUNT 4
 #define MAX_OUTPUT 65536
 #define MAX_FILES 256
 #define MAX_FILE_LINE 512
@@ -314,7 +314,7 @@ static void capture_job_stop(CaptureJob *job, int result)
 }
 
 /* Pump all repository jobs together. Network checks therefore cost roughly
- * the slowest remote, not the sum of all three, while Esc/Q and resize remain
+ * the slowest remote, not the sum of all repositories, while Esc/Q and resize remain
  * responsive throughout. Tests use interactive=0 without initializing curses. */
 static int wait_capture_jobs(CaptureJob jobs[], size_t count, int interactive)
 {
@@ -411,6 +411,7 @@ static void init_repos(void)
     repos[0].name = "writing";
     repos[1].name = "scriptorium";
     repos[2].name = "simplesuite";
+    repos[3].name = "website";
     for (int i = 0; i < REPO_COUNT; i++)
         snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home, repos[i].name);
 }
@@ -1036,7 +1037,7 @@ static void push_all(void)
     int ok = 0;
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].push_ok) ok++;
     if (ok == REPO_COUNT)
-        show_temporary_footer("All three repositories pushed successfully.");
+        show_temporary_footer("All four repositories pushed successfully.");
     else
         show_temporary_footer("Push finished. Review repository messages above.");
 }
@@ -1056,7 +1057,7 @@ static void draw(void)
     attron(A_BOLD);
     mvaddstr(0, 2, "SimpleCheck");
     attroff(A_BOLD);
-    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite");
+    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite   ~/website");
 
     int logical = 0;
     int y = 3;
@@ -1097,7 +1098,7 @@ static void draw(void)
         if (logical++ >= scroll_offset && y < h - 4) y++;
     }
 
-    const char *label = "[ P  PUSH ALL THREE ]";
+    const char *label = "[ P  PUSH ALL FOUR ]";
     button_w = (int)strlen(label);
     button_y = h - 3;
     button_x = (w - button_w) / 2;

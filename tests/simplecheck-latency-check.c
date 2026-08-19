@@ -79,6 +79,20 @@ static void test_porcelain_parser(void)
                 "untracked porcelain path parsing failed");
 }
 
+static void test_repo_configuration(void)
+{
+    static const char *const expected[] = {
+        "writing", "scriptorium", "simplesuite", "website"
+    };
+
+    test_expect(REPO_COUNT == 4, "SimpleCheck repository count is not four");
+    init_repos();
+    for (int i = 0; i < REPO_COUNT; i++) {
+        test_expect(strcmp(repos[i].name, expected[i]) == 0,
+                    "SimpleCheck repository configuration is incorrect");
+    }
+}
+
 static void test_capture_output(const char *self)
 {
     CaptureJob job;
@@ -161,6 +175,7 @@ int main(int argc, char **argv)
     if (helper >= 0)
         return helper;
 
+    test_repo_configuration();
     test_porcelain_parser();
     test_capture_output(argv[0]);
     test_jobs_are_concurrent(argv[0]);
