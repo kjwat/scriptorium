@@ -32,6 +32,26 @@ unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
 For unattended installs, set
 `SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
 
+On a Debian or Ubuntu machine that will host `keelanwatlington.com`, the same
+installation also provides a `setup-server` command. Run it after Scriptorium
+has configured GitHub access:
+
+```sh
+setup-server
+```
+
+It safely clones or fast-forwards `~/website`, then runs the website
+repository's own idempotent installer for Caddy, Cloudflare Tunnel, the Stripe
+fulfillment service, generated-blog checks, protected local state, and final
+local/public health verification. It refuses to update a dirty website
+checkout.
+
+When replacing the current website host, first make its protected migration
+bundle with `python3 ~/website/tools/backup_server_state.py /private/path`,
+then run `setup-server --state-backup /private/path` on the new machine. This
+restores its Stripe/order state and existing locally managed tunnel in the
+same pass.
+
 ## What It Installs
 
 SimpleSuite programs:

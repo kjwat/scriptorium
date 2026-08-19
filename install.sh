@@ -487,6 +487,7 @@ prepare_rollback() {
     track_path "$HOME/.config/simplenews/config.example"
     track_path "$HOME/.config/simplenews/urls.example"
     track_path "$HOME/.config/simplesuite/family"
+    track_path "$HOME/.local/bin/setup-server"
 
     for program in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}" \
                    "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
@@ -835,6 +836,9 @@ SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
 
+say "Installing website server bootstrap"
+install -m 0755 "$ROOT/setup-server.sh" "$HOME/.local/bin/setup-server"
+
 say "Configuring SimpleCal"
 mkdir -p "$ROOT/dotfiles/simplecal/data"
 set_config_key "$ROOT/dotfiles/simplecal/config" "data_dir" "data"
@@ -869,6 +873,10 @@ for cmd in "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
         exit 1
     }
 done
+command -v setup-server >/dev/null 2>&1 || {
+    warn "setup-server was installed but is not available on PATH"
+    exit 1
+}
 if [[ "$HOST_OS" == FreeBSD ]]; then
     case "$simplesuite_helper_mode" in
         skip | no | false | 0) ;;
