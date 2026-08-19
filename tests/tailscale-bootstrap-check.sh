@@ -46,6 +46,30 @@ case $url in
             'deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian trixie main' \
             > "$output"
         ;;
+    */fedora/tailscale.repo)
+        cat > "$output" <<'REPO'
+[tailscale-stable]
+name=Tailscale stable
+baseurl=https://pkgs.tailscale.com/stable/fedora/$basearch
+enabled=1
+type=rpm
+repo_gpgcheck=1
+gpgcheck=1
+gpgkey=https://pkgs.tailscale.com/stable/fedora/repo.gpg
+REPO
+        ;;
+    */opensuse/tumbleweed/tailscale.repo)
+        cat > "$output" <<'REPO'
+[tailscale-stable]
+name=Tailscale stable
+baseurl=https://pkgs.tailscale.com/stable/opensuse/tumbleweed/$basearch
+enabled=1
+type=rpm
+repo_gpgcheck=1
+gpgcheck=1
+gpgkey=https://pkgs.tailscale.com/stable/opensuse/tumbleweed/repo.gpg
+REPO
+        ;;
     *) exit 2 ;;
 esac
 EOF
@@ -120,6 +144,98 @@ case ${1:-} in
     *) exit 2 ;;
 esac
 EOF
+
+cat > "$FAKE_BIN/package-manager" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf '%s\t%s\n' "$(basename "$0")" "$*" >> "$FAKE_PACKAGE_LOG"
+if [[ " $* " == *' tailscale '* ]]; then
+    cp "$FAKE_TAILSCALE_TEMPLATE" "$FAKE_BIN/tailscale"
+    chmod 0755 "$FAKE_BIN/tailscale"
+fi
+EOF
+for package_manager in dnf pacman apk xbps-install zypper pkg; do
+    ln -s package-manager "$FAKE_BIN/$package_manager"
+done
+
+cat > "$FAKE_BIN/rc-update" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'rc-update\t%s\n' "$*" >> "$FAKE_SERVICE_LOG"
+case ${1:-} in
+    show) [[ ! -f $FAKE_OPENRC_STATE/enabled ]] || echo ' tailscale | default' ;;
+    add) touch "$FAKE_OPENRC_STATE/enabled" ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/rc-service" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'rc-service\t%s\n' "$*" >> "$FAKE_SERVICE_LOG"
+case ${2:-} in
+    status) [[ -f $FAKE_OPENRC_STATE/active ]] ;;
+    start) touch "$FAKE_OPENRC_STATE/active" ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/sv" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'sv\t%s\n' "$*" >> "$FAKE_SERVICE_LOG"
+case ${1:-} in
+    status) [[ -f $FAKE_RUNIT_STATE/active ]] ;;
+    up) touch "$FAKE_RUNIT_STATE/active" ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/sysrc" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'sysrc\t%s\n' "$*" >> "$FAKE_SERVICE_LOG"
+case $* in
+    '-n tailscaled_enable') [[ ! -f $FAKE_FREEBSD_STATE/enabled ]] || echo YES ;;
+    '-q tailscaled_enable=YES') touch "$FAKE_FREEBSD_STATE/enabled" ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/service" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'service\t%s\n' "$*" >> "$FAKE_SERVICE_LOG"
+case ${2:-} in
+    onestatus) [[ -f $FAKE_FREEBSD_STATE/active ]] ;;
+    start) touch "$FAKE_FREEBSD_STATE/active" ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/brew" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+printf 'brew\t%s\n' "$*" >> "$FAKE_PACKAGE_LOG"
+case ${1:-} in
+    install)
+        cp "$FAKE_TAILSCALE_TEMPLATE" "$FAKE_BIN/tailscale"
+        chmod 0755 "$FAKE_BIN/tailscale"
+        ;;
+    services)
+        [[ ${2:-} == start && ${3:-} == tailscale ]]
+        touch "$FAKE_MAC_STATE/active"
+        ;;
+    *) exit 2 ;;
+esac
+EOF
+
+cat > "$FAKE_BIN/pgrep" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+[[ $* == '-x tailscaled' ]]
+[[ -f $FAKE_MAC_STATE/active ]]
+EOF
 chmod 0755 "$FAKE_BIN"/* "$TEST_ROOT/tailscale-template"
 
 AUTH_FILE=$TEST_ROOT/auth.key
@@ -139,6 +255,7 @@ export FAKE_UP_LOG="$UP_LOG"
 PATH="$FAKE_BIN:/usr/bin:/bin" \
 SCRIPTORIUM_TAILSCALE_FAMILY=debian \
 SCRIPTORIUM_TAILSCALE_FORCE_INSTALL=1 \
+SCRIPTORIUM_TAILSCALE_INIT=systemd \
 SCRIPTORIUM_TAILSCALE_OS_RELEASE="$TEST_ROOT/os-release" \
 SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
 SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
@@ -166,6 +283,7 @@ up_lines=$(wc -l < "$UP_LOG")
 service_mutations=$(grep -Ec '^(enable|start) ' "$SYSTEMCTL_LOG")
 PATH="$FAKE_BIN:/usr/bin:/bin" \
 SCRIPTORIUM_TAILSCALE_FAMILY=debian \
+SCRIPTORIUM_TAILSCALE_INIT=systemd \
 SCRIPTORIUM_TAILSCALE_OS_RELEASE="$TEST_ROOT/os-release" \
 SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
 SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
@@ -181,6 +299,7 @@ rm -f "$STATE"
 export FAKE_EXPECTED_AUTH_KEY=tskey-environment-fixture
 PATH="$FAKE_BIN:/usr/bin:/bin" \
 SCRIPTORIUM_TAILSCALE_FAMILY=debian \
+SCRIPTORIUM_TAILSCALE_INIT=systemd \
 SCRIPTORIUM_TAILSCALE_OS_RELEASE="$TEST_ROOT/os-release" \
 SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
 SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
@@ -196,6 +315,7 @@ export FAKE_EXPECTED_AUTH_KEY=
 up_lines=$(wc -l < "$UP_LOG")
 PATH="$FAKE_BIN:/usr/bin:/bin" \
 SCRIPTORIUM_TAILSCALE_FAMILY=debian \
+SCRIPTORIUM_TAILSCALE_INIT=systemd \
 SCRIPTORIUM_TAILSCALE_OS_RELEASE="$TEST_ROOT/os-release" \
 SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
 SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
@@ -205,8 +325,75 @@ test "$(tail -n 1 "$UP_LOG")" = 'up --accept-dns=false'
 grep -q 'Open the login URL printed below' "$TEST_ROOT/browser-login.out"
 grep -q 'Tailscale connected at 100.100.10.20' "$TEST_ROOT/browser-login.out"
 
+run_platform_case() {
+    local family=$1 init=$2 host_os=$3 release_contents=$4
+    local package_pattern=$5 service_pattern=$6
+    local case_root=$TEST_ROOT/matrix-$family
+    local case_system=$case_root/system case_output=$case_root/output
+
+    mkdir -p "$case_system/etc" "$case_root/systemd" "$case_root/openrc" \
+        "$case_root/runit" "$case_root/freebsd" "$case_root/mac"
+    printf '%b\n' "$release_contents" > "$case_root/os-release"
+    if [[ $init == runit ]]; then
+        mkdir -p "$case_system/etc/sv/tailscaled"
+    fi
+    rm -f "$FAKE_BIN/tailscale" "$case_root/tailscale-active"
+    : > "$case_root/package.log"
+    : > "$case_root/service.log"
+    : > "$case_root/up.log"
+    : > "$case_root/curl.log"
+
+    export FAKE_CURL_LOG="$case_root/curl.log"
+    export FAKE_EXPECTED_AUTH_KEY=tskey-auth-fixture
+    export FAKE_FREEBSD_STATE="$case_root/freebsd"
+    export FAKE_MAC_STATE="$case_root/mac"
+    export FAKE_OPENRC_STATE="$case_root/openrc"
+    export FAKE_PACKAGE_LOG="$case_root/package.log"
+    export FAKE_RUNIT_STATE="$case_root/runit"
+    export FAKE_SERVICE_LOG="$case_root/service.log"
+    export FAKE_SYSTEMD_STATE="$case_root/systemd"
+    export FAKE_SYSTEMCTL_LOG="$case_root/service.log"
+    export FAKE_TAILSCALE_STATE="$case_root/tailscale-active"
+    export FAKE_UP_LOG="$case_root/up.log"
+
+    PATH="$FAKE_BIN:/usr/bin:/bin" \
+    SCRIPTORIUM_TAILSCALE_FAMILY="$family" \
+    SCRIPTORIUM_TAILSCALE_FORCE_INSTALL=1 \
+    SCRIPTORIUM_TAILSCALE_HOST_OS="$host_os" \
+    SCRIPTORIUM_TAILSCALE_INIT="$init" \
+    SCRIPTORIUM_TAILSCALE_OS_RELEASE="$case_root/os-release" \
+    SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$case_system" \
+    SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
+    TAILSCALE_AUTH_KEY_FILE="$AUTH_FILE" \
+        "$SOURCE_ROOT/scripts/setup-tailscale.sh" > "$case_output"
+
+    grep -Eq "$package_pattern" "$case_root/package.log"
+    if [[ -n $service_pattern ]]; then
+        grep -Eq "$service_pattern" "$case_root/service.log"
+    fi
+    grep -q '^up --accept-dns=false --auth-key=file:' "$case_root/up.log"
+    grep -q 'Tailscale connected at 100.100.10.20' "$case_output"
+}
+
+run_platform_case fedora systemd Linux 'ID=fedora' \
+    '^dnf[[:space:]]+install -y tailscale$' '^start tailscaled.service$'
+run_platform_case arch systemd Linux 'ID=arch' \
+    '^pacman[[:space:]]+-Syu --needed --noconfirm tailscale$' '^start tailscaled.service$'
+run_platform_case alpine openrc Linux 'ID=alpine' \
+    '^apk[[:space:]]+add tailscale$' '^rc-service[[:space:]]+tailscale start$'
+run_platform_case void runit Linux 'ID=void' \
+    '^xbps-install[[:space:]]+-Sy tailscale$' '^sv[[:space:]]+up tailscaled$'
+run_platform_case suse systemd Linux 'ID=opensuse-tumbleweed' \
+    '^zypper[[:space:]]+--non-interactive install tailscale$' '^start tailscaled.service$'
+run_platform_case freebsd freebsd FreeBSD 'ID=freebsd' \
+    '^pkg[[:space:]]+install -y tailscale$' '^service[[:space:]]+tailscaled start$'
+run_platform_case macos macbrew Darwin 'ID=macos' \
+    '^brew[[:space:]]+install tailscale$' ''
+grep -q '^brew[[:space:]]\+services start tailscale$' \
+    "$TEST_ROOT/matrix-macos/package.log"
+
 grep -q 'choose_tailscale_component' "$SOURCE_ROOT/install.sh"
 grep -q 'scripts/setup-tailscale.sh' "$SOURCE_ROOT/install.sh"
 grep -q 'SimpleServe LAN and Tailscale transports are active' "$SOURCE_ROOT/install.sh"
 
-printf 'OK Tailscale installs, enrolls securely, verifies, and preserves active nodes\n'
+printf 'OK Tailscale installs, enrolls, and preserves active nodes across every Trident platform\n'

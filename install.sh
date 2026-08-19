@@ -83,7 +83,7 @@ choose_simpleserve_component() {
     local requested answer
 
     case "$HOST_OS" in
-        FreeBSD | Linux) ;;
+        Darwin | FreeBSD | Linux) ;;
         *)
             SIMPLESUITE_INSTALL_SIMPLESERVE=0
             export SIMPLESUITE_INSTALL_SIMPLESERVE
@@ -116,14 +116,18 @@ choose_simpleserve_component() {
 }
 
 choose_tailscale_component() {
-    local requested answer platform_family tailscale_available=0
+    local requested answer platform_family platform_supported=0
 
     platform_family=$("$ROOT/scripts/detect-platform.sh")
-    command -v tailscale >/dev/null 2>&1 && tailscale_available=1
+    case $platform_family in
+        debian | arch | fedora | alpine | void | suse | freebsd | macos)
+            platform_supported=1
+            ;;
+    esac
     if [[ -n ${SCRIPTORIUM_INSTALL_TAILSCALE+x} ]]; then
         requested=$SCRIPTORIUM_INSTALL_TAILSCALE
-    elif [[ $HOST_OS == Linux && $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
-            ( $platform_family == debian || $tailscale_available -eq 1 ) ]]; then
+    elif [[ $platform_supported -eq 1 &&
+            $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
         printf '\nInstall and connect Tailscale for SimpleServe remote access? [Y/n] '
         IFS= read -r answer || answer=
         requested=$answer
@@ -133,8 +137,8 @@ choose_tailscale_component() {
 
     case $requested in
         '' | y | Y | yes | YES | true | 1)
-            [[ $HOST_OS == Linux ]] || {
-                warn "Automatic Tailscale setup currently requires Linux."
+            [[ $platform_supported -eq 1 ]] || {
+                warn "Automatic Tailscale setup does not support this platform."
                 exit 2
             }
             SCRIPTORIUM_INSTALL_TAILSCALE=1
@@ -142,13 +146,7 @@ choose_tailscale_component() {
             ;;
         n | N | no | NO | false | 0)
             SCRIPTORIUM_INSTALL_TAILSCALE=0
-            if [[ $HOST_OS == Linux && $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
-                  $platform_family != debian &&
-                  $tailscale_available -eq 0 ]]; then
-                printf 'Tailscale bootstrap skipped; automatic package installation currently targets Debian/Ubuntu.\n'
-            else
-                printf 'Tailscale skipped; any existing installation and tailnet identity will be left unchanged.\n'
-            fi
+            printf 'Tailscale skipped; any existing installation and tailnet identity will be left unchanged.\n'
             ;;
         *)
             warn "Tailscale selection must be yes or no."
@@ -677,6 +675,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 say "Scriptorium installer"
+printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, and the website bootstrap."
 choose_simpleserve_component
 choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
@@ -879,7 +878,7 @@ fi
 simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 0 ]]; then
     simpleserve_service_mode=skip
-elif [[ ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
+elif [[ ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
       -z "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM+x}" ]]; then
     # A full Scriptorium install promises a usable discovery/mount service,
     # not merely an inert daemon binary in the user's bin directory.
@@ -949,7 +948,7 @@ if [[ "$HOST_OS" == FreeBSD ]]; then
     esac
 fi
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
-      ( "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) ]]; then
+      ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) ]]; then
     case "$simpleserve_service_mode" in
         skip | no | false | 0) ;;
         *)

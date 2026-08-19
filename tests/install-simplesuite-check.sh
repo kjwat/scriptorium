@@ -46,7 +46,7 @@ set -eu
 
 programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenet simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
 case "$(uname -s)" in
-    FreeBSD | Linux)
+    Darwin | FreeBSD | Linux)
         if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}" -eq 1 ]; then
             programs="$programs simpleserve simpleserved"
         fi
@@ -167,8 +167,9 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 
 [ -x "$HOME/.local/bin/simplewords" ]
 [ -x "$HOME/.local/bin/simplebrowse-webkitd" ]
-[ ! -e "$HOME/.local/bin/simpleserve" ]
-[ ! -e "$HOME/simpleserve-system-verified" ]
+[ -x "$HOME/.local/bin/simpleserve" ]
+[ -x "$HOME/.local/bin/simpleserved" ]
+[ -r "$HOME/simpleserve-system-verified" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^yes$' "$HOME/macos-build-ran"

@@ -6,9 +6,21 @@ terminal tools.
 `install.sh` installs package dependencies, clones or updates
 [SimpleSuite](https://github.com/kjwat/simplesuite), builds it, installs the
 binaries into `~/.local/bin`, links Scriptorium-managed dotfiles, and prepares
-the local shell environment. On Debian/Ubuntu it can also establish the full
-network foundation in the same run: SimpleServe for LAN sharing, Tailscale for
-the remote route, and the `setup-server` entry point for the website stack.
+the local shell environment. It also establishes **Keelan's Networking
+Trident** in the same run: SimpleServe for the intranet, Tailscale for the
+encrypted extranet, and the `setup-server` entry point for the public website.
+The Trident supports Debian/Ubuntu, Fedora, Arch, Alpine, Void, openSUSE
+Tumbleweed, FreeBSD, and macOS.
+
+## Keelan's Networking Trident
+
+- **Intranet:** SimpleServe publishes and discovers local NFS/SMB shares.
+- **Extranet:** Tailscale carries those same shares over the encrypted tailnet.
+- **Website:** `setup-server` provisions Caddy, the Stripe store, blog sync, and
+  the Cloudflare tunnel from `~/website`.
+
+Scriptorium installs the first two prongs and the website bootstrap. Run
+`setup-server` only on a machine intended to serve `keelanwatlington.com`.
 
 ## First Run
 
@@ -26,7 +38,7 @@ receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
 commands such as `words` and `simplewords` work immediately. A noninteractive
 installation instead prints the shell file to source before using the commands.
-On FreeBSD and Linux, the installer also asks whether to install or update
+On FreeBSD, Linux, and macOS, the installer also asks whether to install or update
 SimpleServe. Answering no skips its binaries, NFS/Samba/Avahi packages, service
 installation, and verification for that run. The choice is non-destructive:
 an existing SimpleServe installation, exports, and managed boot mounts are left
@@ -34,13 +46,15 @@ unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
 For unattended installs, set
 `SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
 
-When SimpleServe is selected on Debian/Ubuntu, the installer also asks whether
-to install and connect Tailscale. The default is yes. It adds Tailscale's signed
-official package repository only when the client is missing, enables and starts
-`tailscaled`, and verifies a live `100.64.0.0/10` address before SimpleServe is
-built. If the machine is already connected, its node identity and preferences
-are preserved and `tailscale up` is not run again. A new interactive machine
-prints a browser login URL that can be approved from any device.
+When SimpleServe is selected, the installer also asks whether to install and
+connect Tailscale. The default is yes. It uses the platform's native trusted
+package source—Tailscale's signed repositories where required—then enables the
+daemon through systemd, OpenRC, runit, FreeBSD rc.d, or the supported macOS
+Homebrew/app path. It verifies a live `100.64.0.0/10` address before
+SimpleServe is built. If the machine is already connected, the hard no-op path
+does not touch its package database, service, node identity, or preferences,
+and `tailscale up` is not run again. A new interactive machine prints a browser
+login URL that can be approved from any device.
 
 For a completely unattended run, create a one-off or otherwise appropriately
 scoped auth key in the Tailscale admin console, place it in a protected file,
@@ -62,7 +76,7 @@ to `TAILSCALE_ACCEPT_DNS=0`, matching the current server and leaving system DNS
 alone; set it to `1` if tailnet DNS should replace that behavior. An optional
 `TAILSCALE_HOSTNAME` supplies an explicit MagicDNS machine name.
 
-On a Debian or Ubuntu machine that will host `keelanwatlington.com`, the same
+On any supported machine that will host `keelanwatlington.com`, the same
 installation also provides a `setup-server` command. Run it after Scriptorium
 has configured GitHub access:
 
@@ -74,7 +88,9 @@ It safely clones or fast-forwards `~/website`, then runs the website
 repository's own idempotent installer for Caddy, Cloudflare Tunnel, the Stripe
 fulfillment service, generated-blog checks, protected local state, and final
 local/public health verification. It refuses to update a dirty website
-checkout.
+checkout. The website prong uses systemd on Debian/Fedora/Arch/openSUSE,
+OpenRC on Alpine, runit on Void, rc.d on FreeBSD, and launchd on macOS. An
+unchanged rerun rewrites no managed file and restarts no healthy service.
 
 When replacing the current website host, first make its protected migration
 bundle with `python3 ~/website/tools/backup_server_state.py /private/path`,
@@ -103,7 +119,7 @@ SimpleSuite programs:
 - `simplever`
 - `simplevis`
 
-When selected on FreeBSD or Linux, the installer also includes `simpleserve`
+When selected on FreeBSD, Linux, or macOS, the installer also includes `simpleserve`
 and its `simpleserved` system daemon.
 
 Scriptorium also builds and installs `simplecheck`, its ncurses dashboard for
@@ -129,8 +145,8 @@ on platform availability:
   server, and Avahi daemon/CLI utilities for dual-protocol exports, discovery,
   and real filesystem mounts; systems that skip SimpleServe install none of
   this server stack
-- on Debian/Ubuntu when selected, the official Tailscale package and persistent
-  `tailscaled` system service for SimpleServe's encrypted remote transport
+- when selected, the official/native Tailscale package and persistent daemon
+  for SimpleServe's encrypted remote transport on every Trident platform
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -291,11 +307,13 @@ profile, and reloads that profile. These operations use root privileges
 (directly when already root, otherwise through `sudo`) and modify system
 configuration outside the home directory.
 
-Selecting Tailscale may also install
-`/usr/share/keyrings/tailscale-archive-keyring.gpg`,
-`/etc/apt/sources.list.d/tailscale.list`, the Tailscale package, its systemd
-service, and its machine identity under Tailscale's system state directory.
-Scriptorium never writes an auth key into those paths.
+Selecting Tailscale may also install the platform's Tailscale repository
+metadata or native package, its persistent system service, and its machine
+identity under Tailscale's system state directory. Debian/Ubuntu use
+`/usr/share/keyrings/tailscale-archive-keyring.gpg` and
+`/etc/apt/sources.list.d/tailscale.list`; Fedora and openSUSE use the official
+RPM repository definitions. Scriptorium never writes an auth key into those
+paths.
 
 `~/.bashrc` receives `~/.local/bin` on PATH and these aliases. When zsh or Fish
 is the login shell, the installer also writes the same setup to `~/.zshrc` or

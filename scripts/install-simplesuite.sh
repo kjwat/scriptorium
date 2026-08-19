@@ -54,7 +54,7 @@ case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
 esac
 
 case "$SIMPLESUITE_HOST_OS" in
-    FreeBSD | Linux)
+    Darwin | FreeBSD | Linux)
         if [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" -eq 1 ]; then
         SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
 simpleserve
@@ -334,9 +334,9 @@ if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
 fi
 
 case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
-    FreeBSD:0:*|Linux:0:*) ;;
-    FreeBSD:1:skip|FreeBSD:1:no|FreeBSD:1:false|FreeBSD:1:0|Linux:1:skip|Linux:1:no|Linux:1:false|Linux:1:0) ;;
-    FreeBSD:1:*|Linux:1:*)
+    Darwin:0:*|FreeBSD:0:*|Linux:0:*) ;;
+    Darwin:1:skip|Darwin:1:no|Darwin:1:false|Darwin:1:0|FreeBSD:1:skip|FreeBSD:1:no|FreeBSD:1:false|FreeBSD:1:0|Linux:1:skip|Linux:1:no|Linux:1:false|Linux:1:0) ;;
+    Darwin:1:*|FreeBSD:1:*|Linux:1:*)
         if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
            "$DEST/verify-simpleserve-system.sh" \
                "$HOME/.local/bin/simpleserved" >/dev/null 2>&1; then
