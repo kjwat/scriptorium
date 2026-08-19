@@ -6,7 +6,9 @@ terminal tools.
 `install.sh` installs package dependencies, clones or updates
 [SimpleSuite](https://github.com/kjwat/simplesuite), builds it, installs the
 binaries into `~/.local/bin`, links Scriptorium-managed dotfiles, and prepares
-the local shell environment.
+the local shell environment. On Debian/Ubuntu it can also establish the full
+network foundation in the same run: SimpleServe for LAN sharing, Tailscale for
+the remote route, and the `setup-server` entry point for the website stack.
 
 ## First Run
 
@@ -31,6 +33,34 @@ an existing SimpleServe installation, exports, and managed boot mounts are left
 unchanged. Removal requires an explicit SimpleServe or whole-suite uninstall.
 For unattended installs, set
 `SIMPLESUITE_INSTALL_SIMPLESERVE=1` or `0` explicitly.
+
+When SimpleServe is selected on Debian/Ubuntu, the installer also asks whether
+to install and connect Tailscale. The default is yes. It adds Tailscale's signed
+official package repository only when the client is missing, enables and starts
+`tailscaled`, and verifies a live `100.64.0.0/10` address before SimpleServe is
+built. If the machine is already connected, its node identity and preferences
+are preserved and `tailscale up` is not run again. A new interactive machine
+prints a browser login URL that can be approved from any device.
+
+For a completely unattended run, create a one-off or otherwise appropriately
+scoped auth key in the Tailscale admin console, place it in a protected file,
+and pass its absolute path:
+
+```sh
+SIMPLESUITE_INSTALL_SIMPLESERVE=1 \
+SCRIPTORIUM_INSTALL_TAILSCALE=1 \
+TAILSCALE_AUTH_KEY_FILE=/private/tailscale-auth.key \
+./install.sh
+```
+
+The key is passed through Tailscale's `file:` mechanism and is never copied to
+Scriptorium, shell history, or the process command line. `TAILSCALE_AUTH_KEY`
+is also accepted for ephemeral provisioning and is removed from the installer's
+environment before unrelated child processes run. Set
+`SCRIPTORIUM_INSTALL_TAILSCALE=0` for a LAN-only installation. New nodes default
+to `TAILSCALE_ACCEPT_DNS=0`, matching the current server and leaving system DNS
+alone; set it to `1` if tailnet DNS should replace that behavior. An optional
+`TAILSCALE_HOSTNAME` supplies an explicit MagicDNS machine name.
 
 On a Debian or Ubuntu machine that will host `keelanwatlington.com`, the same
 installation also provides a `setup-server` command. Run it after Scriptorium
@@ -99,6 +129,8 @@ on platform availability:
   server, and Avahi daemon/CLI utilities for dual-protocol exports, discovery,
   and real filesystem mounts; systems that skip SimpleServe install none of
   this server stack
+- on Debian/Ubuntu when selected, the official Tailscale package and persistent
+  `tailscaled` system service for SimpleServe's encrypted remote transport
 - clipboard, desktop-open, trash, and audio helper packages where available
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
@@ -259,6 +291,12 @@ profile, and reloads that profile. These operations use root privileges
 (directly when already root, otherwise through `sudo`) and modify system
 configuration outside the home directory.
 
+Selecting Tailscale may also install
+`/usr/share/keyrings/tailscale-archive-keyring.gpg`,
+`/etc/apt/sources.list.d/tailscale.list`, the Tailscale package, its systemd
+service, and its machine identity under Tailscale's system state directory.
+Scriptorium never writes an auth key into those paths.
+
 `~/.bashrc` receives `~/.local/bin` on PATH and these aliases. When zsh or Fish
 is the login shell, the installer also writes the same setup to `~/.zshrc` or
 `~/.config/fish/conf.d/scriptorium.fish`, using the shell's native PATH setup:
@@ -389,6 +427,12 @@ are not included in that rollback either. The enabled SimpleServe system
 service is likewise outside the user-file rollback; rerunning the installer
 safely updates and re-verifies it, while `simplesuite-uninstall` removes it and
 its managed NFS/SMB configuration.
+
+Tailscale package installation and tailnet enrollment are also outside the
+user-file rollback. `burn.sh` deliberately does not log the machine out of
+Tailscale, delete its node identity, or remove the package because other
+services may rely on that connection. Use Tailscale's own logout/package
+removal flow when that destructive action is actually intended.
 
 This repo includes destructive cleanup scripts:
 

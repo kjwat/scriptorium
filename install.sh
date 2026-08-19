@@ -57,6 +57,9 @@ unset SCRIPTORIUM_BASH_BOOTSTRAPPED_PID
 
 set -euo pipefail
 
+TAILSCALE_AUTH_KEY_VALUE=${TAILSCALE_AUTH_KEY:-}
+unset TAILSCALE_AUTH_KEY
+
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 
@@ -110,6 +113,49 @@ choose_simpleserve_component() {
             ;;
     esac
     export SIMPLESUITE_INSTALL_SIMPLESERVE
+}
+
+choose_tailscale_component() {
+    local requested answer platform_family tailscale_available=0
+
+    platform_family=$("$ROOT/scripts/detect-platform.sh")
+    command -v tailscale >/dev/null 2>&1 && tailscale_available=1
+    if [[ -n ${SCRIPTORIUM_INSTALL_TAILSCALE+x} ]]; then
+        requested=$SCRIPTORIUM_INSTALL_TAILSCALE
+    elif [[ $HOST_OS == Linux && $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
+            ( $platform_family == debian || $tailscale_available -eq 1 ) ]]; then
+        printf '\nInstall and connect Tailscale for SimpleServe remote access? [Y/n] '
+        IFS= read -r answer || answer=
+        requested=$answer
+    else
+        requested=0
+    fi
+
+    case $requested in
+        '' | y | Y | yes | YES | true | 1)
+            [[ $HOST_OS == Linux ]] || {
+                warn "Automatic Tailscale setup currently requires Linux."
+                exit 2
+            }
+            SCRIPTORIUM_INSTALL_TAILSCALE=1
+            printf 'Tailscale selected. Existing connected nodes will be preserved.\n'
+            ;;
+        n | N | no | NO | false | 0)
+            SCRIPTORIUM_INSTALL_TAILSCALE=0
+            if [[ $HOST_OS == Linux && $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
+                  $platform_family != debian &&
+                  $tailscale_available -eq 0 ]]; then
+                printf 'Tailscale bootstrap skipped; automatic package installation currently targets Debian/Ubuntu.\n'
+            else
+                printf 'Tailscale skipped; any existing installation and tailnet identity will be left unchanged.\n'
+            fi
+            ;;
+        *)
+            warn "Tailscale selection must be yes or no."
+            exit 2
+            ;;
+    esac
+    export SCRIPTORIUM_INSTALL_TAILSCALE
 }
 
 run_as_root() {
@@ -632,6 +678,7 @@ trap 'exit 143' TERM
 
 say "Scriptorium installer"
 choose_simpleserve_component
+choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
     EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
 fi
@@ -651,6 +698,17 @@ for required_command in git curl; do
         exit 1
     fi
 done
+
+if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 ]]; then
+    say "Installing and connecting Tailscale"
+    if [[ -n $TAILSCALE_AUTH_KEY_VALUE ]]; then
+        TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY_VALUE \
+            "$ROOT/scripts/setup-tailscale.sh"
+    else
+        "$ROOT/scripts/setup-tailscale.sh"
+    fi
+fi
+unset TAILSCALE_AUTH_KEY_VALUE
 
 git_name="$(git config --global --get user.name 2>/dev/null || true)"
 git_email="$(git config --global --get user.email 2>/dev/null || true)"
@@ -901,6 +959,29 @@ if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
                 exit 1
             }
             printf '  %s\n' /usr/local/sbin/simpleserved
+            ;;
+    esac
+fi
+if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 &&
+      $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
+    case $simpleserve_service_mode in
+        skip | no | false | 0) ;;
+        *)
+            tailscale_ready=0
+            for _attempt in {1..10}; do
+                simpleserve_status=$("$HOME/.local/bin/simpleserve" status 2>/dev/null || true)
+                if grep -Eq '^Tailscale: active \(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' \
+                    <<<"$simpleserve_status"; then
+                    tailscale_ready=1
+                    break
+                fi
+                sleep 1
+            done
+            [[ $tailscale_ready -eq 1 ]] || {
+                warn "SimpleServe is running but did not detect the active Tailscale transport"
+                exit 1
+            }
+            printf '  %s\n' 'SimpleServe LAN and Tailscale transports are active'
             ;;
     esac
 fi
