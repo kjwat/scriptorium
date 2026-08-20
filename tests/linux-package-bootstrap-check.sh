@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-linux-packages.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
@@ -41,7 +41,7 @@ case "${1-}" in
         ;;
     install)
         printf '%s\n' "$*" >>"$FAKE_APT_LOG"
-        for runtime_command in less blkid avahi-daemon avahi-browse \
+        for runtime_command in less ntfsfix blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
             chmod 755 "$FAKE_BIN/$runtime_command"
@@ -99,6 +99,17 @@ PATH="$fake_bin" \
     exit 1
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
+
+rm -f "$fake_bin/ntfsfix"
+: >"$apt_log"
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+PATH="$fake_bin" \
+    "$fixture/scripts/install-packages.sh" >"$tmp/ntfs-repair.log" 2>&1
+grep -Eq '^install -y .*ntfs-3g' "$apt_log" || {
+    echo 'linux-package-bootstrap-check: missing ntfsfix did not trigger ntfs-3g install' >&2
+    exit 1
+}
+grep -q 'Package dependency installation verified' "$tmp/ntfs-repair.log"
 
 rm -f "$fake_bin/less" "$fake_bin/blkid" "$fake_bin/avahi-daemon" \
     "$fake_bin/avahi-browse" "$fake_bin/avahi-publish-service" \

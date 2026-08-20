@@ -37,7 +37,7 @@ either a root shell or working `sudo`; macOS needs Homebrew and Apple Command
 Line Tools. A base Alpine installation bootstraps Bash automatically. Bash users
 receive `~/.bashrc` setup, and zsh users receive matching `~/.zshrc` setup.
 When an interactive installation finishes, it starts a configured shell so
-commands such as `words` and `simplewords` work immediately. A noninteractive
+commands such as `words` and `simplewords` work immediately. An unattended
 installation instead prints the shell file to source before using the commands.
 On FreeBSD, Linux, and macOS, the installer asks one networking question:
 `Join Keelan's Networking Trident?` Answering yes creates a **client**. It
@@ -49,6 +49,7 @@ Answering no leaves any existing networking installation untouched.
 An existing `/etc/simpleserve-role` is preserved automatically, so rerunning
 Scriptorium on a server cannot silently demote it. Pre-role legacy server
 installs are also recognized as servers. For unattended installs, set
+`SCRIPTORIUM_NONINTERACTIVE=1` and choose
 `SCRIPTORIUM_NETWORK_ROLE=client`, `server`, or `none`. The older
 `SIMPLESUITE_INSTALL_SIMPLESERVE=1|0` switch remains compatible (`1` retains
 its historical server meaning).
@@ -68,11 +69,21 @@ scoped auth key in the Tailscale admin console, place it in a protected file,
 and pass its absolute path:
 
 ```sh
+SCRIPTORIUM_NONINTERACTIVE=1 \
 SCRIPTORIUM_NETWORK_ROLE=client \
 SCRIPTORIUM_INSTALL_TAILSCALE=1 \
+SCRIPTORIUM_GIT_NAME='Your Name' \
+SCRIPTORIUM_GIT_EMAIL='you@example.com' \
 TAILSCALE_AUTH_KEY_FILE=/private/tailscale-auth.key \
 ./install.sh
 ```
+
+The Git name and email variables are optional when a global Git identity is
+already configured. Unattended mode skips the optional GitHub PAT and Gmail
+setup, disables Git credential prompts, does not start a shell at the end, and
+uses non-prompting package-manager/sudo flags. Run it as root or configure
+passwordless `sudo` for the required commands; otherwise it fails instead of
+waiting for a password.
 
 The key is passed through Tailscale's `file:` mechanism and is never copied to
 Scriptorium, shell history, or the process command line. `TAILSCALE_AUTH_KEY`

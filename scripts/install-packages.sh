@@ -6,6 +6,17 @@ family="$("$ROOT/scripts/detect-platform.sh")"
 package_scope=${SCRIPTORIUM_PACKAGES_SCOPE:-all}
 package_log=
 package_status_file=
+noninteractive=${SCRIPTORIUM_NONINTERACTIVE:-0}
+pacman_confirmation=
+
+case "$noninteractive" in
+    0) ;;
+    1) pacman_confirmation=--noconfirm ;;
+    *)
+        echo "SCRIPTORIUM_NONINTERACTIVE must be 0 or 1." >&2
+        exit 2
+        ;;
+esac
 
 case "$package_scope" in
     all | network) ;;
@@ -100,7 +111,11 @@ as_root() {
     if [ "$(id -u)" -eq 0 ]; then
         "$@"
     elif have_cmd sudo; then
-        sudo "$@"
+        if [ "$noninteractive" -eq 1 ]; then
+            sudo -n "$@"
+        else
+            sudo "$@"
+        fi
     else
         printf 'Root privileges are required, but sudo is not installed.\n' >&2
         printf 'Run the installer as root or install/configure sudo first.\n' >&2
@@ -178,7 +193,7 @@ version_at_least_14_2() (
     major=${1:-0}
     minor=${2:-0}
     case "$major:$minor" in
-        *[!0-9:]*|'') return 1 ;;
+        *[!0-9:]*) return 1 ;;
     esac
     [ "$major" -gt 14 ] ||
         { [ "$major" -eq 14 ] && [ "$minor" -ge 2 ]; }
@@ -272,7 +287,11 @@ dependencies_already_present() {
     have_reminder_scheduler || return 1
 
     case "$family" in
-        macos | msys2 | freebsd) ;;
+        macos | msys2) ;;
+        freebsd)
+            have_cmd python3 || return 1
+            have_simplebrowse_js || return 1
+            ;;
         *)
             have_cmd python3 || return 1
             have_simplebrowse_js || return 1
@@ -305,7 +324,7 @@ dependencies_already_present() {
         *)
             for dependency_command in \
                 xdg-open gio findmnt udisksctl e2fsck fsck.fat fsck.exfat \
-                wl-copy wl-paste pactl parec; do
+                ntfsfix wl-copy wl-paste pactl parec; do
                 have_cmd "$dependency_command" || return 1
             done
             (have_cmd xclip || have_cmd xsel) || return 1
@@ -875,7 +894,8 @@ if [ "$package_scope" = network ]; then
             check_repository_configuration arch
             # Arch supports only full-system upgrade transactions.
             # shellcheck disable=SC2086
-            run_package_command arch as_root env LC_ALL=C pacman -Syu --needed $simpleserve_packages
+            run_package_command arch as_root env LC_ALL=C pacman -Syu --needed \
+                $pacman_confirmation $simpleserve_packages
             ;;
         fedora)
             # shellcheck disable=SC2086
@@ -956,15 +976,18 @@ case "$family" in
         # Refresh keyrings first so a stale live image can authenticate the
         # immediately following full-system transaction.
         # shellcheck disable=SC2086
-        run_package_command arch as_root env LC_ALL=C pacman -Sy --needed $arch_keyrings
+        run_package_command arch as_root env LC_ALL=C pacman -Sy --needed \
+            $pacman_confirmation $arch_keyrings
         arch_jack_provider=pipewire-jack
         if pacman -Qq pipewire-jack >/dev/null 2>&1 || pacman -Qq jack2 >/dev/null 2>&1; then
             arch_jack_provider=
         fi
+        # shellcheck disable=SC2086
         run_package_command arch as_root env LC_ALL=C pacman -Syu --needed \
+            $pacman_confirmation \
             base-devel pkgconf ncurses curl openssl \
             git mpv poppler pandoc-cli \
-            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync cronie \
             $simpleserve_packages
@@ -974,7 +997,7 @@ case "$family" in
         run_package_command alpine as_root env LC_ALL=C apk add \
             build-base bash pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync dcron \
             $simpleserve_packages
@@ -983,7 +1006,7 @@ case "$family" in
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
             isync msmtp calcurse links curl ca-certificates rsync cronie \
             $simpleserve_packages
@@ -992,7 +1015,7 @@ case "$family" in
         run_package_command suse as_root env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync cron \
             $simpleserve_packages
@@ -1003,7 +1026,7 @@ case "$family" in
             bash gmake pkgconf ncurses glib curl openssl \
             git mpv poppler-utils hs-pandoc \
             nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad \
-            python3 \
+            python3 devel/py-pygobject webkit2-gtk_41 \
             isync msmtp calcurse links ca_root_nss rsync $simpleserve_packages
         ;;
     macos)

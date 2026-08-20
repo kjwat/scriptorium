@@ -96,9 +96,33 @@ client_without_tailscale_case() (
     [[ $SCRIPTORIUM_INSTALL_TAILSCALE == 0 ]]
 )
 
+unattended_without_role_case() (
+    unset SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SIMPLESUITE_INSTALL_SIMPLESERVE SCRIPTORIUM_INSTALL_TAILSCALE
+    ROOT=$tmp/scriptorium
+    HOME=$tmp/home
+    HOST_OS=Linux
+    PATH=$tmp/empty-bin:/usr/bin:/bin
+    SCRIPTORIUM_NONINTERACTIVE=1
+    SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$tmp/no-role
+    SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON=$tmp/no-daemon
+    export ROOT HOME HOST_OS PATH SCRIPTORIUM_NONINTERACTIVE \
+        SCRIPTORIUM_SIMPLESERVE_ROLE_FILE SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON
+
+    set +e
+    ( choose_network_role </dev/null >"$tmp/unattended.out" 2>&1 )
+    status=$?
+    set -e
+    [[ $status -eq 2 ]]
+    grep -q 'unattended install needs SCRIPTORIUM_NETWORK_ROLE' \
+        "$tmp/unattended.out"
+    ! grep -q "Join Keelan's Networking Trident" "$tmp/unattended.out"
+)
+
 fresh_case
 existing_server_case
 disabled_case
 client_without_tailscale_case
+unattended_without_role_case
 
-echo 'OK one Trident prompt selects clients, preserves servers, and derives Tailscale automatically'
+echo 'OK Trident selection handles prompts, preserved roles, and unattended installs'

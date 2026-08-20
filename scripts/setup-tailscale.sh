@@ -12,6 +12,7 @@ ACCEPT_DNS=${TAILSCALE_ACCEPT_DNS:-0}
 AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
 AUTH_KEY_FILE=${TAILSCALE_AUTH_KEY_FILE:-}
 HOSTNAME_OVERRIDE=${TAILSCALE_HOSTNAME:-}
+NONINTERACTIVE=${SCRIPTORIUM_NONINTERACTIVE:-0}
 unset TAILSCALE_AUTH_KEY
 
 if [[ -n ${SCRIPTORIUM_TAILSCALE_OS_RELEASE:-} ]]; then
@@ -36,7 +37,11 @@ run_as_root() {
     if [[ $TEST_MODE == 1 || $(id -u) -eq 0 ]]; then
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
-        sudo "$@"
+        if [[ $NONINTERACTIVE == 1 ]]; then
+            sudo -n "$@"
+        else
+            sudo "$@"
+        fi
     else
         die "root privileges are required, but sudo is unavailable"
     fi
@@ -375,7 +380,11 @@ ensure_tailscale_service() {
                 if [[ $TEST_MODE == 1 || $(id -u) -eq 0 ]]; then
                     env HOME="$HOME" "$brew_bin" services start tailscale
                 elif command -v sudo >/dev/null 2>&1; then
-                    sudo --preserve-env=HOME "$brew_bin" services start tailscale
+                    if [[ $NONINTERACTIVE == 1 ]]; then
+                        sudo -n --preserve-env=HOME "$brew_bin" services start tailscale
+                    else
+                        sudo --preserve-env=HOME "$brew_bin" services start tailscale
+                    fi
                 else
                     die "sudo is required to start the Homebrew Tailscale daemon"
                 fi
@@ -399,6 +408,10 @@ run_tailscale_up() {
 case $TEST_MODE in
     0 | 1) ;;
     *) die "SCRIPTORIUM_TAILSCALE_TEST_MODE must be 0 or 1" ;;
+esac
+case $NONINTERACTIVE in
+    0 | 1) ;;
+    *) die "SCRIPTORIUM_NONINTERACTIVE must be 0 or 1" ;;
 esac
 case $FORCE_INSTALL in
     0) ;;

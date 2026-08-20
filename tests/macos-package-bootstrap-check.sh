@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 BASH_BIN=$(command -v bash)
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-macos-packages.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM

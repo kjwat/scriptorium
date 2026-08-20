@@ -198,7 +198,7 @@ for config_base in "$HOME/.config" "$CONFIG_HOME"; do
     for app_name in \
         simplebrowse simplecal simplefiles simplemail simplenews simplepod \
         simplewords; do
-        rm -rf "$config_base/$app_name"
+        rm -rf "${config_base:?}/$app_name"
     done
 done
 for data_base in "$HOME/.local/share" "$DATA_HOME"; do
@@ -209,7 +209,7 @@ for state_base in "$HOME/.local/state" "$STATE_HOME"; do
     for app_name in \
         simplecal simpleclock simplefiles simplemail simplepod simplever \
         simplewords; do
-        rm -rf "$state_base/$app_name"
+        rm -rf "${state_base:?}/$app_name"
     done
 done
 rm -rf "$HOME/.local/share/simplesuite"
@@ -259,7 +259,7 @@ for cache_base in "$HOME/.cache" "$CACHE_HOME"; do
     for app_name in \
         simplebrowse simplefiles simplemail simplenews simplepdf simplepod \
         simplewords; do
-        rm -rf "$cache_base/$app_name"
+        rm -rf "${cache_base:?}/$app_name"
     done
 done
 rm -f "$HOME/.cache/simplever.log"

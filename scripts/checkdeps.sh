@@ -73,7 +73,7 @@ dep_hint() {
         fsck.fat) echo "FAT check and repair utility; provided by dosfstools" ;;
         fsck.exfat) echo "exFAT check and repair utility; provided by exfatprogs" ;;
         exfatfsck) echo "FreeBSD exFAT check and repair utility; provided by exfat-utils" ;;
-        ntfsfix) echo "NTFS check and limited repair utility; provided by ntfs-3g or fusefs-ntfs" ;;
+        ntfsfix) echo "NTFS check and limited repair utility; provided by ntfs-3g/ntfsprogs, ntfs-3g-progs on Alpine, or fusefs-ntfs" ;;
         mount.exfat) echo "FreeBSD exFAT mount helper; provided by fusefs-exfat" ;;
         umount) echo "provided by util-linux; fallback for simplefiles :unmount" ;;
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
@@ -116,7 +116,7 @@ js_pkg_hint() {
         void) echo "python3 python3-gobject libwebkit2gtk41" ;;
         suse) echo "python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1" ;;
         macos) echo "built in: SimpleBrowse uses the system WKWebView framework" ;;
-        freebsd) echo "optional Python GObject and WebKitGTK 4.1 packages" ;;
+        freebsd) echo "python3 devel/py-pygobject webkit2-gtk_41" ;;
         *) echo "python3 python3-gobject WebKit2GTK-4.1 introspection" ;;
     esac
 }
@@ -166,7 +166,7 @@ check_macos_audio_capture() {
             ;;
     esac
     case "$major:$minor" in
-        *[!0-9:]*|'') major=0; minor=0 ;;
+        *[!0-9:]*) major=0; minor=0 ;;
     esac
     if [ "$major" -gt 14 ] ||
        { [ "$major" -eq 14 ] && [ "$minor" -ge 2 ]; }; then
@@ -335,6 +335,8 @@ pkg_for_dep() {
         *:ntfsfix)
             case "$family" in
                 freebsd) echo "fusefs-ntfs" ;;
+                alpine) echo "ntfs-3g-progs" ;;
+                arch | fedora | suse) echo "ntfsprogs" ;;
                 *) echo "ntfs-3g" ;;
             esac
             ;;
@@ -406,12 +408,7 @@ pkg_for_dep() {
                 *) echo "util-linux" ;;
             esac
             ;;
-        *:"SimpleBrowse JS:"*)
-            case "$family" in
-                freebsd) echo "" ;;
-                *) js_pkg_hint ;;
-            esac
-            ;;
+        *:"SimpleBrowse JS:"*) js_pkg_hint ;;
         *) echo "" ;;
     esac
 }
@@ -463,25 +460,25 @@ packages_for_family() {
                 arch_audio="$arch_audio pipewire-jack"
             fi
 
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf $arch_audio udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf $arch_audio udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python python-gobject webkit2gtk-4.1 cronie"
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
             PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
-            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
+            PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
@@ -493,7 +490,7 @@ packages_for_family() {
             INSTALL="sudo pkg install"
             PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
             PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
-            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3"
+            PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3 devel/py-pygobject webkit2-gtk_41"
             ;;
         msys2)
             INSTALL="pacman -S --needed"

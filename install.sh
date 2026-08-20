@@ -15,7 +15,11 @@ if [ "${SCRIPTORIUM_BASH_BOOTSTRAPPED_PID:-}" != "$$" ] ||
                     exit 1
                 }
             elif command -v sudo >/dev/null 2>&1; then
-                sudo apk add --no-cache bash || {
+                if [ "${SCRIPTORIUM_NONINTERACTIVE:-0}" = 1 ]; then
+                    sudo -n apk add --no-cache bash
+                else
+                    sudo apk add --no-cache bash
+                fi || {
                     printf 'Could not install Bash with apk. Check Alpine repositories and network access.\n' >&2
                     exit 1
                 }
@@ -30,7 +34,11 @@ if [ "${SCRIPTORIUM_BASH_BOOTSTRAPPED_PID:-}" != "$$" ] ||
             if [ "$(id -u)" -eq 0 ]; then
                 pkg install -y bash
             elif command -v sudo >/dev/null 2>&1; then
-                sudo pkg install -y bash
+                if [ "${SCRIPTORIUM_NONINTERACTIVE:-0}" = 1 ]; then
+                    sudo -n pkg install -y bash
+                else
+                    sudo pkg install -y bash
+                fi
             else
                 printf '%s\n' \
                     'Bash is required, but sudo is unavailable.' \
@@ -56,6 +64,22 @@ fi
 unset SCRIPTORIUM_BASH_BOOTSTRAPPED_PID
 
 set -euo pipefail
+
+SCRIPTORIUM_NONINTERACTIVE=${SCRIPTORIUM_NONINTERACTIVE:-0}
+case $SCRIPTORIUM_NONINTERACTIVE in
+    0 | 1) ;;
+    *)
+        printf 'SCRIPTORIUM_NONINTERACTIVE must be 0 or 1.\n' >&2
+        exit 2
+        ;;
+esac
+export SCRIPTORIUM_NONINTERACTIVE
+if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+    # Never let Git turn a supposedly unattended install into a credential
+    # prompt. Public repositories still clone normally, and configured
+    # credential helpers continue to work.
+    export GIT_TERMINAL_PROMPT=0
+fi
 
 TAILSCALE_AUTH_KEY_VALUE=${TAILSCALE_AUTH_KEY:-}
 unset TAILSCALE_AUTH_KEY
@@ -174,6 +198,10 @@ choose_network_role() {
                 printf '\nPreserving existing Trident role: %s.\n' "$requested"
                 ;;
             1)
+                if [[ ${SCRIPTORIUM_NONINTERACTIVE:-0} == 1 ]]; then
+                    warn "An unattended install needs SCRIPTORIUM_NETWORK_ROLE=client, server, or none."
+                    exit 2
+                fi
                 printf "\nJoin Keelan's Networking Trident? [Y/n] "
                 IFS= read -r answer || answer=
                 case $answer in
@@ -255,7 +283,11 @@ run_as_root() {
     if [[ $(id -u) -eq 0 ]]; then
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
-        sudo "$@"
+        if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+            sudo -n "$@"
+        else
+            sudo "$@"
+        fi
     else
         warn "Root privileges are required, but sudo is not installed."
         warn "Run the installer as root or install/configure sudo first."
@@ -804,23 +836,39 @@ if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 ]]; then
 fi
 unset TAILSCALE_AUTH_KEY_VALUE
 
-git_name="$(git config --global --get user.name 2>/dev/null || true)"
-git_email="$(git config --global --get user.email 2>/dev/null || true)"
+git_name="${SCRIPTORIUM_GIT_NAME:-$(git config --global --get user.name 2>/dev/null || true)}"
+git_email="${SCRIPTORIUM_GIT_EMAIL:-$(git config --global --get user.email 2>/dev/null || true)}"
 
 while [[ -z "${git_name//[[:space:]]/}" ]]; do
+    if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+        warn "An unattended install needs SCRIPTORIUM_GIT_NAME or an existing global Git name."
+        exit 2
+    fi
     IFS= read -r -p "Enter your Git name: " git_name
     if [[ -z "${git_name//[[:space:]]/}" ]]; then
         warn "Git name cannot be blank."
     fi
 done
 
-while [[ -z "${git_email//[[:space:]]/}" ]]; do
-    IFS= read -r -p "Enter your Git email: " git_email
+while :; do
+    if [[ -z "${git_email//[[:space:]]/}" ]]; then
+        if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+            warn "An unattended install needs SCRIPTORIUM_GIT_EMAIL or an existing global Git email."
+            exit 2
+        fi
+        IFS= read -r -p "Enter your Git email: " git_email
+    fi
     if [[ -z "${git_email//[[:space:]]/}" ]]; then
         warn "Git email cannot be blank."
     elif [[ ! "$git_email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+        if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+            warn "SCRIPTORIUM_GIT_EMAIL is not a complete email address."
+            exit 2
+        fi
         warn "That does not look like a complete email address."
         git_email=
+    else
+        break
     fi
 done
 
@@ -846,22 +894,25 @@ printf 'Git pull mode: rebase with autostash\n'
 
 say "Configuring GitHub credentials"
 
-while :; do
-    IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user
-    github_user="${github_user#"${github_user%%[![:space:]]*}"}"
-    github_user="${github_user%"${github_user##*[![:space:]]}"}"
+github_user=
+if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
+    while :; do
+        IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user
+        github_user="${github_user#"${github_user%%[![:space:]]*}"}"
+        github_user="${github_user%"${github_user##*[![:space:]]}"}"
 
-    if [[ -z "$github_user" ]]; then
+        if [[ -z "$github_user" ]]; then
+            break
+        fi
+
+        if [[ ! "$github_user" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]; then
+            warn "That is not a valid GitHub username."
+            continue
+        fi
+
         break
-    fi
-
-    if [[ ! "$github_user" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]; then
-        warn "That is not a valid GitHub username."
-        continue
-    fi
-
-    break
-done
+    done
+fi
 
 if [[ -z "$github_user" ]]; then
     printf 'GitHub credential setup skipped. Public clones still work; configure authentication before pushing.\n'
@@ -926,10 +977,13 @@ else
     chmod 600 "$HOME/.config/scriptorium/github-credential-user"
     unset github_pat
 fi
-
-
-printf "\nDo you want to configure SimpleMail for Gmail IMAP/SMTP? [y/N] "
-read -r setup_gmail
+setup_gmail=n
+if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
+    printf "\nDo you want to configure SimpleMail for Gmail IMAP/SMTP? [y/N] "
+    read -r setup_gmail
+else
+    printf 'SimpleMail Gmail setup skipped during unattended installation.\n'
+fi
 
 case "$setup_gmail" in
     y|Y|yes|YES)
@@ -1096,7 +1150,7 @@ say "Done. The Scriptorium is installed."
 cleanup_rollback
 trap - EXIT INT TERM
 
-if [[ -t 0 ]]; then
+if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 && -t 0 ]]; then
     printf 'Starting a configured shell; words and simplewords are ready to use.\n'
     exec "$ACTIVE_SHELL_COMMAND" -i
 fi

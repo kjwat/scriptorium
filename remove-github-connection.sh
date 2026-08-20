@@ -16,8 +16,6 @@ say() {
 }
 
 unset_git_keys() {
-    local scope="$1"
-    shift
     local args=("$@")
 
     git config "${args[@]}" --unset-all user.name 2>/dev/null || true
@@ -68,7 +66,7 @@ scrub_remote() {
         fi
     done < <(git -C "$repo" remote 2>/dev/null || true)
 
-    unset_git_keys "local" -C "$repo" --local
+    unset_git_keys -C "$repo" --local
 }
 
 say "Removing GitHub authentication from this account..."
@@ -100,7 +98,7 @@ if command -v secret-tool >/dev/null 2>&1; then
 fi
 
 # Remove global Git identity and GitHub-specific authentication settings.
-unset_git_keys "global" --global
+unset_git_keys --global
 
 # Remove the same settings from the four SimpleCheck repositories and scrub
 # any token accidentally embedded in their remote URLs.

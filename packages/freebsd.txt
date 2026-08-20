@@ -1,5 +1,5 @@
 bash gmake pkgconf ncurses glib curl openssl
 git mpv poppler-utils hs-pandoc
 nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad avahi-app
-python3
+python3 devel/py-pygobject webkit2-gtk_41
 isync msmtp calcurse links ca_root_nss rsync
