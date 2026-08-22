@@ -177,7 +177,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server; do
+for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
 done
 
@@ -305,6 +305,7 @@ clean_shell_rc() {
             aliases["vis"] = "simplevis"
             aliases["clock"] = "simpleclock"
             aliases["check"] = "simplecheck"
+            aliases["trident"] = "simpletrident"
             aliases["cal"] = "simplecal"
             aliases["stats"] = "simplestats"
             aliases["ver"] = "simplever"

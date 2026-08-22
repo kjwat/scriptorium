@@ -159,9 +159,10 @@ SimpleSuite programs:
 When selected on FreeBSD, Linux, or macOS, the installer also includes `simpleserve`
 and its `simpleserved` system daemon.
 
-Scriptorium also builds and installs `simplecheck`, its ncurses dashboard for
+Scriptorium also builds and installs two ncurses dashboards: `simplecheck` for
 the `~/writing`, `~/scriptorium`, `~/simplesuite`, and `~/website` Git
-repositories.
+repositories, and `simpletrident` for verifying all three installed Trident
+prongs.
 
 Runtime and workflow tools installed by the package script include, depending
 on platform availability:
@@ -366,6 +367,7 @@ alias pod='simplepod'
 alias vis='simplevis'
 alias clock='simpleclock'
 alias check='simplecheck'
+alias trident='simpletrident'
 alias cal='simplecal'
 alias stats='simplestats'
 alias ver='simplever'
@@ -375,6 +377,26 @@ alias news='simplenews'
 alias mail='simplemail'
 alias net='simplenet'
 ```
+
+## SimpleTrident
+
+Run `simpletrident` or its `trident` alias after installing or repairing a
+Trident machine. Its three-row ncurses dashboard verifies:
+
+- **SimpleServe / intranet:** both binaries, the configured client/server role,
+  the persistent service, and the live daemon control socket.
+- **Tailscale / encrypted extranet:** the client and persistent daemon, a live
+  `100.64.0.0/10` tailnet address, and SimpleServe's active Tailscale bridge.
+- **Caddy website / local web origin:** the website checkout, installed Caddy
+  configuration, Caddy/store services, local HTTP health, private-edition
+  blocking, and store health. The optional blog timer, Cloudflare tunnel, and
+  public Internet route are deliberately outside this local Caddy check.
+
+Use Up/Down to select a category and Enter or `D` to open its evidence. A
+failed category also shows repair commands and service-log commands. Press `R`
+to rerun all checks and `Q` to quit. For scripts or remote troubleshooting,
+`simpletrident --check` prints the same results and exits nonzero when any
+category has a problem.
 
 ## SimpleCheck
 

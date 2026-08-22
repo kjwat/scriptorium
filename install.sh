@@ -497,6 +497,7 @@ ensure_simplesuite_aliases_in_file() {
         "alias vis='simplevis'"
         "alias clock='simpleclock'"
         "alias check='simplecheck'"
+        "alias trident='simpletrident'"
         "alias cal='simplecal'"
         "alias stats='simplestats'"
         "alias ver='simplever'"
@@ -564,6 +565,7 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simplecal
     simpleclock
     simplecheck
+    simpletrident
     simplefiles
     simpleflac
     simplegame
@@ -1042,6 +1044,9 @@ SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
+
+say "Installing SimpleTrident"
+"$ROOT/scripts/install-simpletrident.sh"
 
 say "Installing website server bootstrap"
 install -m 0755 "$ROOT/setup-server.sh" "$HOME/.local/bin/setup-server"
