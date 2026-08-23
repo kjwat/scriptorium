@@ -12,6 +12,7 @@ ROLE_FILE=$TEST_ROOT/simpleserve-role
 CADDY_FILE=$TEST_ROOT/Caddyfile
 STORE_ENV=$HOME_DIR/.config/keelanwatlington/store.env
 SIMPLESERVE_VERIFY=$TEST_ROOT/verify-simpleserve-system.sh
+EXPORTS_FILE=$TEST_ROOT/simpleserve.exports
 mkdir -p "$HOME_DIR/.local/bin" "$HOME_DIR/.config/keelanwatlington" \
     "$FAKE_BIN" "$WEBSITE/tools"
 printf '%s\n' server >"$ROLE_FILE"
@@ -208,12 +209,24 @@ run_check() {
             'STORE_EMAIL_FROM=Dionysia Publishing <books@example.com>' \
             >"$STORE_ENV"
     fi
+    if [ "$scenario" = server-phone-incompatible ]; then
+        printf '%s\n' \
+            '/media/test/Library 192.0.2.0/24(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)' \
+            '/media/test/Library 100.64.0.0/10(rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000)' \
+            >"$EXPORTS_FILE"
+    else
+        printf '%s\n' \
+            '/media/test/Library 192.0.2.0/24(rw,sync,no_subtree_check,insecure,all_squash,anonuid=1000,anongid=1000)' \
+            '/media/test/Library 100.64.0.0/10(rw,sync,no_subtree_check,insecure,all_squash,anonuid=1000,anongid=1000)' \
+            >"$EXPORTS_FILE"
+    fi
     set +e
     HOME="$HOME_DIR" \
     PATH="$FAKE_BIN:/usr/bin:/bin" \
     SIMPLETRIDENT_SERVICE_MANAGER=systemd \
     SIMPLETRIDENT_ROLE_FILE="$ROLE_FILE" \
     SIMPLETRIDENT_SIMPLESERVE_VERIFY="$SIMPLESERVE_VERIFY" \
+    SIMPLETRIDENT_EXPORTS="$EXPORTS_FILE" \
     SIMPLETRIDENT_CADDY="$caddy_command" \
     SIMPLETRIDENT_CADDYFILE="$CADDY_FILE" \
     SIMPLETRIDENT_STORE_ENV="$STORE_ENV" \
@@ -233,7 +246,7 @@ grep -q '^\[OK *\] Caddy website / local web origin$' "$TEST_ROOT/healthy.out"
 [ "$(grep -c '^\[' "$TEST_ROOT/healthy.out")" -eq 3 ]
 grep -q 'server role; 1 NFS/SMB share active; service ready' \
     "$TEST_ROOT/healthy.out"
-grep -q 'connected at 100.70.80.90; NFS publishing bridge is active' \
+grep -q 'connected at 100.70.80.90; NFS/SMB publishing bridge is active' \
     "$TEST_ROOT/healthy.out"
 grep -q '^          Caddy, fulfillment mail, blog sync, and tunnel are healthy$' \
     "$TEST_ROOT/healthy.out"
@@ -351,6 +364,16 @@ grep -q '\[down\] All 1 configured local share is unavailable' \
     "$TEST_ROOT/server-share-unavailable.out"
 grep -q 'Reconnect the drive with the UUID originally registered for the share' \
     "$TEST_ROOT/server-share-unavailable.out"
+
+run_check server-phone-incompatible "$TEST_ROOT/server-phone-incompatible.out"
+[ "$check_status" -eq 1 ]
+grep -q '^Mode: SERVER$' "$TEST_ROOT/server-phone-incompatible.out"
+grep -q '^\[PARTIAL\] SimpleServe / intranet$' \
+    "$TEST_ROOT/server-phone-incompatible.out"
+grep -q '^          2 of 2 managed NFS export entries do not accept phone source ports$' \
+    "$TEST_ROOT/server-phone-incompatible.out"
+grep -q '\[partial\] 2 of 2 managed NFS export entries do not accept phone source ports' \
+    "$TEST_ROOT/server-phone-incompatible.out"
 
 run_check bridge-inactive "$TEST_ROOT/partial.out"
 [ "$check_status" -eq 1 ]

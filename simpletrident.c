@@ -914,6 +914,68 @@ static void detect_service_manager(void)
     }
 }
 
+static void check_phone_nfs_exports(Category *category)
+{
+    const char *override = getenv("SIMPLETRIDENT_EXPORTS");
+    char path[PATH_MAX];
+    char contents[OUTPUT_SIZE];
+    char *cursor;
+    int export_lines = 0;
+    int phone_compatible_lines = 0;
+
+    if (strcmp(service_manager, "systemd") != 0 &&
+        strcmp(service_manager, "openrc") != 0 &&
+        strcmp(service_manager, "runit") != 0)
+        return;
+    if (simpleserve_evidence.local_shares <=
+        simpleserve_evidence.unavailable_shares)
+        return;
+    if (override && override[0])
+        copy_string(path, sizeof(path), override);
+    else
+        system_path("/etc/exports.d/simpleserve.exports", path, sizeof(path));
+    if (!read_small_file(path, contents, sizeof(contents))) {
+        category_unknown(category,
+                         "Managed NFS export policy is missing or unreadable");
+        append_text(category->details, sizeof(category->details),
+                    "          expected: %s\n", path);
+        return;
+    }
+
+    cursor = contents;
+    while (*cursor) {
+        char *newline = strchr(cursor, '\n');
+        char *line = cursor;
+
+        if (newline)
+            *newline = '\0';
+        while (*line == ' ' || *line == '\t')
+            line++;
+        if (*line && *line != '#') {
+            export_lines++;
+            if (strstr(line, ",insecure,") ||
+                strstr(line, "(insecure,") ||
+                strstr(line, ",insecure)"))
+                phone_compatible_lines++;
+        }
+        if (!newline)
+            break;
+        cursor = newline + 1;
+    }
+
+    if (export_lines == 0) {
+        category_down(category,
+                      "Managed NFS exports are empty despite active shares");
+    } else if (phone_compatible_lines != export_lines) {
+        category_partial(category,
+                         "%d of %d managed NFS export entries do not accept phone source ports",
+                         export_lines - phone_compatible_lines, export_lines);
+    } else {
+        category_ok(category,
+                    "All managed NFS exports accept phone source ports");
+    }
+}
+
 static void set_simpleserve_fix(Category *category, const char *role)
 {
     if (role && strcmp(role, "server") == 0 &&
@@ -1049,6 +1111,8 @@ static void check_simpleserve(Category *category)
                 if (strstr(output, expected)) {
                     category_ok(category, "The running daemon reports the %s role", role);
                     report_simpleserve_evidence(category, role);
+                    if (strcmp(role, "server") == 0)
+                        check_phone_nfs_exports(category);
                 } else if (strcmp(role, "server") == 0 &&
                            strstr(output, "Role: client")) {
                     category_down(category,
@@ -1419,7 +1483,7 @@ static void check_tailscale(Category *category)
             }
         } else if (simpleserve_mode == MODE_SERVER) {
             category_ok(category,
-                        "The active bridge makes server NFS shares available to tailnet clients");
+                        "The active bridge makes server NFS and SMB shares available to tailnet clients");
         }
     }
 
@@ -1438,7 +1502,7 @@ static void check_tailscale(Category *category)
             }
         } else if (simpleserve_mode == MODE_SERVER) {
             (void)snprintf(category->summary, sizeof(category->summary),
-                           "connected at %s; NFS publishing bridge is active",
+                           "connected at %s; NFS/SMB publishing bridge is active",
                            address);
         } else {
             (void)snprintf(category->summary, sizeof(category->summary),
