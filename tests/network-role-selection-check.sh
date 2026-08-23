@@ -119,10 +119,51 @@ unattended_without_role_case() (
     ! grep -q "Join Keelan's Networking Trident" "$tmp/unattended.out"
 )
 
+server_promotion_offer_case() (
+    mkdir -p "$tmp/promotion-home/.local/bin"
+    cat >"$tmp/promotion-home/.local/bin/setup-server" <<'EOF'
+#!/bin/sh
+printf '%s\n' called >"$HOME/setup-server-called"
+EOF
+    chmod 755 "$tmp/promotion-home/.local/bin/setup-server"
+
+    HOME=$tmp/promotion-home
+    SCRIPTORIUM_NETWORK_ROLE=client
+    SIMPLESUITE_NETWORK_ROLE=client
+    SCRIPTORIUM_NONINTERACTIVE=0
+    export HOME SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SCRIPTORIUM_NONINTERACTIVE
+
+    offer_server_promotion <<<'yes' >"$tmp/promotion.out"
+    [[ $SCRIPTORIUM_NETWORK_ROLE == server ]]
+    [[ $SIMPLESUITE_NETWORK_ROLE == server ]]
+    [[ -f $HOME/setup-server-called ]]
+    grep -q 'full Trident server now' "$tmp/promotion.out"
+    grep -q 'Full Trident server promotion completed' "$tmp/promotion.out"
+)
+
+unattended_client_offer_case() (
+    HOME=$tmp/promotion-home
+    rm -f "$HOME/setup-server-called"
+    SCRIPTORIUM_NETWORK_ROLE=client
+    SIMPLESUITE_NETWORK_ROLE=client
+    SCRIPTORIUM_NONINTERACTIVE=1
+    export HOME SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SCRIPTORIUM_NONINTERACTIVE
+
+    offer_server_promotion >"$tmp/unattended-promotion.out"
+    [[ $SCRIPTORIUM_NETWORK_ROLE == client ]]
+    [[ ! -e $HOME/setup-server-called ]]
+    grep -q 'Run setup-server to perform the full server promotion later' \
+        "$tmp/unattended-promotion.out"
+)
+
 fresh_case
 existing_server_case
 disabled_case
 client_without_tailscale_case
 unattended_without_role_case
+server_promotion_offer_case
+unattended_client_offer_case
 
-echo 'OK Trident selection handles prompts, preserved roles, and unattended installs'
+echo 'OK Trident selection handles client setup, full server promotion, preserved roles, and unattended installs'

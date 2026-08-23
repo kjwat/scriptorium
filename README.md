@@ -17,11 +17,22 @@ Tumbleweed, FreeBSD, and macOS.
 - **Intranet:** SimpleServe clients discover and mount shares; explicitly
   promoted servers also publish them over NFS/SMB.
 - **Extranet:** Tailscale carries those same shares over the encrypted tailnet.
-- **Website:** `setup-server` provisions Caddy, the Stripe store, blog sync, and
-  the Cloudflare tunnel from `~/website`.
+- **Website:** `setup-server` provisions Caddy, the local Stripe fulfillment
+  worker and purchase-recovery mail, blog sync, and the Cloudflare tunnel from
+  `~/website`.
 
 Scriptorium installs the first two prongs and the website bootstrap. Run
 `setup-server` only on a machine intended to serve `keelanwatlington.com`.
+A fresh interactive installation starts with client mode and offers that full
+server promotion at the end. Declining leaves a mount-only client and prints
+the same `setup-server` command for later.
+
+When `setup-server` is run on an existing server, its first question offers a
+safe return to client mode before it pulls or changes the website checkout.
+Demotion creates a protected backup of store/tunnel state, stops and disables
+the website stack, withdraws SimpleServe-managed NFS/SMB exports and boot
+mounts, and preserves client mounts, the checkout, data, and installed packages
+for a later promotion. `setup-server --client` selects that path directly.
 
 ## First Run
 
@@ -108,6 +119,14 @@ shows a numbered choice. The selected share is mounted under
 `~/SimpleServe/SERVER/SHARE` and remembered across restarts. The writing
 machine remains unable to publish files.
 
+While the client is at home, SimpleServe prefers the server's LAN address but
+also remembers and probes its Tailscale address. If the LAN route disappears,
+the daemon safely releases the stale managed mount and reconnects the same
+`~/SimpleServe/SERVER/SHARE` path over NFSv3 through Tailscale. Returning home
+restores LAN preference. `simpletrident` reports each remembered fallback as
+ready or unreachable, so a connected Tailscale client alone is not treated as
+proof that remote files are available.
+
 On the machine that will host `keelanwatlington.com`, run `./install.sh`, join
 the Trident, and then run the installed command after GitHub access is ready:
 
@@ -118,9 +137,11 @@ setup-server
 `setup-server` safely clones or fast-forwards `~/website`, installs any missing
 server-only NFS/Samba dependencies, and explicitly promotes SimpleServe to
 `server (publish + mount)` before touching website services. It then runs the website repository's
-idempotent installer for Caddy, Cloudflare Tunnel, the Stripe fulfillment
-service, generated-blog checks, protected local state, and final local/public
-health verification. It refuses to update a dirty website checkout. The
+idempotent installer for Caddy, Cloudflare Tunnel, the local Stripe fulfillment
+and purchase-recovery mail service, generated-blog checks, protected local
+state, and final local/public health verification. SMTP provider credentials
+remain in the protected `store.env`; reruns and server-state backups preserve
+them. It refuses to update a dirty website checkout. The
 website prong uses systemd on Debian/Fedora/Arch/openSUSE,
 OpenRC on Alpine, runit on Void, rc.d on FreeBSD, and launchd on macOS. An
 unchanged rerun rewrites no managed file and restarts no healthy service.
@@ -161,8 +182,8 @@ and its `simpleserved` system daemon.
 
 Scriptorium also builds and installs two ncurses dashboards: `simplecheck` for
 the `~/writing`, `~/scriptorium`, `~/simplesuite`, and `~/website` Git
-repositories, and `simpletrident` for verifying all three installed Trident
-prongs.
+repositories, and `simpletrident` for verifying the installed Trident prongs
+that apply to the machine's role.
 
 Runtime and workflow tools installed by the package script include, depending
 on platform availability:
@@ -179,10 +200,9 @@ on platform availability:
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for
   SimpleCal reminder fallback
-- when SimpleServe is selected, NFS server/client tools, the Linux Samba
-  server, and Avahi daemon/CLI utilities for dual-protocol exports, discovery,
-  and real filesystem mounts; systems that skip SimpleServe install none of
-  this server stack
+- in SimpleServe client mode, NFS client and Avahi discovery utilities for real
+  filesystem mounts; server promotion adds NFS publishing, Samba, and the
+  remaining dual-protocol server dependencies
 - when selected, the official/native Tailscale package and persistent daemon
   for SimpleServe's encrypted remote transport on every Trident platform
 - clipboard, desktop-open, trash, and audio helper packages where available
@@ -381,22 +401,29 @@ alias net='simplenet'
 ## SimpleTrident
 
 Run `simpletrident` or its `trident` alias after installing or repairing a
-Trident machine. Its three-row ncurses dashboard verifies:
+Trident machine. Its role-aware ncurses dashboard verifies:
 
 - **SimpleServe / intranet:** both binaries, the configured client/server role,
-  the persistent service, and the live daemon control socket.
+  the persistent service, the live daemon control socket, managed NFS mounts,
+  and—on servers—active NFS/SMB publishing and removable-drive reconciliation.
 - **Tailscale / encrypted extranet:** the client and persistent daemon, a live
-  `100.64.0.0/10` tailnet address, and SimpleServe's active Tailscale bridge.
+  `100.64.0.0/10` tailnet address, SimpleServe's active bridge, and a live NFS
+  reachability probe for every remembered client mount's Tailscale fallback.
 - **Caddy website / local web origin:** the website checkout, installed Caddy
   configuration, Caddy/store services, local HTTP health, private-edition
-  blocking, and store health. The optional blog timer, Cloudflare tunnel, and
-  public Internet route are deliberately outside this local Caddy check.
+  blocking, fulfillment/recovery-mail configuration, store health, blog sync,
+  and the Cloudflare tunnel service on a server. Missing recovery mail or
+  another supporting-service failure is `PARTIAL` when the local origin still
+  works. This server-only prong is omitted entirely in client mode, so clients
+  neither run nor recommend Caddy repair. The public Internet route remains
+  outside this bounded local check.
 
 Use Up/Down to select a category and Enter or `D` to open its evidence. A
 failed category also shows repair commands and service-log commands. Press `R`
 to rerun all checks and `Q` to quit. For scripts or remote troubleshooting,
-`simpletrident --check` prints the same results and exits nonzero when any
-category has a problem.
+`simpletrident --check` prints the same `OK`, `PARTIAL`, `DOWN`, or `UNKNOWN`
+results and exits nonzero unless every category applicable to the detected
+role is `OK`.
 
 ## SimpleCheck
 

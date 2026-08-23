@@ -279,6 +279,32 @@ choose_tailscale_component() {
     export SCRIPTORIUM_INSTALL_TAILSCALE
 }
 
+offer_server_promotion() {
+    local answer
+
+    [[ $SCRIPTORIUM_NETWORK_ROLE == client ]] || return 0
+    if [[ $SCRIPTORIUM_NONINTERACTIVE == 1 ]]; then
+        printf 'Trident client mode is installed. Run setup-server to perform the full server promotion later.\n'
+        return 0
+    fi
+
+    printf '\nClient mode is ready for LAN and Tailscale NFS mounts.\n'
+    printf 'Promote this machine to the full Trident server now (NFS/SMB publishing, website, store mail, and tunnel)? [y/N] '
+    IFS= read -r answer || answer=
+    case $answer in
+        y | Y | yes | YES)
+            "$HOME/.local/bin/setup-server"
+            SCRIPTORIUM_NETWORK_ROLE=server
+            SIMPLESUITE_NETWORK_ROLE=server
+            export SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE
+            printf 'Full Trident server promotion completed.\n'
+            ;;
+        *)
+            printf 'Keeping this machine in Trident client mode. Run setup-server whenever you want to promote it.\n'
+            ;;
+    esac
+}
+
 run_as_root() {
     if [[ $(id -u) -eq 0 ]]; then
         "$@"
@@ -1124,6 +1150,7 @@ if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 &&
         *)
             tailscale_ready=0
             for _attempt in {1..10}; do
+                "$HOME/.local/bin/simpleserve" refresh >/dev/null 2>&1 || true
                 simpleserve_status=$("$HOME/.local/bin/simpleserve" status 2>/dev/null || true)
                 if grep -Eq '^Tailscale: active \(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' \
                     <<<"$simpleserve_status"; then
@@ -1145,6 +1172,8 @@ say "Installing SimpleCal reminder backend"
 if ! "$HOME/.local/bin/simplecal" --install-reminders; then
     warn "SimpleCal reminder setup failed; run 'simplecal --install-reminders' later."
 fi
+
+offer_server_promotion
 
 say "Installed SimpleSuite tools"
 for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do

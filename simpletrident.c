@@ -36,7 +36,15 @@
 enum check_state {
     STATE_CHECKING,
     STATE_OK,
-    STATE_PROBLEM
+    STATE_PARTIAL,
+    STATE_DOWN,
+    STATE_UNKNOWN
+};
+
+enum simpleserve_mode {
+    MODE_UNKNOWN,
+    MODE_SERVER,
+    MODE_CLIENT
 };
 
 typedef struct {
@@ -52,6 +60,21 @@ typedef struct {
     const char *name;
     const char *value;
 } EnvPair;
+
+typedef struct {
+    int shares_section;
+    int local_shares;
+    int unavailable_shares;
+    int mounts_section;
+    int managed_mounts;
+    int mounted;
+    int unmounted;
+    int remembered;
+    int lan_routes;
+    int tailscale_routes;
+    int tailscale_nfs_reported;
+    int tailscale_nfs_ready;
+} SimpleServeEvidence;
 
 static Category categories[CATEGORY_COUNT] = {
     {"SimpleServe", "intranet", STATE_CHECKING, "Waiting to check...", "", ""},
@@ -69,7 +92,14 @@ static char home_dir[PATH_MAX];
 static char service_manager[32];
 static char simpleserve_status[OUTPUT_SIZE];
 static int simpleserve_status_ok;
+static enum simpleserve_mode simpleserve_mode = MODE_UNKNOWN;
+static SimpleServeEvidence simpleserve_evidence;
 static char last_checked[64];
+
+static int visible_category_count(void)
+{
+    return simpleserve_mode == MODE_CLIENT ? 2 : CATEGORY_COUNT;
+}
 
 static int64_t monotonic_ms(void)
 {
@@ -169,19 +199,195 @@ static void category_ok(Category *category, const char *format, ...)
     append_text(category->details, sizeof(category->details), "\n");
 }
 
-static void category_problem(Category *category, const char *format, ...)
+static int state_priority(enum check_state state)
+{
+    switch (state) {
+    case STATE_DOWN: return 3;
+    case STATE_UNKNOWN: return 2;
+    case STATE_PARTIAL: return 1;
+    case STATE_OK:
+    case STATE_CHECKING: return 0;
+    }
+    return 0;
+}
+
+static void category_set_state(Category *category, enum check_state state,
+                               const char *summary)
+{
+    if (category->state == STATE_CHECKING && summary)
+        copy_string(category->summary, sizeof(category->summary), summary);
+    if (state_priority(state) > state_priority(category->state))
+        category->state = state;
+}
+
+static void category_issue(Category *category, enum check_state state,
+                           const char *label, const char *format,
+                           va_list arguments)
 {
     char message[SUMMARY_SIZE];
+
+    (void)vsnprintf(message, sizeof(message), format, arguments);
+    category_set_state(category, state, message);
+    append_text(category->details, sizeof(category->details),
+                "[%s] %s\n", label, message);
+}
+
+static void category_partial(Category *category, const char *format, ...)
+{
     va_list arguments;
 
     va_start(arguments, format);
-    (void)vsnprintf(message, sizeof(message), format, arguments);
+    category_issue(category, STATE_PARTIAL, "partial", format, arguments);
     va_end(arguments);
-    if (category->state != STATE_PROBLEM)
-        copy_string(category->summary, sizeof(category->summary), message);
-    category->state = STATE_PROBLEM;
-    append_text(category->details, sizeof(category->details),
-                "[problem] %s\n", message);
+}
+
+static void category_down(Category *category, const char *format, ...)
+{
+    va_list arguments;
+
+    va_start(arguments, format);
+    category_issue(category, STATE_DOWN, "down", format, arguments);
+    va_end(arguments);
+}
+
+static void category_unknown(Category *category, const char *format, ...)
+{
+    va_list arguments;
+
+    va_start(arguments, format);
+    category_issue(category, STATE_UNKNOWN, "unknown", format, arguments);
+    va_end(arguments);
+}
+
+static void category_blocked(Category *category, const char *format, ...)
+{
+    size_t used;
+    va_list arguments;
+
+    append_text(category->details, sizeof(category->details), "[blocked] ");
+    used = strlen(category->details);
+    va_start(arguments, format);
+    (void)vsnprintf(category->details + used,
+                    sizeof(category->details) - used, format, arguments);
+    va_end(arguments);
+    append_text(category->details, sizeof(category->details), "\n");
+}
+
+static void parse_simpleserve_evidence(const char *status,
+                                       SimpleServeEvidence *evidence)
+{
+    char copy[OUTPUT_SIZE];
+    char *line;
+    char *save = NULL;
+    int section = 0;
+
+    memset(evidence, 0, sizeof(*evidence));
+    copy_string(copy, sizeof(copy), status);
+    for (line = strtok_r(copy, "\n\r", &save); line;
+         line = strtok_r(NULL, "\n\r", &save)) {
+        trim_whitespace(line);
+        if (strcmp(line, "Local shares:") == 0) {
+            section = 1;
+            evidence->shares_section = 1;
+            continue;
+        }
+        if (strcmp(line, "Managed mounts:") == 0) {
+            section = 2;
+            evidence->mounts_section = 1;
+            continue;
+        }
+        if (!line[0] || strcmp(line, "(none)") == 0)
+            continue;
+        if (section == 1) {
+            evidence->local_shares++;
+            if (strstr(line, "(drive unavailable)"))
+                evidence->unavailable_shares++;
+        } else if (section == 2) {
+            int remembered;
+
+            evidence->managed_mounts++;
+            if (strstr(line, "not mounted"))
+                evidence->unmounted++;
+            else if (strstr(line, "mounted"))
+                evidence->mounted++;
+            remembered = strstr(line, ", remembered") != NULL;
+            if (remembered)
+                evidence->remembered++;
+            if (strstr(line, "route: LAN"))
+                evidence->lan_routes++;
+            else if (strstr(line, "route: Tailscale"))
+                evidence->tailscale_routes++;
+            if (remembered && strstr(line, "Tailscale NFS:")) {
+                evidence->tailscale_nfs_reported++;
+                if (strstr(line, "Tailscale NFS: ready"))
+                    evidence->tailscale_nfs_ready++;
+            }
+        }
+    }
+}
+
+static void report_simpleserve_evidence(Category *category, const char *role)
+{
+    int active_shares = simpleserve_evidence.local_shares -
+                        simpleserve_evidence.unavailable_shares;
+
+    if (strcmp(role, "server") == 0) {
+        if (!simpleserve_evidence.shares_section) {
+            category_unknown(category,
+                             "Local publishing state is unavailable from daemon status");
+        } else if (simpleserve_evidence.local_shares == 0) {
+            category_partial(category,
+                             "Server mode is ready, but no local shares are configured");
+        } else if (active_shares == 0) {
+            category_down(category,
+                          "All %d configured local share%s %s unavailable",
+                          simpleserve_evidence.local_shares,
+                          simpleserve_evidence.local_shares == 1 ? "" : "s",
+                          simpleserve_evidence.local_shares == 1 ? "is" : "are");
+        } else if (simpleserve_evidence.unavailable_shares > 0) {
+            category_partial(category,
+                             "%d of %d configured local shares are unavailable",
+                             simpleserve_evidence.unavailable_shares,
+                             simpleserve_evidence.local_shares);
+        } else {
+            category_ok(category,
+                        "%d local share%s active for NFS and SMB publishing",
+                        active_shares, active_shares == 1 ? " is" : "s are");
+        }
+        category_ok(category,
+                    "Server publishing reconciles UUID persistence, removable-drive availability, NFS, SMB, and mDNS");
+    } else {
+        category_ok(category,
+                    "Client role permits discovery, NFS mounting, and remembered reconnects without publishing shares");
+    }
+
+    if (!simpleserve_evidence.mounts_section) {
+        category_unknown(category,
+                         "Managed NFS mount state is unavailable from daemon status");
+    } else if (simpleserve_evidence.managed_mounts == 0) {
+        category_ok(category, "No remote NFS shares are currently remembered");
+    } else {
+        if (simpleserve_evidence.mounted > 0) {
+            category_ok(category,
+                        "%d managed NFS mount%s active (%d LAN, %d Tailscale)",
+                        simpleserve_evidence.mounted,
+                        simpleserve_evidence.mounted == 1 ? " is" : "s are",
+                        simpleserve_evidence.lan_routes,
+                        simpleserve_evidence.tailscale_routes);
+        }
+        if (simpleserve_evidence.remembered > 0) {
+            category_ok(category,
+                        "%d managed mount%s remembered for reconnect after reboot",
+                        simpleserve_evidence.remembered,
+                        simpleserve_evidence.remembered == 1 ? " is" : "s are");
+        }
+        if (simpleserve_evidence.unmounted > 0) {
+            category_partial(category,
+                             "%d managed NFS mount%s currently not mounted",
+                             simpleserve_evidence.unmounted,
+                             simpleserve_evidence.unmounted == 1 ? " is" : "s are");
+        }
+    }
 }
 
 static int executable_file(const char *path)
@@ -223,6 +429,57 @@ done:
     if (right)
         fclose(right);
     return equal;
+}
+
+static int assignment_has_value(const char *line, const char *name)
+{
+    const char *cursor = line;
+    const char *end;
+    size_t name_length = strlen(name);
+
+    while (*cursor == ' ' || *cursor == '\t')
+        cursor++;
+    if (strncmp(cursor, name, name_length) != 0 ||
+        cursor[name_length] != '=')
+        return 0;
+    cursor += name_length + 1;
+    while (*cursor == ' ' || *cursor == '\t')
+        cursor++;
+    end = cursor + strlen(cursor);
+    while (end > cursor &&
+           (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\n' ||
+            end[-1] == '\r'))
+        end--;
+    if (end == cursor)
+        return 0;
+    return !((end - cursor == 2) &&
+             ((cursor[0] == '\'' && cursor[1] == '\'') ||
+              (cursor[0] == '"' && cursor[1] == '"')));
+}
+
+/* Return 1 when configured, 0 when absent/incomplete, and -1 when unreadable. */
+static int store_recovery_mail_status(const char *path)
+{
+    FILE *stream;
+    char *line = NULL;
+    size_t capacity = 0;
+    int host = 0;
+    int sender = 0;
+    int result;
+
+    stream = fopen(path, "r");
+    if (!stream)
+        return errno == ENOENT ? 0 : -1;
+    while (getline(&line, &capacity, stream) >= 0) {
+        if (assignment_has_value(line, "STORE_SMTP_HOST"))
+            host = 1;
+        else if (assignment_has_value(line, "STORE_EMAIL_FROM"))
+            sender = 1;
+    }
+    result = ferror(stream) ? -1 : (host && sender);
+    free(line);
+    fclose(stream);
+    return result;
 }
 
 static int find_on_path(const char *name, char *result, size_t result_size)
@@ -608,16 +865,16 @@ static void check_managed_service(Category *category, const char *display,
         if (!active_ok)
             service_failure_detail(category, "launchd", output);
     } else {
-        category_problem(category,
+        category_unknown(category,
                          "No supported service manager was detected for %s",
                          display);
         return;
     }
 
-    if (!enabled_ok)
-        category_problem(category, "%s is not enabled at boot", display);
     if (!active_ok)
-        category_problem(category, "%s is not running", display);
+        category_down(category, "%s is not running", display);
+    if (!enabled_ok)
+        category_partial(category, "%s is not enabled at boot", display);
     if (enabled_ok && active_ok)
         category_ok(category, "%s is enabled and running via %s", display,
                     service_manager);
@@ -659,6 +916,26 @@ static void detect_service_manager(void)
 
 static void set_simpleserve_fix(Category *category, const char *role)
 {
+    if (role && strcmp(role, "server") == 0 &&
+        simpleserve_evidence.shares_section &&
+        simpleserve_evidence.local_shares == 0) {
+        append_text(category->fix, sizeof(category->fix),
+                    "To publish this server's first mounted drive:\n"
+                    "  simpleserve share /mounted/path --name NAME\n\n");
+    } else if (role && strcmp(role, "server") == 0 &&
+               simpleserve_evidence.unavailable_shares > 0) {
+        append_text(category->fix, sizeof(category->fix),
+                    "Reconnect the drive with the UUID originally registered for the share, then run:\n"
+                    "  simpleserve refresh\n"
+                    "  simpleserve status\n\n");
+    }
+    if (simpleserve_evidence.unmounted > 0) {
+        append_text(category->fix, sizeof(category->fix),
+                    "Refresh discovery and retry each remembered mount that should be online:\n"
+                    "  simpleserve refresh\n"
+                    "  simpleserve discover\n"
+                    "  simpleserve mount SERVER:SHARE --remember\n\n");
+    }
     append_text(category->fix, sizeof(category->fix),
                 "Reconcile the installed client, daemon, role, and boot service:\n"
                 "  cd ~/scriptorium && ./install.sh\n\n");
@@ -693,10 +970,13 @@ static void check_simpleserve(Category *category)
     const char *verifier_override = getenv("SIMPLETRIDENT_SIMPLESERVE_VERIFY");
     int client_found;
     int daemon_found;
+    int role_valid = 0;
 
     category_reset(category);
     simpleserve_status[0] = '\0';
     simpleserve_status_ok = 0;
+    simpleserve_mode = MODE_UNKNOWN;
+    memset(&simpleserve_evidence, 0, sizeof(simpleserve_evidence));
     client_found = find_program("SIMPLETRIDENT_SIMPLESERVE", "simpleserve",
                                 no_known_paths, client, sizeof(client));
     daemon_found = find_program("SIMPLETRIDENT_SIMPLESERVED", "simpleserved",
@@ -718,59 +998,101 @@ static void check_simpleserve(Category *category)
     if (client_found)
         category_ok(category, "SimpleServe client is installed at %s", client);
     else
-        category_problem(category, "The SimpleServe client is not installed");
+        category_down(category, "The SimpleServe client is not installed");
     if (daemon_found)
         category_ok(category, "SimpleServe daemon is installed at %s", daemon);
     else
-        category_problem(category, "The SimpleServe daemon is not installed");
+        category_down(category, "The SimpleServe daemon is not installed");
 
     if (!read_small_file(role_path, role, sizeof(role))) {
-        category_problem(category, "The SimpleServe role file is missing or unreadable");
+        category_unknown(category,
+                         "The SimpleServe role file is missing or unreadable");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", role_path);
         role[0] = '\0';
     } else if (strcmp(role, "client") != 0 && strcmp(role, "server") != 0) {
-        category_problem(category, "The SimpleServe role is invalid: %s", role);
+        category_unknown(category, "The SimpleServe role is invalid: %s", role);
     } else {
+        role_valid = 1;
+        simpleserve_mode = strcmp(role, "server") == 0
+                               ? MODE_SERVER : MODE_CLIENT;
         category_ok(category, "Configured role is %s", role);
     }
 
-    if (client_found) {
+    if (client_found && daemon_found) {
         const char *arguments[] = {client, "status", NULL};
         int result = run_capture(arguments, NULL, COMMAND_TIMEOUT_MS,
                                  output, sizeof(output));
 
         copy_string(simpleserve_status, sizeof(simpleserve_status), output);
         if (result == -2) {
-            category_problem(category,
-                             "SimpleServe did not answer within %d seconds",
-                             COMMAND_TIMEOUT_MS / 1000);
+            category_down(category,
+                          "SimpleServe did not answer within %d seconds",
+                          COMMAND_TIMEOUT_MS / 1000);
+            if (role_valid)
+                category_blocked(category,
+                                 "Running daemon role check requires a working control socket");
         } else if (result != 0) {
-            category_problem(category, "The SimpleServe control socket is not responding");
+            category_down(category,
+                          "The SimpleServe control socket is not responding");
             service_failure_detail(category, "simpleserve status", output);
+            if (role_valid)
+                category_blocked(category,
+                                 "Running daemon role check requires a working control socket");
         } else {
             simpleserve_status_ok = 1;
+            parse_simpleserve_evidence(output, &simpleserve_evidence);
             category_ok(category, "The daemon control socket answered successfully");
-            if (role[0]) {
+            if (role_valid) {
                 char expected[96];
                 (void)snprintf(expected, sizeof(expected), "Role: %s", role);
-                if (!strstr(output, expected))
-                    category_problem(category,
+                if (strstr(output, expected)) {
+                    category_ok(category, "The running daemon reports the %s role", role);
+                    report_simpleserve_evidence(category, role);
+                } else if (strcmp(role, "server") == 0 &&
+                           strstr(output, "Role: client")) {
+                    category_down(category,
+                                  "The running daemon does not report the configured %s role",
+                                  role);
+                    category_blocked(category,
+                                     "Role-specific share and mount checks require the configured and running roles to agree");
+                } else if (strcmp(role, "client") == 0 &&
+                           strstr(output, "Role: server")) {
+                    category_partial(category,
                                      "The running daemon does not report the configured %s role",
                                      role);
-                else
-                    category_ok(category, "The running daemon reports the %s role", role);
+                    category_blocked(category,
+                                     "Role-specific share and mount checks require the configured and running roles to agree");
+                } else {
+                    category_unknown(category,
+                                     "The running daemon role could not be determined");
+                    category_blocked(category,
+                                     "Role-specific share and mount checks require a reliable running role");
+                }
+            } else {
+                category_blocked(category,
+                                 "Running daemon role check requires a valid configured role");
+                category_blocked(category,
+                                 "Role-specific share and mount checks require a valid configured role");
             }
         }
+    } else {
+        category_blocked(category,
+                         "Daemon control socket check requires the SimpleServe client and daemon");
+        if (role_valid)
+            category_blocked(category,
+                             "Running daemon role check requires a working control socket");
     }
 
     if (access(verifier, R_OK) != 0) {
-        category_problem(category,
+        category_unknown(category,
                          "The SimpleServe system verifier is missing");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", verifier);
+        category_blocked(category,
+                         "Full SimpleServe system verification requires the verifier");
     } else if (client_found && daemon_found &&
-               (strcmp(role, "client") == 0 || strcmp(role, "server") == 0) &&
+               role_valid &&
                simpleserve_status_ok) {
         const char *arguments[] = {"sh", verifier, daemon, client, NULL};
         const EnvPair environment[] = {
@@ -781,11 +1103,11 @@ static void check_simpleserve(Category *category)
                                  output, sizeof(output));
 
         if (result == -2) {
-            category_problem(category,
+            category_unknown(category,
                              "Full SimpleServe system verification timed out");
         } else if (result != 0) {
-            category_problem(category,
-                             "The SimpleServe system installation is incomplete or stale");
+            category_down(category,
+                          "The SimpleServe system installation is incomplete or stale");
             append_text(category->details, sizeof(category->details),
                         "\nSystem-verifier output:\n%s%s", output,
                         output[0] && output[strlen(output) - 1] != '\n' ? "\n" : "");
@@ -794,17 +1116,44 @@ static void check_simpleserve(Category *category)
                         "Installed service files and runtime prerequisites match the %s role",
                         role);
         }
+    } else {
+        category_blocked(category,
+                         "Full SimpleServe system verification requires installed binaries, a valid role, and a working control socket");
     }
 
-    check_managed_service(category, "SimpleServe", "simpleserved.service",
-                          "simpleserved", "simpleserved", "simpleserved",
-                          "org.simplesuite.simpleserved");
+    if (daemon_found) {
+        check_managed_service(category, "SimpleServe", "simpleserved.service",
+                              "simpleserved", "simpleserved", "simpleserved",
+                              "org.simplesuite.simpleserved");
+    } else {
+        category_blocked(category,
+                         "Managed service health check requires the SimpleServe daemon");
+    }
 
     if (category->state == STATE_CHECKING) {
         category->state = STATE_OK;
-        (void)snprintf(category->summary, sizeof(category->summary),
-                       "%s role; daemon and service are ready",
-                       role[0] ? role : "configured");
+        if (simpleserve_mode == MODE_SERVER &&
+            simpleserve_evidence.local_shares > 0) {
+            int active_shares = simpleserve_evidence.local_shares -
+                                simpleserve_evidence.unavailable_shares;
+
+            (void)snprintf(category->summary, sizeof(category->summary),
+                           "server role; %d NFS/SMB share%s active; service ready",
+                           active_shares, active_shares == 1 ? "" : "s");
+        } else if (simpleserve_mode == MODE_CLIENT &&
+                   simpleserve_evidence.mounted > 0) {
+            (void)snprintf(category->summary, sizeof(category->summary),
+                           "client role; %d managed NFS mount%s active",
+                           simpleserve_evidence.mounted,
+                           simpleserve_evidence.mounted == 1 ? "" : "s");
+        } else if (simpleserve_mode == MODE_CLIENT) {
+            copy_string(category->summary, sizeof(category->summary),
+                        "client role; ready to discover and mount NFS shares");
+        } else {
+            (void)snprintf(category->summary, sizeof(category->summary),
+                           "%s role; daemon and service are ready",
+                           role[0] ? role : "configured");
+        }
     } else {
         set_simpleserve_fix(category, role);
     }
@@ -886,22 +1235,42 @@ static void check_tailscale_service(Category *category, const char *binary)
                           "tailscale", "tailscaled", "tailscaled", "");
 }
 
-static void set_tailscale_fix(Category *category)
+static void set_tailscale_fix(Category *category, int transport_ready)
 {
-    append_text(category->fix, sizeof(category->fix),
-                "Reinstall or reconnect the Trident's encrypted transport:\n"
-                "  ~/scriptorium/scripts/setup-tailscale.sh\n\n"
-                "If Tailscale asks for authentication, open the login URL it prints.\n"
-                "Do not put an auth key on a command line. For unattended repair, use\n"
-                "TAILSCALE_AUTH_KEY_FILE as described in ~/scriptorium/README.md.\n\n"
-                "After Tailscale is connected, refresh the bridge:\n"
-                "  simpleserve refresh\n"
-                "  simpleserve status\n");
-    if (strcmp(service_manager, "systemd") == 0) {
+    if (transport_ready) {
         append_text(category->fix, sizeof(category->fix),
-                    "\nInspect daemon errors with:\n"
-                    "  systemctl status tailscaled.service --no-pager\n"
-                    "  journalctl -u tailscaled.service -n 50 --no-pager\n");
+                    "Tailscale itself is connected. Reconcile the SimpleServe bridge:\n"
+                    "  simpleserve refresh\n"
+                    "  simpleserve status\n\n"
+                    "If a remembered NFS fallback is unreachable, verify the publishing host there:\n"
+                    "  setup-server --verify-only --no-public-check\n"
+                    "Then explicitly retry the remembered mount on this client:\n"
+                    "  simpleserve mount SERVER:SHARE --remember\n\n"
+                    "If the SimpleServe control socket is unavailable, repair its role and service:\n"
+                    "  cd ~/scriptorium && ./install.sh\n");
+    } else {
+        append_text(category->fix, sizeof(category->fix),
+                    "Reinstall or reconnect the Trident's encrypted transport:\n"
+                    "  ~/scriptorium/scripts/setup-tailscale.sh\n\n"
+                    "If Tailscale asks for authentication, open the login URL it prints.\n"
+                    "Do not put an auth key on a command line. For unattended repair, use\n"
+                    "TAILSCALE_AUTH_KEY_FILE as described in ~/scriptorium/README.md.\n\n"
+                    "After Tailscale is connected, refresh the bridge:\n"
+                    "  simpleserve refresh\n"
+                    "  simpleserve status\n");
+    }
+    if (strcmp(service_manager, "systemd") == 0) {
+        if (transport_ready) {
+            append_text(category->fix, sizeof(category->fix),
+                        "\nInspect bridge errors with:\n"
+                        "  systemctl status simpleserved.service --no-pager\n"
+                        "  journalctl -u simpleserved.service -n 50 --no-pager\n");
+        } else {
+            append_text(category->fix, sizeof(category->fix),
+                        "\nInspect daemon errors with:\n"
+                        "  systemctl status tailscaled.service --no-pager\n"
+                        "  journalctl -u tailscaled.service -n 50 --no-pager\n");
+        }
     }
 }
 
@@ -922,15 +1291,19 @@ static void check_tailscale(Category *category)
     int binary_found;
     int connected = 0;
     int backend_running = 0;
+    int transport_ready;
 
     category_reset(category);
     binary_found = find_program("SIMPLETRIDENT_TAILSCALE", "tailscale",
                                 known_paths, binary, sizeof(binary));
     if (!binary_found) {
-        category_problem(category, "The Tailscale client is not installed");
+        category_down(category, "The Tailscale client is not installed");
+        category_blocked(category,
+                         "Backend and tailnet address checks require the Tailscale client");
+        category_blocked(category,
+                         "Managed service health check requires the Tailscale client");
     } else {
         const char *status_arguments[] = {binary, "status", "--json", NULL};
-        const char *ip_arguments[] = {binary, "ip", "-4", NULL};
         const EnvPair environment[] = {
             {"TAILSCALE_BE_CLI", "1"},
             {NULL, NULL}
@@ -941,76 +1314,138 @@ static void check_tailscale(Category *category)
         result = run_capture(status_arguments, environment, COMMAND_TIMEOUT_MS,
                              output, sizeof(output));
         if (result == -2) {
-            category_problem(category,
-                             "Tailscale did not answer within %d seconds",
-                             COMMAND_TIMEOUT_MS / 1000);
+            category_down(category,
+                          "Tailscale did not answer within %d seconds",
+                          COMMAND_TIMEOUT_MS / 1000);
         } else if (result != 0) {
-            category_problem(category, "The Tailscale backend is unavailable");
+            category_down(category, "The Tailscale backend is unavailable");
             service_failure_detail(category, "tailscale status --json", output);
         } else if (!json_string_field(output, "BackendState", backend_state,
                                       sizeof(backend_state))) {
-            category_problem(category,
+            category_unknown(category,
                              "Tailscale returned an unreadable backend state");
         } else if (strcmp(backend_state, "Running") != 0) {
             if (strcmp(backend_state, "NeedsLogin") == 0)
-                category_problem(category, "Tailscale is not authenticated");
+                category_down(category, "Tailscale is not authenticated");
             else
-                category_problem(category, "Tailscale backend state is %s",
-                                 backend_state);
+                category_down(category, "Tailscale backend state is %s",
+                              backend_state);
         } else {
             backend_running = 1;
             category_ok(category, "Tailscale backend state is Running");
         }
 
-        result = run_capture(ip_arguments, environment, COMMAND_TIMEOUT_MS,
-                             output, sizeof(output));
-        if (result == -2) {
-            category_problem(category,
-                             "Tailscale address lookup timed out after %d seconds",
-                             COMMAND_TIMEOUT_MS / 1000);
-        } else if (result != 0) {
-            char clean[512];
-            copy_string(clean, sizeof(clean), output);
-            one_line(clean);
-            if (strstr(clean, "login") || strstr(clean, "Login") ||
-                strstr(clean, "auth"))
-                category_problem(category, "Tailscale is not authenticated");
-            else
-                category_problem(category, "Tailscale is not connected");
-            service_failure_detail(category, "tailscale ip -4", output);
-        } else if (!tailscale_ipv4(output, address, sizeof(address))) {
-            category_problem(category,
-                             "Tailscale did not report a valid 100.64.0.0/10 address");
-            service_failure_detail(category, "tailscale ip -4", output);
+        if (backend_running) {
+            const char *ip_arguments[] = {binary, "ip", "-4", NULL};
+
+            result = run_capture(ip_arguments, environment, COMMAND_TIMEOUT_MS,
+                                 output, sizeof(output));
+            if (result == -2) {
+                category_down(category,
+                              "Tailscale address lookup timed out after %d seconds",
+                              COMMAND_TIMEOUT_MS / 1000);
+            } else if (result != 0) {
+                char clean[512];
+                copy_string(clean, sizeof(clean), output);
+                one_line(clean);
+                if (strstr(clean, "login") || strstr(clean, "Login") ||
+                    strstr(clean, "auth"))
+                    category_down(category, "Tailscale is not authenticated");
+                else
+                    category_down(category, "Tailscale is not connected");
+                service_failure_detail(category, "tailscale ip -4", output);
+            } else if (!tailscale_ipv4(output, address, sizeof(address))) {
+                category_down(category,
+                              "Tailscale did not report a valid 100.64.0.0/10 address");
+                service_failure_detail(category, "tailscale ip -4", output);
+            } else {
+                connected = 1;
+                category_ok(category, "Tailnet address is %s", address);
+            }
         } else {
-            connected = backend_running;
-            category_ok(category, "Tailnet address is %s", address);
+            category_blocked(category,
+                             "Tailnet address check requires a running Tailscale backend");
         }
         check_tailscale_service(category, binary);
     }
 
-    if (!simpleserve_status_ok) {
-        category_problem(category,
-                         "The SimpleServe-to-Tailscale bridge could not be verified");
-        append_text(category->details, sizeof(category->details),
-                    "          repair SimpleServe first, then refresh this check\n");
+    transport_ready = connected && category->state == STATE_CHECKING;
+
+    if (!connected) {
+        category_blocked(category,
+                         "SimpleServe bridge check requires a usable tailnet connection");
+    } else if (!simpleserve_status_ok) {
+        category_set_state(category, STATE_UNKNOWN,
+                           "The SimpleServe-to-Tailscale bridge could not be verified");
+        category_blocked(category,
+                         "SimpleServe bridge check requires a working SimpleServe control socket");
     } else if (!strstr(simpleserve_status, "Tailscale: active (")) {
-        category_problem(category,
+        category_partial(category,
                          "SimpleServe does not report an active Tailscale bridge");
-    } else if (connected && !strstr(simpleserve_status, address)) {
-        category_problem(category,
+    } else if (!strstr(simpleserve_status, address)) {
+        category_partial(category,
                          "SimpleServe reports a different Tailscale address");
     } else {
         category_ok(category,
                     "SimpleServe reports the Tailscale transport as active");
+        if (simpleserve_mode == MODE_CLIENT) {
+            if (simpleserve_evidence.remembered == 0) {
+                category_ok(category,
+                            "The client is ready to learn a Tailscale route when an NFS share is remembered");
+            } else if (simpleserve_evidence.tailscale_nfs_reported <
+                       simpleserve_evidence.remembered) {
+                category_unknown(category,
+                                 "Tailscale NFS readiness is missing for %d remembered mount%s",
+                                 simpleserve_evidence.remembered -
+                                     simpleserve_evidence.tailscale_nfs_reported,
+                                 simpleserve_evidence.remembered -
+                                     simpleserve_evidence.tailscale_nfs_reported == 1 ?
+                                     "" : "s");
+            } else if (simpleserve_evidence.tailscale_nfs_ready ==
+                       simpleserve_evidence.remembered) {
+                category_ok(category,
+                            "%d remembered NFS mount%s %s reachable over Tailscale",
+                            simpleserve_evidence.remembered,
+                            simpleserve_evidence.remembered == 1 ? "" : "s",
+                            simpleserve_evidence.remembered == 1 ? "is" : "are");
+            } else if (simpleserve_evidence.tailscale_nfs_ready == 0) {
+                category_down(category,
+                              "No remembered NFS mount is reachable over Tailscale");
+            } else {
+                category_partial(category,
+                                 "%d of %d remembered NFS mounts are reachable over Tailscale",
+                                 simpleserve_evidence.tailscale_nfs_ready,
+                                 simpleserve_evidence.remembered);
+            }
+        } else if (simpleserve_mode == MODE_SERVER) {
+            category_ok(category,
+                        "The active bridge makes server NFS shares available to tailnet clients");
+        }
     }
 
     if (category->state == STATE_CHECKING) {
         category->state = STATE_OK;
-        (void)snprintf(category->summary, sizeof(category->summary),
-                       "connected at %s; SimpleServe bridge is active", address);
+        if (simpleserve_mode == MODE_CLIENT) {
+            if (simpleserve_evidence.remembered > 0) {
+                (void)snprintf(category->summary, sizeof(category->summary),
+                               "connected at %s; %d NFS fallback%s ready",
+                               address, simpleserve_evidence.remembered,
+                               simpleserve_evidence.remembered == 1 ? "" : "s");
+            } else {
+                (void)snprintf(category->summary, sizeof(category->summary),
+                               "connected at %s; ready for future NFS mounts",
+                               address);
+            }
+        } else if (simpleserve_mode == MODE_SERVER) {
+            (void)snprintf(category->summary, sizeof(category->summary),
+                           "connected at %s; NFS publishing bridge is active",
+                           address);
+        } else {
+            (void)snprintf(category->summary, sizeof(category->summary),
+                           "connected at %s; SimpleServe bridge is active", address);
+        }
     } else {
-        set_tailscale_fix(category);
+        set_tailscale_fix(category, transport_ready);
     }
 }
 
@@ -1093,6 +1528,23 @@ static void discover_site_address(char *address, size_t address_size)
         copy_string(address, address_size, ":8080");
 }
 
+static int run_website_health(const char *checker, const char *origin,
+                              int supporting_services, char *output,
+                              size_t output_size)
+{
+    const char *arguments[] = {"sh", checker, NULL};
+    const EnvPair environment[] = {
+        {"CHECK_BLOG_TIMER", supporting_services ? "1" : "0"},
+        {"CHECK_CLOUDFLARED", supporting_services ? "1" : "0"},
+        {"CADDY_CHECK_ORIGIN", origin},
+        {"WEBSITE_SERVICE_MANAGER", service_manager},
+        {NULL, NULL}
+    };
+
+    return run_capture(arguments, environment, WEBSITE_TIMEOUT_MS,
+                       output, output_size);
+}
+
 static void check_website(Category *category)
 {
     static const char *const known_caddy[] = {
@@ -1103,6 +1555,7 @@ static void check_website(Category *category)
     char checker[PATH_MAX];
     char source_config[PATH_MAX];
     char installed_config[PATH_MAX];
+    char store_environment[PATH_MAX];
     char caddy[PATH_MAX];
     char origin_buffer[256];
     char site_address_buffer[128];
@@ -1110,12 +1563,39 @@ static void check_website(Category *category)
     const char *website_override = getenv("SIMPLETRIDENT_WEBSITE_DIR");
     const char *checker_override = getenv("SIMPLETRIDENT_WEBSITE_CHECK");
     const char *config_override = getenv("SIMPLETRIDENT_CADDYFILE");
+    const char *store_environment_override =
+        getenv("SIMPLETRIDENT_STORE_ENV");
     const char *origin = getenv("SIMPLETRIDENT_WEBSITE_ORIGIN");
     const char *site_address;
     struct stat status;
     int caddy_found;
+    int website_present;
+    int source_config_present;
+    int installed_config_present;
+    int checker_present;
+    int store_environment_path_ready;
 
     category_reset(category);
+    if (simpleserve_mode == MODE_CLIENT) {
+        category_ok(category,
+                    "Client mode does not require Caddy, the website checkout, or server web services");
+        category->state = STATE_OK;
+        copy_string(category->summary, sizeof(category->summary),
+                    "server-only website origin is not required in client mode");
+        return;
+    }
+    if (simpleserve_mode == MODE_UNKNOWN) {
+        category_unknown(category,
+                         "The website requirement cannot be determined until the SimpleServe mode is known");
+        category_blocked(category,
+                         "Caddy and website checks require a reliable SimpleServe mode");
+        append_text(category->fix, sizeof(category->fix),
+                    "Repair the SimpleServe installation and explicit role first:\n"
+                    "  cd ~/scriptorium && ./install.sh\n\n"
+                    "Then confirm whether this machine is a client or server:\n"
+                    "  simpleserve status\n");
+        return;
+    }
     if (website_override && website_override[0])
         copy_string(website, sizeof(website), website_override);
     else if (!join_path(website, sizeof(website), home_dir, "/website"))
@@ -1133,6 +1613,15 @@ static void check_website(Category *category)
     else
         system_path("/etc/caddy/Caddyfile", installed_config,
                     sizeof(installed_config));
+    if (store_environment_override && store_environment_override[0]) {
+        copy_string(store_environment, sizeof(store_environment),
+                    store_environment_override);
+        store_environment_path_ready = 1;
+    } else {
+        store_environment_path_ready = join_path(
+            store_environment, sizeof(store_environment), home_dir,
+            "/.config/keelanwatlington/store.env");
+    }
     if (!origin || !origin[0])
         origin = origin_buffer;
     discover_site_address(site_address_buffer, sizeof(site_address_buffer));
@@ -1145,27 +1634,35 @@ static void check_website(Category *category)
                         "http://127.0.0.1:8080");
     }
 
-    if (stat(website, &status) != 0 || !S_ISDIR(status.st_mode)) {
-        category_problem(category, "The website checkout is not installed");
+    caddy_found = find_program("SIMPLETRIDENT_CADDY", "caddy", known_caddy,
+                               caddy, sizeof(caddy));
+    if (!caddy_found)
+        category_down(category, "Caddy is not installed");
+    else
+        category_ok(category, "Caddy is installed at %s", caddy);
+
+    website_present = stat(website, &status) == 0 && S_ISDIR(status.st_mode);
+    if (!website_present) {
+        category_down(category, "The website checkout is not installed");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", website);
     } else {
         category_ok(category, "Website checkout is present at %s", website);
     }
     category_ok(category, "Local Caddy origin is %s", origin);
-    if (access(source_config, R_OK) != 0)
-        category_problem(category, "The production Caddy source config is missing");
-    else
-        category_ok(category, "Production Caddy source config is present");
 
-    caddy_found = find_program("SIMPLETRIDENT_CADDY", "caddy", known_caddy,
-                               caddy, sizeof(caddy));
+    source_config_present = website_present && access(source_config, R_OK) == 0;
+    installed_config_present = access(installed_config, R_OK) == 0;
     if (!caddy_found) {
-        category_problem(category, "Caddy is not installed");
-    } else if (access(installed_config, R_OK) != 0) {
-        category_problem(category, "The installed Caddy config is missing or unreadable");
+        category_blocked(category,
+                         "Installed Caddy config validation requires Caddy");
+    } else if (!installed_config_present) {
+        category_down(category,
+                      "The installed Caddy config is missing or unreadable");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", installed_config);
+        category_blocked(category,
+                         "Caddy config validation requires a readable installed config");
     } else {
         const char *arguments[] = {caddy, "validate", "--config",
                                    installed_config, NULL};
@@ -1178,50 +1675,96 @@ static void check_website(Category *category)
                                  output, sizeof(output));
 
         if (result == -2) {
-            category_problem(category, "Caddy config validation timed out");
+            category_unknown(category, "Caddy config validation timed out");
         } else if (result != 0) {
-            category_problem(category, "The installed Caddy config is invalid");
+            category_partial(category, "The installed Caddy config is invalid");
             service_failure_detail(category, "caddy validate", output);
         } else {
             category_ok(category, "Installed Caddy config validates successfully");
         }
-        if (access(source_config, R_OK) == 0 &&
-            !files_equal(source_config, installed_config))
-            category_problem(category,
-                             "The installed Caddy config is stale relative to the website checkout");
-        else if (access(source_config, R_OK) == 0)
-            category_ok(category,
-                        "Installed Caddy config matches the website checkout");
     }
 
-    if (access(checker, R_OK) != 0) {
-        category_problem(category, "The website health checker is missing");
+    if (!website_present) {
+        category_blocked(category,
+                         "Production Caddy source config check requires the website checkout");
+    } else if (!source_config_present) {
+        category_partial(category,
+                         "The production Caddy source config is missing");
+    } else {
+        category_ok(category, "Production Caddy source config is present");
+    }
+
+    if (!installed_config_present) {
+        category_blocked(category,
+                         "Installed Caddy config comparison requires a readable installed config");
+    } else if (!source_config_present) {
+        category_blocked(category,
+                         "Installed Caddy config comparison requires the production source config");
+    } else if (!files_equal(source_config, installed_config)) {
+        category_partial(category,
+                         "The installed Caddy config is stale relative to the website checkout");
+    } else {
+        category_ok(category,
+                    "Installed Caddy config matches the website checkout");
+    }
+
+    checker_present = website_present && access(checker, R_OK) == 0;
+    if (!website_present) {
+        category_blocked(category,
+                         "Website health checker check requires the website checkout");
+    } else if (!checker_present) {
+        category_unknown(category, "The website health checker is missing");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", checker);
-    } else {
-        const char *arguments[] = {"sh", checker, NULL};
-        const EnvPair environment[] = {
-            {"CHECK_BLOG_TIMER", "0"},
-            {"CHECK_CLOUDFLARED", "0"},
-            {"CADDY_CHECK_ORIGIN", origin},
-            {"WEBSITE_SERVICE_MANAGER", service_manager},
-            {NULL, NULL}
-        };
-        int result = run_capture(arguments, environment, WEBSITE_TIMEOUT_MS,
-                                 output, sizeof(output));
+        category_blocked(category,
+                         "Local website health check requires the website health checker");
+    }
 
-        if (result == -2) {
-            category_problem(category,
-                             "The local website health check timed out after %d seconds",
-                             WEBSITE_TIMEOUT_MS / 1000);
-        } else if (result != 0) {
-            category_problem(category, "The local Caddy website health check failed");
-            append_text(category->details, sizeof(category->details),
-                        "\nHealth-check output:\n%s%s", output,
-                        output[0] && output[strlen(output) - 1] != '\n' ? "\n" : "");
-        } else {
+    if (!caddy_found) {
+        category_blocked(category,
+                         "Local website health check requires Caddy");
+    } else if (!website_present) {
+        category_blocked(category,
+                         "Local website health check requires the website checkout");
+    } else if (!installed_config_present) {
+        category_blocked(category,
+                         "Local website health check requires a readable installed Caddy config");
+    } else if (!checker_present) {
+        /* The missing checker and blocked health check were recorded above. */
+    } else {
+        int result = run_website_health(checker, origin, 1,
+                                        output, sizeof(output));
+
+        if (result == 0) {
+            int recovery_mail = store_environment_path_ready ?
+                store_recovery_mail_status(store_environment) : -1;
+
             category_ok(category,
-                        "Caddy, the local site, private-path rules, and store health passed");
+                        "Caddy, the local site, private-path rules, store, blog sync, and Cloudflare tunnel passed");
+            if (recovery_mail > 0) {
+                category_ok(category,
+                            "Local purchase fulfillment and recovery email are configured");
+            } else if (recovery_mail == 0) {
+                category_partial(category,
+                                 "Purchase-recovery email is not configured");
+                category_ok(category,
+                            "Paid-order recording and signed browser downloads remain available");
+                append_text(category->fix, sizeof(category->fix),
+                            "Configure the local fulfillment worker's documented STORE_SMTP_* and STORE_EMAIL_* settings, then reconcile it:\n"
+                            "  less %s/README.md\n"
+                            "  setup-server\n\n",
+                            website);
+            } else {
+                category_unknown(category,
+                                 "Purchase-recovery email configuration could not be read");
+                append_text(category->details, sizeof(category->details),
+                            "          expected protected configuration: %s\n",
+                            store_environment);
+                append_text(category->fix, sizeof(category->fix),
+                            "Check ownership and mode 0600 on the protected store configuration:\n"
+                            "  ls -l %s\n\n",
+                            store_environment);
+            }
             if (output[0]) {
                 char clean[512];
                 copy_string(clean, sizeof(clean), output);
@@ -1229,13 +1772,46 @@ static void check_website(Category *category)
                 append_text(category->details, sizeof(category->details),
                             "          %s\n", clean);
             }
+        } else {
+            char full_output[OUTPUT_SIZE];
+            int core_result;
+
+            copy_string(full_output, sizeof(full_output), output);
+            core_result = run_website_health(checker, origin, 0,
+                                             output, sizeof(output));
+            if (core_result == 0) {
+                if (result == -2) {
+                    category_unknown(category,
+                                     "Supporting website service verification timed out");
+                } else {
+                    category_partial(category,
+                                     "The local web origin works, but a supporting website service failed");
+                }
+                append_text(category->details, sizeof(category->details),
+                            "\nFull server health-check output:\n%s%s",
+                            full_output,
+                            full_output[0] &&
+                            full_output[strlen(full_output) - 1] != '\n' ? "\n" : "");
+                category_ok(category,
+                            "Caddy, private-path rules, and store health still pass locally");
+            } else if (core_result == -2) {
+                category_down(category,
+                              "The local website health check timed out after %d seconds",
+                              WEBSITE_TIMEOUT_MS / 1000);
+            } else {
+                category_down(category,
+                              "The local Caddy website health check failed");
+                append_text(category->details, sizeof(category->details),
+                            "\nLocal health-check output:\n%s%s", output,
+                            output[0] && output[strlen(output) - 1] != '\n' ? "\n" : "");
+            }
         }
     }
 
     if (category->state == STATE_CHECKING) {
         category->state = STATE_OK;
         copy_string(category->summary, sizeof(category->summary),
-                    "Caddy config, local site, and store are healthy");
+                    "Caddy, fulfillment mail, blog sync, and tunnel are healthy");
     } else {
         set_website_fix(category, website);
     }
@@ -1245,10 +1821,22 @@ static const char *state_label(enum check_state state)
 {
     switch (state) {
     case STATE_OK: return "OK";
-    case STATE_PROBLEM: return "PROBLEM";
+    case STATE_PARTIAL: return "PARTIAL";
+    case STATE_DOWN: return "DOWN";
+    case STATE_UNKNOWN: return "UNKNOWN";
     case STATE_CHECKING: return "...";
     }
     return "?";
+}
+
+static const char *mode_label(enum simpleserve_mode mode)
+{
+    switch (mode) {
+    case MODE_SERVER: return "SERVER";
+    case MODE_CLIENT: return "CLIENT";
+    case MODE_UNKNOWN: return "UNKNOWN";
+    }
+    return "UNKNOWN";
 }
 
 static int category_color(const Category *category)
@@ -1257,7 +1845,7 @@ static int category_color(const Category *category)
         return 0;
     if (category->state == STATE_OK)
         return COLOR_PAIR(1) | A_BOLD;
-    if (category->state == STATE_PROBLEM)
+    if (category->state == STATE_DOWN)
         return COLOR_PAIR(2) | A_BOLD;
     return COLOR_PAIR(3) | A_BOLD;
 }
@@ -1287,10 +1875,10 @@ static void draw_dashboard(void)
 
     getmaxyx(stdscr, height, width);
     erase();
-    if (height < 14 || width < 48) {
+    if (height < 17 || width < 48) {
         draw_clipped(1, 2, A_BOLD, "simpletrident", width - 4);
         draw_clipped(3, 2, 0,
-                     "Terminal is too small (need at least 48 x 14).",
+                     "Terminal is too small (need at least 48 x 17).",
                      width - 4);
         draw_clipped(height - 1, 1, A_REVERSE, " Q: quit ", width - 2);
         refresh();
@@ -1302,10 +1890,17 @@ static void draw_dashboard(void)
     draw_clipped(3, 2, A_DIM,
                  "Keelan's Networking Trident installation check",
                  width - 4);
+    {
+        char mode[32];
 
-    for (int index = 0; index < CATEGORY_COUNT; index++) {
+        (void)snprintf(mode, sizeof(mode), "Mode: %s",
+                       mode_label(simpleserve_mode));
+        draw_clipped(4, 2, A_BOLD, mode, width - 4);
+    }
+
+    for (int index = 0; index < visible_category_count(); index++) {
         Category *category = &categories[index];
-        int row = 5 + index * 3;
+        int row = 6 + index * 3;
         char heading[256];
         int selection = index == selected_category ? A_REVERSE : 0;
 
@@ -1419,7 +2014,7 @@ static void draw_detail(void)
                  &virtual_line);
     emit_wrapped(category->details[0] ? category->details : "No details available.\n",
                  0, content_top, content_bottom, &virtual_line);
-    if (category->state == STATE_PROBLEM) {
+    if (category->state != STATE_OK && category->state != STATE_CHECKING) {
         emit_wrapped("\nHow to fix", A_BOLD | A_UNDERLINE, content_top,
                      content_bottom, &virtual_line);
         emit_wrapped(category->fix, 0, content_top, content_bottom,
@@ -1454,6 +2049,7 @@ static void refresh_checks(void)
 
     for (int index = 0; index < CATEGORY_COUNT; index++)
         category_reset(&categories[index]);
+    simpleserve_mode = MODE_UNKNOWN;
     copy_string(footer, sizeof(footer), "Checking SimpleServe...");
     detail_mode = 0;
     detail_scroll = 0;
@@ -1464,13 +2060,16 @@ static void refresh_checks(void)
     draw();
     check_tailscale(&categories[1]);
 
-    copy_string(footer, sizeof(footer), "Checking the local Caddy website...");
-    draw();
-    check_website(&categories[2]);
+    if (simpleserve_mode != MODE_CLIENT) {
+        copy_string(footer, sizeof(footer),
+                    "Checking the local Caddy website...");
+        draw();
+        check_website(&categories[2]);
+    }
 
     selected_category = 0;
-    for (int index = 0; index < CATEGORY_COUNT; index++) {
-        if (categories[index].state == STATE_PROBLEM) {
+    for (int index = 0; index < visible_category_count(); index++) {
+        if (categories[index].state != STATE_OK) {
             selected_category = index;
             break;
         }
@@ -1500,35 +2099,38 @@ static void print_indented(const char *text, const char *indent)
 
 static int print_plain(void)
 {
-    int problems = 0;
+    int unhealthy = 0;
 
     puts("simpletrident");
     puts("=============");
-    for (int index = 0; index < CATEGORY_COUNT; index++) {
+    printf("Mode: %s\n", mode_label(simpleserve_mode));
+    for (int index = 0; index < visible_category_count(); index++) {
         Category *category = &categories[index];
-        const char *label = category->state == STATE_OK ? "OK" : "PROBLEM";
 
-        printf("\n[%-7s] %s / %s\n", label, category->name,
+        printf("\n[%-7s] %s / %s\n", state_label(category->state), category->name,
                category->subtitle);
         printf("          %s\n", category->summary);
-        if (category->state == STATE_PROBLEM) {
-            problems++;
+        if (category->state != STATE_OK) {
+            unhealthy++;
             puts("\n  Details:");
             print_indented(category->details, "    ");
-            puts("\n  How to fix:");
-            print_indented(category->fix, "    ");
+            if (category->fix[0]) {
+                puts("\n  How to fix:");
+                print_indented(category->fix, "    ");
+            }
         }
     }
-    return problems ? 1 : 0;
+    return unhealthy ? 1 : 0;
 }
 
 static void usage(FILE *stream)
 {
     fprintf(stream,
             "Usage: simpletrident [--check]\n\n"
-            "Verify SimpleServe, Tailscale, and the local Caddy website.\n\n"
+            "Verify the client network prongs and, in server mode, the local "
+            "Caddy website.\n\n"
             "  --check   print all results without ncurses and return nonzero\n"
-            "            when any Trident category has a problem\n"
+            "            when any Trident category is not OK\n"
             "  -h, --help  show this help\n");
 }
 
@@ -1618,10 +2220,12 @@ int main(int argc, char **argv)
                 detail_scroll = maximum;
             }
         } else if (input == KEY_DOWN || input == 'j' || input == '\t') {
-            selected_category = (selected_category + 1) % CATEGORY_COUNT;
+            selected_category =
+                (selected_category + 1) % visible_category_count();
         } else if (input == KEY_UP || input == 'k') {
-            selected_category = (selected_category + CATEGORY_COUNT - 1) %
-                                CATEGORY_COUNT;
+            selected_category =
+                (selected_category + visible_category_count() - 1) %
+                visible_category_count();
         } else if (input == '\n' || input == '\r' || input == KEY_ENTER ||
                    input == 'd' || input == 'D') {
             detail_mode = 1;
