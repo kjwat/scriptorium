@@ -15,7 +15,7 @@ TRASH_DIR=
 CONFIRM_DELETE=true
 
 # File associations
-OPEN_.pdf=simplepdf
+OPEN_.pdf=evince
 OPEN_.epub=simplepdf
 
 OPEN_.flac=simpleflac
