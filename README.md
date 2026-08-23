@@ -8,9 +8,9 @@ terminal tools.
 binaries into `~/.local/bin`, links Scriptorium-managed dotfiles, and prepares
 the local shell environment. It also establishes **Keelan's Networking
 Trident** in the same run: SimpleServe for the intranet, Tailscale for the
-encrypted extranet, and the `setup-server` entry point for the public website.
-The Trident supports Debian/Ubuntu, Fedora, Arch, Alpine, Void, openSUSE
-Tumbleweed, FreeBSD, and macOS.
+encrypted extranet, OpenSSH client and daemon access, and the `setup-server`
+entry point for the public website. The Trident supports Debian/Ubuntu, Fedora,
+Arch, Alpine, Void, openSUSE Tumbleweed, FreeBSD, and macOS.
 
 ## Keelan's Networking Trident
 
@@ -21,11 +21,17 @@ Tumbleweed, FreeBSD, and macOS.
   worker and purchase-recovery mail, blog sync, and the Cloudflare tunnel from
   `~/website`.
 
-Scriptorium installs the first two prongs and the website bootstrap. Run
-`setup-server` only on a machine intended to serve `keelanwatlington.com`.
-A fresh interactive installation starts with client mode and offers that full
-server promotion at the end. Declining leaves a mount-only client and prints
-the same `setup-server` command for later.
+Every participating client and server also receives both the OpenSSH `ssh`
+client and `sshd` daemon. Linux package families install their native OpenSSH
+packages; FreeBSD and macOS use the copies supplied by the operating system.
+Scriptorium leaves SSH keys, daemon policy, and service activation at the
+platform package defaults.
+
+Scriptorium installs the first two prongs, OpenSSH, and the website bootstrap.
+Run `setup-server` only on a machine intended to serve
+`keelanwatlington.com`. A fresh interactive installation starts with client
+mode and offers that full server promotion at the end. Declining leaves a
+mount-only client and prints the same `setup-server` command for later.
 
 When `setup-server` is run on an existing server, its first question offers a
 safe return to client mode before it pulls or changes the website checkout.
@@ -52,10 +58,11 @@ commands such as `words` and `simplewords` work immediately. An unattended
 installation instead prints the shell file to source before using the commands.
 On FreeBSD, Linux, and macOS, the installer asks one networking question:
 `Join Keelan's Networking Trident?` Answering yes creates a **client**. It
-installs only discovery/mount dependencies, installs Tailscale, and enables a
-mount-only SimpleServe service. Client mode is enforced: `simpleserve share`
-is rejected and NFS/Samba publishing services are not installed or enabled.
-Answering no leaves any existing networking installation untouched.
+installs discovery/mount dependencies and both OpenSSH programs, installs
+Tailscale, and enables a mount-only SimpleServe service. Client mode is
+enforced: `simpleserve share` is rejected and NFS/Samba publishing services
+are not installed or enabled. Answering no leaves any existing networking
+installation untouched.
 
 An existing `/etc/simpleserve-role` is preserved automatically, so rerunning
 Scriptorium on a server cannot silently demote it. Pre-role legacy server
@@ -411,6 +418,8 @@ Trident machine. Its role-aware ncurses dashboard verifies:
   `100.64.0.0/10` tailnet address, SimpleServe's active NFS/SMB publishing
   bridge on servers, and a live NFS reachability probe for every remembered
   client mount's Tailscale fallback.
+- **OpenSSH / client + daemon:** verifies that both the outbound `ssh` client
+  and inbound `sshd` daemon binary are installed on client and server roles.
 - **Caddy website / local web origin:** the website checkout, installed Caddy
   configuration, Caddy/store services, local HTTP health, private-edition
   blocking, fulfillment/recovery-mail configuration, store health, blog sync,
@@ -555,8 +564,8 @@ second SimpleSuite prompt.
 
 Do not run either script unless you intend that cleanup.
 
-Scriptorium does not manage SSH keys or writing project contents during normal
-installation, but it can store GitHub and Gmail credentials locally if you
-choose those setup paths. The managed SimpleCal dotfiles may include local
-calendar/reminder data, so treat this checkout as private unless that data has
-been removed.
+Scriptorium installs the OpenSSH programs but does not manage SSH keys,
+`sshd_config`, or writing project contents during normal installation. It can
+store GitHub and Gmail credentials locally if you choose those setup paths.
+The managed SimpleCal dotfiles may include local calendar/reminder data, so
+treat this checkout as private unless that data has been removed.

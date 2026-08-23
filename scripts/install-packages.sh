@@ -148,6 +148,9 @@ have_reminder_scheduler() {
 network_dependencies_already_present() {
     [ "$network_role" != none ] || return 0
 
+    have_cmd ssh || return 1
+    have_cmd sshd || return 1
+
     case "$family" in
         macos)
             have_cmd dns-sd || return 1
@@ -864,12 +867,12 @@ fi
 simpleserve_packages=
 if [ "$install_simpleserve" -eq 1 ]; then
     case "$family" in
-        debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils" ;;
-        void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils" ;;
-        arch) simpleserve_packages="nfs-utils avahi cifs-utils" ;;
-        alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils" ;;
-        fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils" ;;
-        suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils" ;;
+        debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils openssh-client openssh-server" ;;
+        void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils openssh" ;;
+        arch) simpleserve_packages="nfs-utils avahi cifs-utils openssh" ;;
+        alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils openssh" ;;
+        fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils openssh-clients openssh-server" ;;
+        suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils openssh openssh-server" ;;
         freebsd) simpleserve_packages="avahi-app" ;;
     esac
     if [ "$network_role" = server ]; then

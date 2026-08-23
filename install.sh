@@ -830,7 +830,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 say "Scriptorium installer"
-printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, and the website bootstrap."
+printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, OpenSSH, and the website bootstrap."
 choose_network_role
 choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then

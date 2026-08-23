@@ -92,6 +92,16 @@ cat >"$FAKE_BIN/simpleserved" <<'EOF'
 exit 0
 EOF
 
+cat >"$FAKE_BIN/ssh" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+cat >"$FAKE_BIN/sshd" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
 cat >"$FAKE_BIN/tailscale" <<'EOF'
 #!/bin/sh
 if [ "${1-}" = status ] && [ "${2-}" = --json ]; then
@@ -200,6 +210,13 @@ run_check() {
     if [ "$scenario" = missing-caddy ] || [ "$scenario" = client-no-caddy ]; then
         caddy_command=$TEST_ROOT/missing-caddy
     fi
+    ssh_command=$FAKE_BIN/ssh
+    sshd_command=$FAKE_BIN/sshd
+    if [ "$scenario" = missing-ssh ]; then
+        ssh_command=$TEST_ROOT/missing-ssh
+    elif [ "$scenario" = missing-sshd ]; then
+        sshd_command=$TEST_ROOT/missing-sshd
+    fi
     if [ "$scenario" = server-no-recovery ]; then
         printf '%s\n' 'STRIPE_WEBHOOK_SECRETS=whsec_fixture' >"$STORE_ENV"
     else
@@ -227,6 +244,8 @@ run_check() {
     SIMPLETRIDENT_ROLE_FILE="$ROLE_FILE" \
     SIMPLETRIDENT_SIMPLESERVE_VERIFY="$SIMPLESERVE_VERIFY" \
     SIMPLETRIDENT_EXPORTS="$EXPORTS_FILE" \
+    SIMPLETRIDENT_SSH="$ssh_command" \
+    SIMPLETRIDENT_SSHD="$sshd_command" \
     SIMPLETRIDENT_CADDY="$caddy_command" \
     SIMPLETRIDENT_CADDYFILE="$CADDY_FILE" \
     SIMPLETRIDENT_STORE_ENV="$STORE_ENV" \
@@ -242,8 +261,9 @@ run_check healthy "$TEST_ROOT/healthy.out"
 grep -q '^Mode: SERVER$' "$TEST_ROOT/healthy.out"
 grep -q '^\[OK *\] SimpleServe / intranet$' "$TEST_ROOT/healthy.out"
 grep -q '^\[OK *\] Tailscale / encrypted extranet$' "$TEST_ROOT/healthy.out"
+grep -q '^\[OK *\] OpenSSH / client + daemon$' "$TEST_ROOT/healthy.out"
 grep -q '^\[OK *\] Caddy website / local web origin$' "$TEST_ROOT/healthy.out"
-[ "$(grep -c '^\[' "$TEST_ROOT/healthy.out")" -eq 3 ]
+[ "$(grep -c '^\[' "$TEST_ROOT/healthy.out")" -eq 4 ]
 grep -q 'server role; 1 NFS/SMB share active; service ready' \
     "$TEST_ROOT/healthy.out"
 grep -q 'connected at 100.70.80.90; NFS/SMB publishing bridge is active' \
@@ -270,8 +290,9 @@ grep -q '^\[OK *\] SimpleServe / intranet$' "$TEST_ROOT/client.out"
 grep -q 'client role; 2 managed NFS mounts active' "$TEST_ROOT/client.out"
 grep -q 'connected at 100.70.80.90; 2 NFS fallbacks ready' \
     "$TEST_ROOT/client.out"
+grep -q '^\[OK *\] OpenSSH / client + daemon$' "$TEST_ROOT/client.out"
 ! grep -q 'Caddy website / local web origin' "$TEST_ROOT/client.out"
-[ "$(grep -c '^\[' "$TEST_ROOT/client.out")" -eq 2 ]
+[ "$(grep -c '^\[' "$TEST_ROOT/client.out")" -eq 3 ]
 ! grep -q 'server-only Caddy check ran' "$TEST_ROOT/client.out"
 ! grep -q 'server website health checker ran' "$TEST_ROOT/client.out"
 
@@ -342,7 +363,8 @@ for client_output in \
     "$TEST_ROOT/client-old-daemon.out"
 do
     ! grep -q 'Caddy website / local web origin' "$client_output"
-    [ "$(grep -c '^\[' "$client_output")" -eq 2 ]
+    grep -q '^\[OK *\] OpenSSH / client + daemon$' "$client_output"
+    [ "$(grep -c '^\[' "$client_output")" -eq 3 ]
 done
 
 run_check server-no-shares "$TEST_ROOT/server-no-shares.out"
@@ -453,6 +475,23 @@ grep -q '\[blocked\] Local website health check requires Caddy' \
     "$TEST_ROOT/missing-caddy.out"
 ! grep -q 'Caddy-dependent health checker should have been blocked' \
     "$TEST_ROOT/missing-caddy.out"
+
+run_check missing-ssh "$TEST_ROOT/missing-ssh.out"
+[ "$check_status" -eq 1 ]
+grep -q '^\[DOWN *\] OpenSSH / client + daemon$' \
+    "$TEST_ROOT/missing-ssh.out"
+grep -q '^          The OpenSSH client is not installed$' \
+    "$TEST_ROOT/missing-ssh.out"
+grep -q '\[ok\] OpenSSH daemon is installed at' "$TEST_ROOT/missing-ssh.out"
+grep -q 'cd ~/scriptorium && ./install.sh' "$TEST_ROOT/missing-ssh.out"
+
+run_check missing-sshd "$TEST_ROOT/missing-sshd.out"
+[ "$check_status" -eq 1 ]
+grep -q '^\[DOWN *\] OpenSSH / client + daemon$' \
+    "$TEST_ROOT/missing-sshd.out"
+grep -q '^          The OpenSSH daemon is not installed$' \
+    "$TEST_ROOT/missing-sshd.out"
+grep -q '\[ok\] OpenSSH client is installed at' "$TEST_ROOT/missing-sshd.out"
 
 ! grep -q '\[PROBLEM\]' "$TEST_ROOT"/*.out
 

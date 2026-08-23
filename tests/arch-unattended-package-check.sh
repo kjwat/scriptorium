@@ -59,7 +59,7 @@ printf '%s\n' "$*" >>"$FAKE_PACMAN_LOG"
 EOF
 
 for command_name in \
-    avahi-daemon avahi-browse mount.nfs mount.cifs; do
+    avahi-daemon avahi-browse mount.nfs mount.cifs ssh sshd; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$command_name"
 done
 
@@ -71,7 +71,7 @@ FAKE_SUDO_LOG="$sudo_log" SCRIPTORIUM_PACKAGES_SCOPE=network \
 SCRIPTORIUM_NONINTERACTIVE=1 SIMPLESUITE_NETWORK_ROLE=client \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
-grep -q '^-Syu --needed --noconfirm nfs-utils avahi cifs-utils$' \
+grep -q '^-Syu --needed --noconfirm nfs-utils avahi cifs-utils openssh$' \
     "$pacman_log"
 grep -q '^-n env LC_ALL=C pacman -Syu --needed --noconfirm ' \
     "$sudo_log"

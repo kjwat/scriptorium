@@ -91,6 +91,8 @@ dep_hint() {
         mount.cifs) echo "SMB client mount helper; provided by cifs-utils" ;;
         smbd) echo "SimpleServe Linux SMB server; provided by Samba" ;;
         testparm) echo "SimpleServe Samba configuration validator; provided by Samba" ;;
+        ssh) echo "OpenSSH client installed on every Trident machine" ;;
+        sshd) echo "OpenSSH daemon installed on every Trident machine" ;;
         mount_nfs|nfsd) echo "SimpleServe FreeBSD NFS support; provided by the base system" ;;
         blkid) echo "SimpleServe filesystem UUID lookup; provided by util-linux or e2fsprogs" ;;
         *) echo "provided by $1" ;;
@@ -419,12 +421,12 @@ packages_for_family() {
 
     if [ "$install_simpleserve" -eq 1 ]; then
         case "$family" in
-            void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils" ;;
-            arch) simpleserve_packages="nfs-utils avahi cifs-utils" ;;
-            debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils" ;;
-            fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils" ;;
-            alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils" ;;
-            suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils" ;;
+            void) simpleserve_packages="avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils openssh" ;;
+            arch) simpleserve_packages="nfs-utils avahi cifs-utils openssh" ;;
+            debian) simpleserve_packages="libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils openssh-client openssh-server" ;;
+            fedora) simpleserve_packages="avahi-devel nfs-utils avahi avahi-tools cifs-utils openssh-clients openssh-server" ;;
+            alpine) simpleserve_packages="avahi-dev nfs-utils avahi avahi-openrc avahi-tools cifs-utils openssh" ;;
+            suse) simpleserve_packages="libavahi-devel nfs-client avahi avahi-utils cifs-utils openssh openssh-server" ;;
             freebsd) simpleserve_packages="avahi-app" ;;
         esac
         if [ "$network_role" = server ]; then
@@ -543,6 +545,8 @@ check_cmd runtime msmtp "msmtp"
 check_cmd runtime curl "curl"
 
 if [ "$install_simpleserve" -eq 1 ] && [ "$family" != msys2 ]; then
+    check_cmd runtime ssh "OpenSSH client"
+    check_cmd runtime sshd "OpenSSH daemon"
     if [ "$family" = macos ]; then
         check_cmd runtime dns-sd "SimpleServe Bonjour"
         check_cmd runtime launchctl "SimpleServe service manager"

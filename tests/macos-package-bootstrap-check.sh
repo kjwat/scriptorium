@@ -74,7 +74,8 @@ EOF
 
 for command_name in \
     cc git pdftotext pandoc zip unzip tar file less fzf links mbsync msmtp \
-    calcurse curl rsync nano open launchctl dns-sd mount_nfs nfsd sharing; do
+    calcurse curl rsync nano open launchctl dns-sd mount_nfs nfsd sharing \
+    ssh sshd; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$command_name"
 done
 chmod 755 "$fake_bin"/*

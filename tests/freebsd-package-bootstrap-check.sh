@@ -70,7 +70,8 @@ for command_name in \
     cc git mpv pdftotext pandoc zip unzip tar file less fzf links mbsync \
     msmtp calcurse curl rsync nano crontab xdg-open gio umount bsdisks \
     e2fsck exfatfsck mount.exfat ntfsfix ifconfig route wpa_cli xclip pactl \
-    parec avahi-daemon avahi-browse avahi-publish-service mount_nfs blkid nfsd; do
+    parec avahi-daemon avahi-browse avahi-publish-service mount_nfs blkid nfsd \
+    ssh sshd; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$command_name"
 done
 

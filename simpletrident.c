@@ -24,7 +24,7 @@
 #define PATH_MAX 4096
 #endif
 
-#define CATEGORY_COUNT 3
+#define CATEGORY_COUNT 4
 #define DETAIL_SIZE 16384
 #define FIX_SIZE 4096
 #define OUTPUT_SIZE 16384
@@ -79,6 +79,7 @@ typedef struct {
 static Category categories[CATEGORY_COUNT] = {
     {"SimpleServe", "intranet", STATE_CHECKING, "Waiting to check...", "", ""},
     {"Tailscale", "encrypted extranet", STATE_CHECKING, "Waiting to check...", "", ""},
+    {"OpenSSH", "client + daemon", STATE_CHECKING, "Waiting to check...", "", ""},
     {"Caddy website", "local web origin", STATE_CHECKING, "Waiting to check...", "", ""}
 };
 
@@ -98,7 +99,7 @@ static char last_checked[64];
 
 static int visible_category_count(void)
 {
-    return simpleserve_mode == MODE_CLIENT ? 2 : CATEGORY_COUNT;
+    return simpleserve_mode == MODE_CLIENT ? CATEGORY_COUNT - 1 : CATEGORY_COUNT;
 }
 
 static int64_t monotonic_ms(void)
@@ -1223,6 +1224,59 @@ static void check_simpleserve(Category *category)
     }
 }
 
+static void set_openssh_fix(Category *category)
+{
+    append_text(category->fix, sizeof(category->fix),
+                "Install both OpenSSH programs through Scriptorium's Trident package set:\n"
+                "  cd ~/scriptorium && ./install.sh\n\n"
+                "Then confirm that both programs are available:\n"
+                "  command -v ssh\n"
+                "  command -v sshd\n");
+}
+
+static void check_openssh(Category *category)
+{
+    static const char *const known_clients[] = {
+        "/usr/bin/ssh",
+        "/usr/local/bin/ssh",
+        NULL
+    };
+    static const char *const known_daemons[] = {
+        "/usr/sbin/sshd",
+        "/usr/bin/sshd",
+        "/usr/local/sbin/sshd",
+        "/usr/local/bin/sshd",
+        NULL
+    };
+    char client[PATH_MAX];
+    char daemon[PATH_MAX];
+    int client_found;
+    int daemon_found;
+
+    category_reset(category);
+    client_found = find_program("SIMPLETRIDENT_SSH", "ssh", known_clients,
+                                client, sizeof(client));
+    daemon_found = find_program("SIMPLETRIDENT_SSHD", "sshd", known_daemons,
+                                daemon, sizeof(daemon));
+
+    if (client_found)
+        category_ok(category, "OpenSSH client is installed at %s", client);
+    else
+        category_down(category, "The OpenSSH client is not installed");
+    if (daemon_found)
+        category_ok(category, "OpenSSH daemon is installed at %s", daemon);
+    else
+        category_down(category, "The OpenSSH daemon is not installed");
+
+    if (category->state == STATE_CHECKING) {
+        category->state = STATE_OK;
+        copy_string(category->summary, sizeof(category->summary),
+                    "client and daemon are installed");
+    } else {
+        set_openssh_fix(category);
+    }
+}
+
 static int tailscale_ipv4(const char *text, char *address, size_t address_size)
 {
     char copy[256];
@@ -1939,10 +1993,10 @@ static void draw_dashboard(void)
 
     getmaxyx(stdscr, height, width);
     erase();
-    if (height < 17 || width < 48) {
+    if (height < 20 || width < 48) {
         draw_clipped(1, 2, A_BOLD, "simpletrident", width - 4);
         draw_clipped(3, 2, 0,
-                     "Terminal is too small (need at least 48 x 17).",
+                     "Terminal is too small (need at least 48 x 20).",
                      width - 4);
         draw_clipped(height - 1, 1, A_REVERSE, " Q: quit ", width - 2);
         refresh();
@@ -2124,11 +2178,15 @@ static void refresh_checks(void)
     draw();
     check_tailscale(&categories[1]);
 
+    copy_string(footer, sizeof(footer), "Checking OpenSSH...");
+    draw();
+    check_openssh(&categories[2]);
+
     if (simpleserve_mode != MODE_CLIENT) {
         copy_string(footer, sizeof(footer),
                     "Checking the local Caddy website...");
         draw();
-        check_website(&categories[2]);
+        check_website(&categories[3]);
     }
 
     selected_category = 0;
@@ -2191,8 +2249,8 @@ static void usage(FILE *stream)
 {
     fprintf(stream,
             "Usage: simpletrident [--check]\n\n"
-            "Verify the client network prongs and, in server mode, the local "
-            "Caddy website.\n\n"
+            "Verify the Trident network programs and, in server mode, the "
+            "local Caddy website.\n\n"
             "  --check   print all results without ncurses and return nonzero\n"
             "            when any Trident category is not OK\n"
             "  -h, --help  show this help\n");
