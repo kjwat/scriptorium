@@ -6,8 +6,8 @@ http://stream.wfmt.com/main
 #EXTINF:-1,KBAQ Phoenix
 https://kbaq.streamguys1.com/kbaq_mp3_128
 
-#EXTINF:-1,KDFC San Francisco
-https://playerservices.streamtheworld.com/api/livestream-redirect/KDFCFMAAC.aac
+#EXTINF:-1,Classical California (KDFC San Francisco)
+https://128.mp3.kusc.live
 
 #EXTINF:-1,WSHU All Classical
 https://wshu-iad.streamguys1.com/wshu-classical
