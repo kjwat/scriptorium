@@ -16,6 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -26,8 +27,11 @@ from backup_server_state import backup_state  # noqa: E402
 from configure_cloudflare_tunnel import (  # noqa: E402
     API_ROOT,
     CloudflareConfigurationError,
+    decode_connector_token,
     merge_public_ingress,
     reconcile_from_connector_token,
+    reconcile_public_hostname_dns,
+    reconcile_public_ingress,
 )
 from configure_store import main as configure_store  # noqa: E402
 from render_server_config import render, render_cloudflared_config  # noqa: E402
@@ -35,6 +39,7 @@ from render_server_config import render, render_cloudflared_config  # noqa: E402
 
 class ServerProvisioningTests(unittest.TestCase):
     CLOUDFLARE_TUNNEL_ID = "beb29759-dac7-43c9-a66d-36153e9b90fd"
+    STALE_CLOUDFLARE_TUNNEL_ID = "e1d5fa1e-dc6a-4afe-bce1-6ad081190492"
     CLOUDFLARE_ACCOUNT_ID = "a" * 32
 
     @classmethod
@@ -70,12 +75,11 @@ class ServerProvisioningTests(unittest.TestCase):
                 },
             }
 
-        result = reconcile_from_connector_token(
-            self.cloudflare_connector_token(),
+        result = reconcile_public_ingress(
+            decode_connector_token(self.cloudflare_connector_token()),
             "fixture-api-token",
             ["keelanwatlington.com", "www.keelanwatlington.com"],
             "http://localhost:8080",
-            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
             transport=transport,
         )
 
@@ -169,17 +173,321 @@ class ServerProvisioningTests(unittest.TestCase):
                 "result": {"config": copy.deepcopy(existing_configuration)},
             }
 
-        result = reconcile_from_connector_token(
-            self.cloudflare_connector_token(),
+        result = reconcile_public_ingress(
+            decode_connector_token(self.cloudflare_connector_token()),
             "fixture-api-token",
             ["keelanwatlington.com", "www.keelanwatlington.com"],
             "http://localhost:8080",
-            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
             transport=transport,
         )
 
         self.assertFalse(result.changed)
         self.assertEqual(calls, [("GET", None)])
+
+    def test_correct_ingress_with_stale_dns_tunnel_association_is_repaired(
+        self,
+    ) -> None:
+        zone_id = "b" * 32
+        target = f"{self.CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com"
+        existing_configuration = {
+            "ingress": [
+                {
+                    "hostname": "keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                },
+                {
+                    "hostname": "www.keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                },
+                {"service": "http_status:404"},
+            ]
+        }
+        records = {
+            "keelanwatlington.com": {
+                "id": "c" * 32,
+                "zone_id": zone_id,
+                "type": "CNAME",
+                "name": "keelanwatlington.com",
+                "content": f"{self.STALE_CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com",
+                "proxied": True,
+                "ttl": 1,
+                "comment": "Cloudflare-managed tunnel route",
+                "tags": ["owner:website"],
+            },
+            "www.keelanwatlington.com": {
+                "id": "d" * 32,
+                "zone_id": zone_id,
+                "type": "CNAME",
+                "name": "www.keelanwatlington.com",
+                "content": f"{self.STALE_CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com",
+                "proxied": False,
+                "ttl": 300,
+                "comment": "Keep this comment",
+                "tags": ["environment:production"],
+            },
+            "mail.keelanwatlington.com": {
+                "id": "e" * 32,
+                "zone_id": zone_id,
+                "type": "MX",
+                "name": "mail.keelanwatlington.com",
+                "content": "mail.example.net",
+                "priority": 10,
+            },
+        }
+        original_unrelated = copy.deepcopy(records["mail.keelanwatlington.com"])
+        calls: list[tuple[str, str, dict[str, object] | None]] = []
+
+        def transport(method, url, api_token, payload):
+            self.assertEqual(api_token, "fixture-api-token")
+            calls.append((method, url, copy.deepcopy(payload)))
+            parsed = urlsplit(url)
+            if parsed.path.endswith("/configurations"):
+                self.assertEqual(method, "GET")
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": {
+                        "account_id": self.CLOUDFLARE_ACCOUNT_ID,
+                        "tunnel_id": self.CLOUDFLARE_TUNNEL_ID,
+                        "config": copy.deepcopy(existing_configuration),
+                    },
+                }
+            if parsed.path == "/client/v4/zones":
+                self.assertEqual(method, "GET")
+                self.assertEqual(
+                    parse_qs(parsed.query),
+                    {"name": ["keelanwatlington.com"], "per_page": ["50"]},
+                )
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": [
+                        {
+                            "id": zone_id,
+                            "name": "keelanwatlington.com",
+                            "status": "active",
+                            "account": {"id": self.CLOUDFLARE_ACCOUNT_ID},
+                        }
+                    ],
+                    "result_info": {"total_count": 1, "total_pages": 1},
+                }
+            if parsed.path == f"/client/v4/zones/{zone_id}/dns_records":
+                if method == "GET":
+                    hostname = parse_qs(parsed.query)["name.exact"][0]
+                    record = records.get(hostname)
+                    return {
+                        "success": True,
+                        "errors": [],
+                        "result": [] if record is None else [copy.deepcopy(record)],
+                        "result_info": {
+                            "total_count": 0 if record is None else 1,
+                            "total_pages": 1,
+                        },
+                    }
+                self.fail(f"unexpected collection method: {method}")
+            prefix = f"/client/v4/zones/{zone_id}/dns_records/"
+            if parsed.path.startswith(prefix):
+                self.assertEqual(method, "PATCH")
+                record_id = parsed.path.removeprefix(prefix)
+                record = next(
+                    record for record in records.values() if record["id"] == record_id
+                )
+                record.update(payload)
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": copy.deepcopy(record),
+                }
+            self.fail(f"unexpected Cloudflare endpoint: {method} {url}")
+
+        first = reconcile_from_connector_token(
+            self.cloudflare_connector_token(),
+            "fixture-api-token",
+            ["keelanwatlington.com", "www.keelanwatlington.com"],
+            "http://localhost:8080",
+            zone_name="keelanwatlington.com",
+            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+            transport=transport,
+        )
+
+        self.assertTrue(first.changed)
+        self.assertFalse(first.ingress_changed)
+        self.assertTrue(first.dns_changed)
+        self.assertEqual(records["keelanwatlington.com"]["content"], target)
+        self.assertTrue(records["keelanwatlington.com"]["proxied"])
+        self.assertEqual(records["keelanwatlington.com"]["ttl"], 1)
+        self.assertEqual(
+            records["keelanwatlington.com"]["comment"],
+            "Cloudflare-managed tunnel route",
+        )
+        self.assertEqual(records["keelanwatlington.com"]["tags"], ["owner:website"])
+        self.assertEqual(records["www.keelanwatlington.com"]["content"], target)
+        self.assertTrue(records["www.keelanwatlington.com"]["proxied"])
+        self.assertEqual(records["www.keelanwatlington.com"]["ttl"], 300)
+        self.assertEqual(
+            records["www.keelanwatlington.com"]["comment"], "Keep this comment"
+        )
+        self.assertEqual(
+            records["www.keelanwatlington.com"]["tags"],
+            ["environment:production"],
+        )
+        self.assertEqual(records["mail.keelanwatlington.com"], original_unrelated)
+        patch_calls = [call for call in calls if call[0] == "PATCH"]
+        self.assertEqual(
+            [call[2] for call in patch_calls],
+            [
+                {"content": target},
+                {"content": target, "proxied": True},
+            ],
+        )
+        self.assertFalse(any(call[0] == "PUT" for call in calls))
+        self.assertFalse(any("/routes" in call[1] for call in calls))
+
+        calls.clear()
+        second = reconcile_from_connector_token(
+            self.cloudflare_connector_token(),
+            "fixture-api-token",
+            ["keelanwatlington.com", "www.keelanwatlington.com"],
+            "http://localhost:8080",
+            zone_name="keelanwatlington.com",
+            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+            transport=transport,
+        )
+        self.assertFalse(second.changed)
+        self.assertFalse(second.ingress_changed)
+        self.assertFalse(second.dns_changed)
+        self.assertTrue(all(call[0] == "GET" for call in calls))
+
+    def test_missing_tunnel_dns_record_is_created_without_private_routes(
+        self,
+    ) -> None:
+        identity = decode_connector_token(self.cloudflare_connector_token())
+        zone_id = "b" * 32
+        target = f"{self.CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com"
+        record = None
+        calls = []
+
+        def transport(method, url, api_token, payload):
+            nonlocal record
+            calls.append((method, url, copy.deepcopy(payload)))
+            parsed = urlsplit(url)
+            if parsed.path == "/client/v4/zones":
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": [
+                        {
+                            "id": zone_id,
+                            "name": "keelanwatlington.com",
+                            "status": "active",
+                            "account": {"id": self.CLOUDFLARE_ACCOUNT_ID},
+                        }
+                    ],
+                }
+            records_path = f"/client/v4/zones/{zone_id}/dns_records"
+            if parsed.path == records_path and method == "GET":
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": [] if record is None else [copy.deepcopy(record)],
+                }
+            if parsed.path == records_path and method == "POST":
+                record = {"id": "c" * 32, "zone_id": zone_id, **payload}
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": copy.deepcopy(record),
+                }
+            self.fail(f"unexpected Cloudflare endpoint: {method} {url}")
+
+        changed = reconcile_public_hostname_dns(
+            identity,
+            "fixture-api-token",
+            "keelanwatlington.com",
+            ["www.keelanwatlington.com"],
+            transport=transport,
+        )
+
+        self.assertTrue(changed)
+        self.assertEqual(
+            [call[2] for call in calls if call[0] == "POST"],
+            [
+                {
+                    "type": "CNAME",
+                    "name": "www.keelanwatlington.com",
+                    "content": target,
+                    "proxied": True,
+                    "ttl": 1,
+                }
+            ],
+        )
+        self.assertFalse(any("/teamnet/" in call[1] for call in calls))
+        self.assertFalse(any("/routes" in call[1] for call in calls))
+
+    def test_dns_reconciliation_refuses_to_replace_non_cname_record(self) -> None:
+        identity = decode_connector_token(self.cloudflare_connector_token())
+        zone_id = "b" * 32
+        calls = []
+
+        def transport(method, url, api_token, payload):
+            calls.append((method, url, copy.deepcopy(payload)))
+            parsed = urlsplit(url)
+            if parsed.path == "/client/v4/zones":
+                return {
+                    "success": True,
+                    "errors": [],
+                    "result": [
+                        {
+                            "id": zone_id,
+                            "name": "keelanwatlington.com",
+                            "status": "active",
+                            "account": {"id": self.CLOUDFLARE_ACCOUNT_ID},
+                        }
+                    ],
+                }
+            return {
+                "success": True,
+                "errors": [],
+                "result": [
+                    {
+                        "id": "c" * 32,
+                        "zone_id": zone_id,
+                        "type": "A",
+                        "name": "www.keelanwatlington.com",
+                        "content": "192.0.2.10",
+                        "proxied": True,
+                    }
+                ],
+            }
+
+        with self.assertRaisesRegex(CloudflareConfigurationError, "non-CNAME"):
+            reconcile_public_hostname_dns(
+                identity,
+                "fixture-api-token",
+                "keelanwatlington.com",
+                ["www.keelanwatlington.com"],
+                transport=transport,
+            )
+        self.assertTrue(all(call[0] == "GET" for call in calls))
+
+    def test_legacy_tunnel_only_token_reports_required_dns_permissions(self) -> None:
+        identity = decode_connector_token(self.cloudflare_connector_token())
+
+        with self.assertRaisesRegex(
+            CloudflareConfigurationError,
+            "Zone / Zone / Read.*Zone / DNS / Edit",
+        ):
+            reconcile_public_hostname_dns(
+                identity,
+                "legacy-tunnel-only-token",
+                "keelanwatlington.com",
+                ["keelanwatlington.com"],
+                transport=lambda *_args: {
+                    "success": True,
+                    "errors": [],
+                    "result": [],
+                },
+            )
 
     def test_connector_token_must_match_the_dns_target_tunnel(self) -> None:
         wrong_tunnel = "11111111-2222-4333-8444-555555555555"
@@ -189,6 +497,7 @@ class ServerProvisioningTests(unittest.TestCase):
                 "fixture-api-token",
                 ["keelanwatlington.com", "www.keelanwatlington.com"],
                 "http://localhost:8080",
+                zone_name="keelanwatlington.com",
                 expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
                 transport=lambda *_args: self.fail("wrong tunnel reached the API"),
             )

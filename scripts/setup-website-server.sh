@@ -70,7 +70,7 @@ Options:
   --orders-db FILE                Restore an existing orders.sqlite3 database
   --cloudflare-token-file FILE    Read a Cloudflare tunnel token from FILE
   --cloudflare-api-token-file FILE
-                                  Read a Tunnel Edit API token from FILE
+                                  Read a Tunnel/DNS management API token from FILE
   --cloudflare-config FILE        Restore a locally managed tunnel config
   --cloudflare-credentials FILE   Restore that tunnel's credentials JSON
   --site-address ADDRESS          Local Caddy listener (default: :8080)
@@ -79,16 +79,16 @@ Options:
 
 For unattended setup, STRIPE_WEBHOOK_SECRETS, CLOUDFLARED_TUNNEL_TOKEN, and
 CLOUDFLARE_API_TOKEN may be supplied in the environment. The API token needs
-only Account / Cloudflare Tunnel / Edit; DNS permission is neither needed nor
-used. Existing protected configuration is reused.
+Account / Cloudflare Tunnel / Edit plus Zone / Zone / Read and Zone / DNS /
+Edit for keelanwatlington.com. Existing protected configuration is reused.
 
 Before wiping an old server, run:
   ~/scriptorium/scripts/backup-server-state.sh /path/to/private-backup
 Then restore with:
   setup-server --state-backup /path/to/private-backup
 Without that bundle, setup can ask for the Stripe webhook secret, a new tunnel
-connector token, and a Tunnel Edit API token, but it cannot reconstruct old
-paid-order history.
+connector token, and a Tunnel/DNS management API token, but it cannot
+reconstruct old paid-order history.
 EOF
 }
 
@@ -259,8 +259,8 @@ exists, stop now and run there:
 Then rerun here with:
   setup-server --state-backup /path/to/private-backup
 Without that bundle, setup can accept the Stripe webhook secret, a new tunnel
-connector token, and a Tunnel Edit API token, but old paid-order history cannot
-be reconstructed.
+connector token, and a Tunnel/DNS management API token, but old paid-order
+history cannot be reconstructed.
 
 EOF
 fi
@@ -798,15 +798,18 @@ prepare_cloudflare_api_token() {
   fi
   if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
     if ((NON_INTERACTIVE)); then
-      die "remotely managed tunnel ingress is not verifiable; provide CLOUDFLARE_API_TOKEN or --cloudflare-api-token-file with Account / Cloudflare Tunnel / Edit permission"
+      die "remotely managed tunnel routing is not verifiable; provide" \
+        "CLOUDFLARE_API_TOKEN or --cloudflare-api-token-file with Account /" \
+        "Cloudflare Tunnel / Edit, Zone / Zone / Read, and Zone / DNS / Edit permissions"
     fi
     [[ -r /dev/tty ]] || die "a terminal is required to enter the Cloudflare API token"
     cat >&2 <<'EOF'
 Cloudflare requires a separate management API token to provision and verify
-the remotely managed tunnel's public ingress. Create a token scoped to this
-account with Account / Cloudflare Tunnel / Edit; DNS permission is not used.
+the remotely managed tunnel's public ingress and hostname DNS associations.
+Create a token scoped to this account and keelanwatlington.com with Account /
+Cloudflare Tunnel / Edit, Zone / Zone / Read, and Zone / DNS / Edit.
 EOF
-    IFS= read -r -s -p "Cloudflare Tunnel Edit API token: " token < /dev/tty
+    IFS= read -r -s -p "Cloudflare Tunnel/DNS API token: " token < /dev/tty
     printf '\n' > /dev/tty
   fi
   if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
@@ -834,7 +837,7 @@ EOF
     "$CLOUDFLARE_API_TOKEN_TARGET" "$api_token_copy"
 }
 
-reconcile_cloudflare_public_ingress() {
+reconcile_cloudflare_public_routing() {
   local connector_token_copy=$WORK_DIR/cloudflare-connector.token
   local api_token_copy=$WORK_DIR/cloudflare-management-api.token
 
@@ -846,6 +849,7 @@ reconcile_cloudflare_public_ingress() {
     --connector-token-file "$connector_token_copy" \
     --api-token-file "$api_token_copy" \
     --expected-tunnel-id "$CLOUDFLARE_TUNNEL_ID" \
+    --zone-name "$CLOUDFLARE_APEX_HOSTNAME" \
     --hostname "$CLOUDFLARE_APEX_HOSTNAME" \
     --hostname "$CLOUDFLARE_WWW_HOSTNAME" \
     --service "http://localhost${SITE_ADDRESS}"
@@ -968,7 +972,7 @@ PY
       ;;
   esac
   if [[ $CLOUDFLARE_MODE == token ]]; then
-    reconcile_cloudflare_public_ingress
+    reconcile_cloudflare_public_routing
   fi
   unset CLOUDFLARE_TOKEN_ENV CLOUDFLARE_API_TOKEN_ENV
 }

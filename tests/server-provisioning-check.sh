@@ -118,4 +118,12 @@ for authority_consumer in "$REPOSITORY_ROOT/setup-server.sh" \
         exit 1
     fi
 done
+grep -Fq -- '--zone-name "$CLOUDFLARE_APEX_HOSTNAME"' \
+    "$REPOSITORY_ROOT/scripts/setup-website-server.sh"
+for cloudflare_permission in 'Account / Cloudflare Tunnel / Edit' \
+                             'Zone / Zone / Read' \
+                             'Zone / DNS / Edit'; do
+    grep -Fq "$cloudflare_permission" \
+        "$REPOSITORY_ROOT/scripts/setup-website-server.sh"
+done
 printf 'OK Scriptorium owns website provisioning, detects cloudflared capabilities, and renders protected services\n'
