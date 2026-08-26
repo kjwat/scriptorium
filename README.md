@@ -155,6 +155,15 @@ website prong uses systemd on Debian/Fedora/Arch/openSUSE,
 OpenRC on Alpine, runit on Void, rc.d on FreeBSD, and launchd on macOS. An
 unchanged rerun rewrites no managed file and restarts no healthy service.
 
+For the remotely managed Cloudflare tunnel, setup reads the account and tunnel
+identity from the protected connector token and reconciles the public ingress
+for `keelanwatlington.com` and `www.keelanwatlington.com` to
+`http://localhost:8080` through Cloudflare's tunnel-configuration API. The
+first run also accepts a Cloudflare API token with only **Account / Cloudflare
+Tunnel / Edit** permission, stores it as protected migration state, and reuses
+it to verify or repair the ingress on later runs. It neither requests DNS
+permission nor changes DNS records or private-network routes.
+
 After promotion, register each local filesystem the server should expose, for
 example `simpleserve share /media/T7 --name Writing`. Server mode can also
 mount shares from another Trident server.
@@ -163,13 +172,19 @@ When replacing the current website host, first make its protected migration
 bundle with `~/scriptorium/scripts/backup-server-state.sh /private/path`,
 then run `setup-server --state-backup /private/path` on the new machine. This
 restores its Stripe/order state and either its protected replica token or its
-locally managed tunnel credentials in the same pass.
+locally managed tunnel credentials in the same pass. For a remotely managed
+tunnel, the bundle also carries the protected Tunnel Edit API token so the new
+server verifies and, if necessary, repairs the public ingress without dashboard
+work.
 
 For a bare-metal rebuild, clone and install the known-good Scriptorium version,
 run `setup-server`, and provide the Stripe webhook secret and a Cloudflare
-replica token if no migration bundle survived the wipe. No manual preparation
-of `~/website` is required; Scriptorium obtains it as payload before applying
-the recovery procedure shipped in the Scriptorium checkout.
+replica token if no migration bundle survived the wipe. A remotely managed
+tunnel also needs a Cloudflare Tunnel Edit API token, supplied interactively,
+as `CLOUDFLARE_API_TOKEN`, or with `--cloudflare-api-token-file`; no DNS
+permission is needed. No manual preparation of `~/website` or public-hostname
+dashboard routes is required; Scriptorium obtains the site as payload and
+reconciles the tunnel ingress itself.
 
 ## What It Installs
 

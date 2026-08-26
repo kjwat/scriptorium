@@ -15,6 +15,7 @@ mkdir -p "$home/.config/keelanwatlington" \
 printf '%s\n' server >"$root/etc/simpleserve-role"
 printf '%s\n' secret >"$home/.config/keelanwatlington/store.env"
 printf '%s\n' token >"$root/etc/cloudflared/keelanwatlington.token"
+printf '%s\n' api-token >"$root/etc/cloudflared/keelanwatlington-api.token"
 printf '%s\n' config >"$root/etc/cloudflared/config.yml"
 printf '%s\n' credentials >"$root/etc/cloudflared/keelanwatlington-credentials.json"
 for file in keelanwatlington-store.service keelanwatlington-blog-sync.service \
@@ -60,6 +61,7 @@ backup=$(find "$home/backups" -mindepth 1 -maxdepth 1 -type d -print -quit)
 test -n "$backup"
 test "$(cat "$backup/store.env")" = secret
 test "$(cat "$backup/cloudflared/token")" = token
+test "$(cat "$backup/cloudflared/api-token")" = api-token
 test "$(cat "$backup/cloudflared/config.yml")" = config
 test "$(cat "$backup/cloudflared/credentials.json")" = credentials
 grep -q 'server options were removed; this machine is now a client' \

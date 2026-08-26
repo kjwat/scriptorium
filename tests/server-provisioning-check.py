@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import base64
+import copy
 import io
+import json
 import os
 import plistlib
 import sqlite3
@@ -20,11 +23,176 @@ SERVER_ROOT = REPOSITORY_ROOT / "scripts" / "server"
 sys.path.insert(0, str(SERVER_ROOT))
 
 from backup_server_state import backup_state  # noqa: E402
+from configure_cloudflare_tunnel import (  # noqa: E402
+    API_ROOT,
+    CloudflareConfigurationError,
+    merge_public_ingress,
+    reconcile_from_connector_token,
+)
 from configure_store import main as configure_store  # noqa: E402
 from render_server_config import render, render_cloudflared_config  # noqa: E402
 
 
 class ServerProvisioningTests(unittest.TestCase):
+    CLOUDFLARE_TUNNEL_ID = "beb29759-dac7-43c9-a66d-36153e9b90fd"
+    CLOUDFLARE_ACCOUNT_ID = "a" * 32
+
+    @classmethod
+    def cloudflare_connector_token(cls, tunnel_id: str | None = None) -> str:
+        payload = {
+            "a": cls.CLOUDFLARE_ACCOUNT_ID,
+            "s": "fixture-tunnel-secret",
+            "t": tunnel_id or cls.CLOUDFLARE_TUNNEL_ID,
+        }
+        return base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
+
+    def test_fresh_remote_tunnel_with_connector_but_no_hostnames_gets_ingress(
+        self,
+    ) -> None:
+        calls: list[tuple[str, str, str, dict[str, object] | None]] = []
+        existing_configuration = {
+            "originRequest": {"connectTimeout": 30},
+            "ingress": [{"service": "http_status:404"}],
+        }
+
+        def transport(method, url, api_token, payload):
+            calls.append((method, url, api_token, copy.deepcopy(payload)))
+            configuration = (
+                existing_configuration if method == "GET" else payload["config"]
+            )
+            return {
+                "success": True,
+                "errors": [],
+                "result": {
+                    "account_id": self.CLOUDFLARE_ACCOUNT_ID,
+                    "tunnel_id": self.CLOUDFLARE_TUNNEL_ID,
+                    "config": copy.deepcopy(configuration),
+                },
+            }
+
+        result = reconcile_from_connector_token(
+            self.cloudflare_connector_token(),
+            "fixture-api-token",
+            ["keelanwatlington.com", "www.keelanwatlington.com"],
+            "http://localhost:8080",
+            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+            transport=transport,
+        )
+
+        self.assertTrue(result.changed)
+        self.assertEqual([call[0] for call in calls], ["GET", "PUT"])
+        expected_endpoint = (
+            f"{API_ROOT}/accounts/{self.CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/"
+            f"{self.CLOUDFLARE_TUNNEL_ID}/configurations"
+        )
+        self.assertTrue(all(call[1] == expected_endpoint for call in calls))
+        updated = calls[1][3]["config"]
+        self.assertEqual(updated["originRequest"], {"connectTimeout": 30})
+        self.assertEqual(
+            updated["ingress"][:2],
+            [
+                {
+                    "hostname": "keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                    "originRequest": {},
+                },
+                {
+                    "hostname": "www.keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                    "originRequest": {},
+                },
+            ],
+        )
+        self.assertEqual(updated["ingress"][-1], {"service": "http_status:404"})
+        self.assertNotIn("dns_records", expected_endpoint)
+        self.assertNotIn("routes", expected_endpoint)
+
+    def test_ingress_merge_preserves_unrelated_public_rules_and_origin_settings(
+        self,
+    ) -> None:
+        existing = {
+            "originRequest": {"connectTimeout": 30},
+            "ingress": [
+                {
+                    "hostname": "unrelated.example.com",
+                    "service": "http://localhost:9000",
+                    "originRequest": {"httpHostHeader": "unrelated.example.com"},
+                },
+                {"service": "http_status:503"},
+            ],
+        }
+        merged, changed = merge_public_ingress(
+            existing,
+            ["keelanwatlington.com", "www.keelanwatlington.com"],
+            "http://localhost:8080",
+        )
+
+        self.assertTrue(changed)
+        self.assertEqual(merged["originRequest"], existing["originRequest"])
+        self.assertEqual(merged["ingress"][0], existing["ingress"][0])
+        self.assertEqual(merged["ingress"][-1], {"service": "http_status:503"})
+        self.assertEqual(
+            existing["ingress"],
+            [
+                {
+                    "hostname": "unrelated.example.com",
+                    "service": "http://localhost:9000",
+                    "originRequest": {"httpHostHeader": "unrelated.example.com"},
+                },
+                {"service": "http_status:503"},
+            ],
+        )
+
+    def test_remote_tunnel_ingress_reconciliation_is_idempotent(self) -> None:
+        calls = []
+        existing_configuration = {
+            "ingress": [
+                {
+                    "hostname": "keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                    "originRequest": {"disableChunkedEncoding": True},
+                },
+                {
+                    "hostname": "www.keelanwatlington.com",
+                    "service": "http://localhost:8080",
+                },
+                {"service": "http_status:404"},
+            ]
+        }
+
+        def transport(method, url, api_token, payload):
+            calls.append((method, payload))
+            self.assertEqual(method, "GET")
+            return {
+                "success": True,
+                "errors": [],
+                "result": {"config": copy.deepcopy(existing_configuration)},
+            }
+
+        result = reconcile_from_connector_token(
+            self.cloudflare_connector_token(),
+            "fixture-api-token",
+            ["keelanwatlington.com", "www.keelanwatlington.com"],
+            "http://localhost:8080",
+            expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+            transport=transport,
+        )
+
+        self.assertFalse(result.changed)
+        self.assertEqual(calls, [("GET", None)])
+
+    def test_connector_token_must_match_the_dns_target_tunnel(self) -> None:
+        wrong_tunnel = "11111111-2222-4333-8444-555555555555"
+        with self.assertRaisesRegex(CloudflareConfigurationError, "expected"):
+            reconcile_from_connector_token(
+                self.cloudflare_connector_token(wrong_tunnel),
+                "fixture-api-token",
+                ["keelanwatlington.com", "www.keelanwatlington.com"],
+                "http://localhost:8080",
+                expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+                transport=lambda *_args: self.fail("wrong tunnel reached the API"),
+            )
+
     def test_state_backup_is_private_and_sqlite_consistent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

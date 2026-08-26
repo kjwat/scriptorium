@@ -70,6 +70,8 @@ else
 fi
 copy_protected_state "$(root_path /etc/cloudflared/keelanwatlington.token)" \
     "$output/cloudflared/token"
+copy_protected_state "$(root_path /etc/cloudflared/keelanwatlington-api.token)" \
+    "$output/cloudflared/api-token"
 copy_protected_state "$(root_path /etc/cloudflared/config.yml)" \
     "$output/cloudflared/config.yml"
 copy_protected_state "$(root_path /etc/cloudflared/keelanwatlington-credentials.json)" \

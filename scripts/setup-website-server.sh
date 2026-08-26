@@ -20,8 +20,12 @@ STORE_CODE_MARKER=$STATE_DIR/store-code.sha256
 SITE_ADDRESS=:8080
 PUBLIC_ORIGIN=${WEBSITE_PUBLIC_ORIGIN:-https://keelanwatlington.com}
 CLOUDFLARE_TOKEN_TARGET=/etc/cloudflared/keelanwatlington.token
+CLOUDFLARE_API_TOKEN_TARGET=/etc/cloudflared/keelanwatlington-api.token
 CLOUDFLARE_CONFIG_TARGET=/etc/cloudflared/config.yml
 CLOUDFLARE_CREDENTIALS_TARGET=/etc/cloudflared/keelanwatlington-credentials.json
+CLOUDFLARE_TUNNEL_ID=beb29759-dac7-43c9-a66d-36153e9b90fd
+CLOUDFLARE_APEX_HOSTNAME=keelanwatlington.com
+CLOUDFLARE_WWW_HOSTNAME=www.keelanwatlington.com
 CLOUDFLARE_KEY_URL=https://pkg.cloudflare.com/cloudflare-main.gpg
 CLOUDFLARE_KEY_TARGET=/usr/share/keyrings/cloudflare-main.gpg
 CLOUDFLARE_APT_SOURCE=/etc/apt/sources.list.d/cloudflared.list
@@ -35,11 +39,13 @@ VERIFY_ONLY=0
 STORE_ENV_IMPORT=${WEBSITE_STORE_ENV_BACKUP:-}
 ORDERS_DB_IMPORT=${WEBSITE_ORDERS_DB_BACKUP:-}
 CLOUDFLARE_TOKEN_INPUT=${WEBSITE_CLOUDFLARE_TOKEN_FILE:-}
+CLOUDFLARE_API_TOKEN_INPUT=${WEBSITE_CLOUDFLARE_API_TOKEN_FILE:-}
 CLOUDFLARE_CONFIG_IMPORT=${WEBSITE_CLOUDFLARE_CONFIG_BACKUP:-}
 CLOUDFLARE_CREDENTIALS_IMPORT=${WEBSITE_CLOUDFLARE_CREDENTIALS_BACKUP:-}
 CLOUDFLARE_TOKEN_ENV=${CLOUDFLARED_TUNNEL_TOKEN:-}
+CLOUDFLARE_API_TOKEN_ENV=${CLOUDFLARE_API_TOKEN:-}
 STATE_BACKUP_DIR=${WEBSITE_STATE_BACKUP:-}
-unset CLOUDFLARED_TUNNEL_TOKEN
+unset CLOUDFLARED_TUNNEL_TOKEN CLOUDFLARE_API_TOKEN
 
 # shellcheck source=server/platform.sh
 . "$SERVER_ROOT/platform.sh"
@@ -63,21 +69,26 @@ Options:
   --store-env FILE                Restore an existing store.env before setup
   --orders-db FILE                Restore an existing orders.sqlite3 database
   --cloudflare-token-file FILE    Read a Cloudflare tunnel token from FILE
+  --cloudflare-api-token-file FILE
+                                  Read a Tunnel Edit API token from FILE
   --cloudflare-config FILE        Restore a locally managed tunnel config
   --cloudflare-credentials FILE   Restore that tunnel's credentials JSON
   --site-address ADDRESS          Local Caddy listener (default: :8080)
   --verify-only                   Change nothing; verify the installed stack
   -h, --help                      Show this help
 
-For unattended setup, STRIPE_WEBHOOK_SECRETS and CLOUDFLARED_TUNNEL_TOKEN may
-be supplied in the environment. Existing protected configuration is reused.
+For unattended setup, STRIPE_WEBHOOK_SECRETS, CLOUDFLARED_TUNNEL_TOKEN, and
+CLOUDFLARE_API_TOKEN may be supplied in the environment. The API token needs
+only Account / Cloudflare Tunnel / Edit; DNS permission is neither needed nor
+used. Existing protected configuration is reused.
 
 Before wiping an old server, run:
   ~/scriptorium/scripts/backup-server-state.sh /path/to/private-backup
 Then restore with:
   setup-server --state-backup /path/to/private-backup
-Without that bundle, setup can ask for the Stripe webhook secret and a new
-tunnel token, but it cannot reconstruct old paid-order history.
+Without that bundle, setup can ask for the Stripe webhook secret, a new tunnel
+connector token, and a Tunnel Edit API token, but it cannot reconstruct old
+paid-order history.
 EOF
 }
 
@@ -120,6 +131,11 @@ while (($#)); do
       require_argument --cloudflare-token-file "$@"
       CLOUDFLARE_TOKEN_INPUT=$1
       ;;
+    --cloudflare-api-token-file)
+      shift
+      require_argument --cloudflare-api-token-file "$@"
+      CLOUDFLARE_API_TOKEN_INPUT=$1
+      ;;
     --cloudflare-config)
       shift
       require_argument --cloudflare-config "$@"
@@ -147,7 +163,8 @@ done
 [[ $SITE_ROOT == "$EXPECTED_ROOT" ]] || die "checkout must be $EXPECTED_ROOT (found $SITE_ROOT)"
 [[ -d $SITE_ROOT/.git ]] || die "$SITE_ROOT is not a Git checkout"
 for provision_asset in platform.sh configure_store.py render_server_config.py \
-                       check_server.sh verify_site.py Caddyfile.production; do
+                       configure_cloudflare_tunnel.py check_server.sh \
+                       verify_site.py Caddyfile.production; do
   [[ -f $SERVER_ROOT/$provision_asset ]] ||
     die "Scriptorium server asset is missing: $SERVER_ROOT/$provision_asset"
 done
@@ -185,6 +202,8 @@ resolve_state_backup() {
   elif [[ -f $STATE_BACKUP_DIR/cloudflared/token ]]; then
     CLOUDFLARE_TOKEN_INPUT=$STATE_BACKUP_DIR/cloudflared/token
   fi
+  [[ ! -f $STATE_BACKUP_DIR/cloudflared/api-token ]] ||
+    CLOUDFLARE_API_TOKEN_INPUT=$STATE_BACKUP_DIR/cloudflared/api-token
 }
 
 resolve_state_backup
@@ -239,8 +258,9 @@ exists, stop now and run there:
   ~/scriptorium/scripts/backup-server-state.sh /path/to/private-backup
 Then rerun here with:
   setup-server --state-backup /path/to/private-backup
-Without that bundle, setup can accept the Stripe webhook secret and a new
-tunnel token, but old paid-order history cannot be reconstructed.
+Without that bundle, setup can accept the Stripe webhook secret, a new tunnel
+connector token, and a Tunnel Edit API token, but old paid-order history cannot
+be reconstructed.
 
 EOF
 fi
@@ -760,11 +780,84 @@ validate_cloudflare_token() {
   [[ $token != *[[:space:]]* ]] || die "Cloudflare tunnel token contains whitespace"
 }
 
+validate_cloudflare_api_token() {
+  local token=$1
+
+  [[ -n $token ]] || die "Cloudflare API token is empty"
+  [[ $token != *[[:space:]]* ]] || die "Cloudflare API token contains whitespace"
+}
+
+prepare_cloudflare_api_token() {
+  local token=$CLOUDFLARE_API_TOKEN_ENV api_token_changed=0
+  local api_token_copy=$WORK_DIR/cloudflare-management-api.token
+
+  if [[ -n $CLOUDFLARE_API_TOKEN_INPUT ]]; then
+    [[ -r $CLOUDFLARE_API_TOKEN_INPUT ]] ||
+      die "cannot read Cloudflare API token file: $CLOUDFLARE_API_TOKEN_INPUT"
+    token=$(tr -d '\r\n' < "$CLOUDFLARE_API_TOKEN_INPUT")
+  fi
+  if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
+    if ((NON_INTERACTIVE)); then
+      die "remotely managed tunnel ingress is not verifiable; provide CLOUDFLARE_API_TOKEN or --cloudflare-api-token-file with Account / Cloudflare Tunnel / Edit permission"
+    fi
+    [[ -r /dev/tty ]] || die "a terminal is required to enter the Cloudflare API token"
+    cat >&2 <<'EOF'
+Cloudflare requires a separate management API token to provision and verify
+the remotely managed tunnel's public ingress. Create a token scoped to this
+account with Account / Cloudflare Tunnel / Edit; DNS permission is not used.
+EOF
+    IFS= read -r -s -p "Cloudflare Tunnel Edit API token: " token < /dev/tty
+    printf '\n' > /dev/tty
+  fi
+  if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
+    die "Cloudflare API token was not provided"
+  fi
+
+  if [[ -n $token ]]; then
+    validate_cloudflare_api_token "$token"
+    printf '%s\n' "$token" > "$api_token_copy"
+    chmod 0600 "$api_token_copy"
+    ensure_root_directory /etc/cloudflared 755
+    install_root_file_if_changed "$api_token_copy" \
+      "$CLOUDFLARE_API_TOKEN_TARGET" 600 api_token_changed
+    if ((api_token_changed)); then
+      printf 'Installed protected Cloudflare Tunnel API token.\n'
+    else
+      printf 'Reusing protected Cloudflare Tunnel API token.\n'
+    fi
+  else
+    printf 'Reusing protected Cloudflare Tunnel API token.\n'
+  fi
+  unset token CLOUDFLARE_API_TOKEN_ENV
+
+  sudo install -m 0600 -o "$SITE_USER" -g "$SITE_GROUP" \
+    "$CLOUDFLARE_API_TOKEN_TARGET" "$api_token_copy"
+}
+
+reconcile_cloudflare_public_ingress() {
+  local connector_token_copy=$WORK_DIR/cloudflare-connector.token
+  local api_token_copy=$WORK_DIR/cloudflare-management-api.token
+
+  prepare_cloudflare_api_token
+  sudo install -m 0600 -o "$SITE_USER" -g "$SITE_GROUP" \
+    "$CLOUDFLARE_TOKEN_TARGET" "$connector_token_copy"
+  PYTHONDONTWRITEBYTECODE=1 "$PYTHON_BIN" \
+    "$SERVER_ROOT/configure_cloudflare_tunnel.py" \
+    --connector-token-file "$connector_token_copy" \
+    --api-token-file "$api_token_copy" \
+    --expected-tunnel-id "$CLOUDFLARE_TUNNEL_ID" \
+    --hostname "$CLOUDFLARE_APEX_HOSTNAME" \
+    --hostname "$CLOUDFLARE_WWW_HOSTNAME" \
+    --service "http://localhost${SITE_ADDRESS}"
+  rm -f -- "$connector_token_copy" "$api_token_copy"
+}
+
 configure_cloudflared() {
   local mode= token=$CLOUDFLARE_TOKEN_ENV source_config existing_credentials
 
   ((ENABLE_CLOUDFLARE)) || {
     CLOUDFLARE_MODE=disabled
+    unset CLOUDFLARE_API_TOKEN_ENV
     return 0
   }
   if [[ -n $CLOUDFLARE_TOKEN_INPUT ]]; then
@@ -874,7 +967,10 @@ PY
       printf 'Preserving existing externally configured Cloudflare tunnel service.\n'
       ;;
   esac
-  unset CLOUDFLARE_TOKEN_ENV
+  if [[ $CLOUDFLARE_MODE == token ]]; then
+    reconcile_cloudflare_public_ingress
+  fi
+  unset CLOUDFLARE_TOKEN_ENV CLOUDFLARE_API_TOKEN_ENV
 }
 
 [[ -z $STORE_ENV_IMPORT || -r $STORE_ENV_IMPORT ]] || die "cannot read store environment backup: $STORE_ENV_IMPORT"

@@ -53,6 +53,7 @@ state_backup=$TEST_ROOT/state-backup
 mkdir -p "$state_backup/cloudflared"
 printf '%s\n' store >"$state_backup/store.env"
 printf '%s\n' token >"$state_backup/cloudflared/token"
+printf '%s\n' api-token >"$state_backup/cloudflared/api-token"
 (
     STATE_BACKUP_DIR=$state_backup
     STORE_ENV_IMPORT=
@@ -60,9 +61,11 @@ printf '%s\n' token >"$state_backup/cloudflared/token"
     CLOUDFLARE_CONFIG_IMPORT=
     CLOUDFLARE_CREDENTIALS_IMPORT=
     CLOUDFLARE_TOKEN_INPUT=
+    CLOUDFLARE_API_TOKEN_INPUT=
     resolve_state_backup
     [[ $STORE_ENV_IMPORT == "$state_backup/store.env" ]]
     [[ $CLOUDFLARE_TOKEN_INPUT == "$state_backup/cloudflared/token" ]]
+    [[ $CLOUDFLARE_API_TOKEN_INPUT == "$state_backup/cloudflared/api-token" ]]
     [[ -z $CLOUDFLARE_CONFIG_IMPORT ]]
 )
 printf '%s\n' config >"$state_backup/cloudflared/config.yml"
@@ -74,10 +77,12 @@ printf '%s\n' credentials >"$state_backup/cloudflared/credentials.json"
     CLOUDFLARE_CONFIG_IMPORT=
     CLOUDFLARE_CREDENTIALS_IMPORT=
     CLOUDFLARE_TOKEN_INPUT=
+    CLOUDFLARE_API_TOKEN_INPUT=
     resolve_state_backup
     [[ $CLOUDFLARE_CONFIG_IMPORT == "$state_backup/cloudflared/config.yml" ]]
     [[ $CLOUDFLARE_CREDENTIALS_IMPORT == "$state_backup/cloudflared/credentials.json" ]]
     [[ -z $CLOUDFLARE_TOKEN_INPUT ]]
+    [[ $CLOUDFLARE_API_TOKEN_INPUT == "$state_backup/cloudflared/api-token" ]]
 )
 
 platform_script=$REPOSITORY_ROOT/scripts/server/platform.sh
