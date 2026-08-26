@@ -1,0 +1,17 @@
+#!/bin/sh
+# PROVIDE: @RC_NAME@
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="@RC_NAME@"
+rcvar="${name}_enable"
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-f -P ${pidfile} -r -R 5 @DAEMON_USER_ARG@@LAUNCHER@"
+
+load_rc_config "$name"
+eval ": \${${name}_enable:=NO}"
+run_rc_command "$1"
+

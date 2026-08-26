@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+exec @CLOUDFLARED_BIN_Q@ --no-autoupdate --config /etc/cloudflared/config.yml tunnel run
+

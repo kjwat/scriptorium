@@ -18,8 +18,8 @@ Arch, Alpine, Void, openSUSE Tumbleweed, FreeBSD, and macOS.
   promoted servers also publish them over NFS/SMB.
 - **Extranet:** Tailscale carries those same shares over the encrypted tailnet.
 - **Website:** `setup-server` provisions Caddy, the local Stripe fulfillment
-  worker and purchase-recovery mail, blog sync, and the Cloudflare tunnel from
-  `~/website`.
+  worker and purchase-recovery mail, blog sync, and the Cloudflare tunnel using
+  Scriptorium-owned recovery code and the site payload in `~/website`.
 
 Every participating client and server also receives both the OpenSSH `ssh`
 client and `sshd` daemon. Linux package families install their native OpenSSH
@@ -143,12 +143,14 @@ setup-server
 
 `setup-server` safely clones or fast-forwards `~/website`, installs any missing
 server-only NFS/Samba dependencies, and explicitly promotes SimpleServe to
-`server (publish + mount)` before touching website services. It then runs the website repository's
-idempotent installer for Caddy, Cloudflare Tunnel, the local Stripe fulfillment
-and purchase-recovery mail service, generated-blog checks, protected local
-state, and final local/public health verification. SMTP provider credentials
-remain in the protected `store.env`; reruns and server-state backups preserve
-them. It refuses to update a dirty website checkout. The
+`server (publish + mount)` before touching website services. Scriptorium's own
+idempotent provisioner then configures Caddy, Cloudflare Tunnel, the local
+Stripe fulfillment and purchase-recovery mail service, generated-blog checks,
+protected local state, and final local/public health verification. The website
+checkout supplies site content and runtime programs only; `setup-server` never
+executes provisioning code from that checkout. SMTP provider credentials remain
+in the protected `store.env`; reruns and server-state backups preserve them. It
+refuses to update a dirty website checkout. The
 website prong uses systemd on Debian/Fedora/Arch/openSUSE,
 OpenRC on Alpine, runit on Void, rc.d on FreeBSD, and launchd on macOS. An
 unchanged rerun rewrites no managed file and restarts no healthy service.
@@ -158,10 +160,16 @@ example `simpleserve share /media/T7 --name Writing`. Server mode can also
 mount shares from another Trident server.
 
 When replacing the current website host, first make its protected migration
-bundle with `python3 ~/website/tools/backup_server_state.py /private/path`,
+bundle with `~/scriptorium/scripts/backup-server-state.sh /private/path`,
 then run `setup-server --state-backup /private/path` on the new machine. This
-restores its Stripe/order state and existing locally managed tunnel in the
-same pass.
+restores its Stripe/order state and either its protected replica token or its
+locally managed tunnel credentials in the same pass.
+
+For a bare-metal rebuild, clone and install the known-good Scriptorium version,
+run `setup-server`, and provide the Stripe webhook secret and a Cloudflare
+replica token if no migration bundle survived the wipe. No manual preparation
+of `~/website` is required; Scriptorium obtains it as payload before applying
+the recovery procedure shipped in the Scriptorium checkout.
 
 ## What It Installs
 

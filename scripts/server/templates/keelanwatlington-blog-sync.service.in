@@ -1,0 +1,16 @@
+[Unit]
+Description=Update the Keelan Watlington blog in the website checkout
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@SITE_USER@
+Group=@SITE_GROUP@
+WorkingDirectory=@SITE_ROOT@
+ExecStart=@SITE_ROOT@/tools/sync_blog.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=@SITE_ROOT@

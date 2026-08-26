@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Keelan Watlington Substack for new posts
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=5min
+Persistent=true
+Unit=keelanwatlington-blog-sync.service
+
+[Install]
+WantedBy=timers.target

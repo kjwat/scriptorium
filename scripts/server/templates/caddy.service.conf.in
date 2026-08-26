@@ -1,0 +1,4 @@
+[Service]
+Environment=SITE_ROOT=@SITE_ROOT@
+Environment=SITE_ADDRESS=@SITE_ADDRESS@
+ProtectHome=read-only

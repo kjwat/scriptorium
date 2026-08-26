@@ -1,0 +1,33 @@
+[Unit]
+Description=Keelan Watlington digital-store fulfillment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SITE_USER@
+Group=@SITE_GROUP@
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=@CONFIG_DIR@/store.env
+WorkingDirectory=@SITE_ROOT@
+ExecStart=@PYTHON_BIN@ @SITE_ROOT@/tools/store_fulfillment.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=read-only
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadOnlyPaths=@SITE_ROOT@ @CONFIG_DIR@
+ReadWritePaths=@STATE_DIR@
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

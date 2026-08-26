@@ -9,26 +9,20 @@ home=$tmp/home
 root=$tmp/root
 fake_bin=$tmp/bin
 log=$tmp/calls.log
-mkdir -p "$home/website/tools" "$home/.config/keelanwatlington" \
+mkdir -p "$home/.config/keelanwatlington" \
     "$root/etc/systemd/system/caddy.service.d" "$root/run/systemd/system" \
     "$root/etc/cloudflared" "$fake_bin"
 printf '%s\n' server >"$root/etc/simpleserve-role"
 printf '%s\n' secret >"$home/.config/keelanwatlington/store.env"
 printf '%s\n' token >"$root/etc/cloudflared/keelanwatlington.token"
+printf '%s\n' config >"$root/etc/cloudflared/config.yml"
+printf '%s\n' credentials >"$root/etc/cloudflared/keelanwatlington-credentials.json"
 for file in keelanwatlington-store.service keelanwatlington-blog-sync.service \
             keelanwatlington-blog-sync.timer; do
     printf '%s\n' managed >"$root/etc/systemd/system/$file"
 done
 printf '%s\n' managed >"$root/etc/systemd/system/caddy.service.d/website.conf"
 
-cat >"$home/website/tools/backup_server_state.py" <<'EOF'
-#!/bin/sh
-set -eu
-destination=$1
-mkdir -m 700 "$destination"
-cp "$HOME/.config/keelanwatlington/store.env" "$destination/store.env"
-chmod 600 "$destination/store.env"
-EOF
 cat >"$home/setup-network-client" <<'EOF'
 #!/bin/sh
 printf '%s\n' network-client >>"$TRIDENT_TEST_LOG"
@@ -45,8 +39,7 @@ case "$1" in
 esac
 printf 'systemctl %s\n' "$*" >>"$TRIDENT_TEST_LOG"
 EOF
-chmod 755 "$home/website/tools/backup_server_state.py" \
-    "$home/setup-network-client" "$fake_bin/sudo" "$fake_bin/systemctl"
+chmod 755 "$home/setup-network-client" "$fake_bin/sudo" "$fake_bin/systemctl"
 
 HOME=$home PATH="$fake_bin:/usr/bin:/bin" TRIDENT_TEST_LOG=$log \
 SCRIPTORIUM_ROOT=$repo SCRIPTORIUM_SYSTEM_ROOT=$root \
@@ -67,6 +60,8 @@ backup=$(find "$home/backups" -mindepth 1 -maxdepth 1 -type d -print -quit)
 test -n "$backup"
 test "$(cat "$backup/store.env")" = secret
 test "$(cat "$backup/cloudflared/token")" = token
+test "$(cat "$backup/cloudflared/config.yml")" = config
+test "$(cat "$backup/cloudflared/credentials.json")" = credentials
 grep -q 'server options were removed; this machine is now a client' \
     "$tmp/demote.out"
 

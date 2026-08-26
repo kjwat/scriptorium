@@ -1,0 +1,24 @@
+[Unit]
+Description=Cloudflare Tunnel for keelanwatlington.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=@CLOUDFLARED_BIN@ tunnel --no-autoupdate run --token-file @CLOUDFLARED_TOKEN_FILE@
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

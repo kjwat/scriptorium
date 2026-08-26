@@ -8,16 +8,17 @@ trap 'rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 HOME_DIR=$TEST_ROOT/home
 FAKE_BIN=$TEST_ROOT/bin
 WEBSITE=$HOME_DIR/website
+SERVER_ROOT=$HOME_DIR/scriptorium/scripts/server
 ROLE_FILE=$TEST_ROOT/simpleserve-role
 CADDY_FILE=$TEST_ROOT/Caddyfile
 STORE_ENV=$HOME_DIR/.config/keelanwatlington/store.env
 SIMPLESERVE_VERIFY=$TEST_ROOT/verify-simpleserve-system.sh
 EXPORTS_FILE=$TEST_ROOT/simpleserve.exports
 mkdir -p "$HOME_DIR/.local/bin" "$HOME_DIR/.config/keelanwatlington" \
-    "$FAKE_BIN" "$WEBSITE/tools"
+    "$FAKE_BIN" "$WEBSITE/tools" "$SERVER_ROOT"
 printf '%s\n' server >"$ROLE_FILE"
 printf '%s\n' ':8080 { root * /tmp }' >"$CADDY_FILE"
-cp "$CADDY_FILE" "$WEBSITE/tools/Caddyfile.production"
+cp "$CADDY_FILE" "$SERVER_ROOT/Caddyfile.production"
 
 cat >"$FAKE_BIN/simpleserve" <<'EOF'
 #!/bin/sh
@@ -157,7 +158,7 @@ fi
 echo 'Valid configuration'
 EOF
 
-cat >"$WEBSITE/tools/check_server.sh" <<'EOF'
+cat >"$SERVER_ROOT/check_server.sh" <<'EOF'
 #!/bin/sh
 case "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" in
     missing-caddy)
@@ -188,7 +189,7 @@ echo 'server verified: local Caddy origin and store are healthy'
 EOF
 
 chmod 755 "$FAKE_BIN"/* "$SIMPLESERVE_VERIFY" \
-    "$WEBSITE/tools/check_server.sh"
+    "$SERVER_ROOT/check_server.sh"
 
 HOME="$HOME_DIR" "$ROOT/scripts/install-simpletrident.sh" \
     >"$TEST_ROOT/install.out"
@@ -431,6 +432,8 @@ grep -q '^\[DOWN *\] Caddy website / local web origin$' "$TEST_ROOT/website.out"
 grep -q 'The installed Caddy config is invalid' "$TEST_ROOT/website.out"
 grep -q 'error: Caddy service is not active' "$TEST_ROOT/website.out"
 grep -q 'setup-server --verify-only --no-public-check' "$TEST_ROOT/website.out"
+grep -q "$SERVER_ROOT/check_server.sh" "$TEST_ROOT/website.out"
+! grep -q "$WEBSITE/tools/check_server.sh" "$TEST_ROOT/website.out"
 
 run_check bad-web-support "$TEST_ROOT/website-support.out"
 [ "$check_status" -eq 1 ]

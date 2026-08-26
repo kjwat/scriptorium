@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+exec env @HOME_ENV@ @XDG_CONFIG_ENV@ @XDG_DATA_ENV@ @SITE_ROOT_ENV@ @SITE_ADDRESS_ENV@ @CADDY_BIN_Q@ run --config /etc/caddy/Caddyfile --adapter caddyfile

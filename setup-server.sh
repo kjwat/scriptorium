@@ -12,6 +12,7 @@ fi
 SCRIPTORIUM_ROOT=${SCRIPTORIUM_ROOT:-$DEFAULT_SCRIPTORIUM_ROOT}
 NETWORK_SETUP=${SCRIPTORIUM_NETWORK_SETUP:-$SCRIPTORIUM_ROOT/scripts/setup-network-server.sh}
 SERVER_DEMOTION=${SCRIPTORIUM_SERVER_DEMOTION:-$SCRIPTORIUM_ROOT/scripts/demote-server.sh}
+WEBSITE_SETUP=${SCRIPTORIUM_WEBSITE_SETUP:-$SCRIPTORIUM_ROOT/scripts/setup-website-server.sh}
 ROLE_FILE=${SCRIPTORIUM_SIMPLESERVE_ROLE_FILE:-/etc/simpleserve-role}
 
 die() {
@@ -34,7 +35,7 @@ Cloudflare tunnel.
   -h, --help     show this help before touching either checkout
 
 Running setup-server interactively on an existing server offers --client first.
-Other options are passed to ~/website/tools/setup_server.sh.
+Other options are handled by Scriptorium's website-server provisioner.
 EOF
 }
 
@@ -102,6 +103,7 @@ esac
 [[ $TARGET == /* ]] || die "WEBSITE_DIR must be an absolute path"
 command -v git >/dev/null 2>&1 || die "git is required; run the Scriptorium installer first"
 [[ -x $NETWORK_SETUP ]] || die "Trident server setup is missing: $NETWORK_SETUP"
+[[ -x $WEBSITE_SETUP ]] || die "Scriptorium website setup is missing: $WEBSITE_SETUP"
 
 network_arguments=()
 for argument in "$@"; do
@@ -112,7 +114,7 @@ for argument in "$@"; do
 done
 if [[ -d $TARGET/.git ]]; then
     if [[ -n $(git -C "$TARGET" status --porcelain) ]]; then
-        die "$TARGET has uncommitted changes; review them before updating the server installer"
+        die "$TARGET has uncommitted changes; review them before updating the website payload"
     fi
     printf 'Updating existing website checkout...\n'
     GIT_TERMINAL_PROMPT=1 git -C "$TARGET" pull --ff-only
@@ -137,7 +139,6 @@ else
     trap - EXIT INT TERM
 fi
 
-installer=$TARGET/tools/setup_server.sh
-[[ -x $installer ]] || die "website installer is missing or not executable: $installer"
 "$NETWORK_SETUP" "${network_arguments[@]}"
-exec "$installer" "$@"
+exec env WEBSITE_DIR="$TARGET" SCRIPTORIUM_ROOT="$SCRIPTORIUM_ROOT" \
+    "$WEBSITE_SETUP" "$@"

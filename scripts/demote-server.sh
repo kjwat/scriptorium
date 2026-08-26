@@ -2,7 +2,6 @@
 set -eu
 
 ROOT=${SCRIPTORIUM_ROOT:-$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)}
-WEBSITE=${WEBSITE_DIR:-$HOME/website}
 NETWORK_CLIENT_SETUP=${SCRIPTORIUM_NETWORK_CLIENT_SETUP:-$ROOT/scripts/setup-network-client.sh}
 SYSTEM_ROOT=${SCRIPTORIUM_SYSTEM_ROOT:-}
 BACKUP_PARENT=${SCRIPTORIUM_SERVER_BACKUP_DIR:-$HOME/.local/state/scriptorium/server-backups}
@@ -35,21 +34,8 @@ run_root() {
     fi
 }
 
-copy_protected_state() {
-    source=$1
-    destination=$2
-
-    if run_root test -f "$source"; then
-        mkdir -p "$(dirname -- "$destination")"
-        chmod 0700 "$(dirname -- "$destination")"
-        run_root install -m 0600 -o "$(id -u)" -g "$(id -g)" \
-            "$source" "$destination"
-    fi
-}
-
 backup_server_state() {
-    backup_tool=$WEBSITE/tools/backup_server_state.py
-    environment=$HOME/.config/keelanwatlington/store.env
+    backup_tool=$ROOT/scripts/backup-server-state.sh
     timestamp=$(date +%Y%m%d-%H%M%S)
     backup=$BACKUP_PARENT/server-$timestamp
     suffix=0
@@ -60,23 +46,11 @@ backup_server_state() {
         suffix=$((suffix + 1))
         backup=$BACKUP_PARENT/server-$timestamp-$suffix
     done
-    if [ -f "$environment" ]; then
-        [ -x "$backup_tool" ] || {
-            echo "setup-server: website state exists, but its backup tool is unavailable: $backup_tool" >&2
-            exit 1
-        }
-        "$backup_tool" "$backup" \
-            --cloudflared-config "$backup.no-cloudflare-config" >&2
-    else
-        mkdir -m 0700 "$backup"
-    fi
-
-    copy_protected_state "$(root_path /etc/cloudflared/keelanwatlington.token)" \
-        "$backup/cloudflared/token"
-    copy_protected_state "$(root_path /etc/cloudflared/config.yml)" \
-        "$backup/cloudflared/config.yml"
-    copy_protected_state "$(root_path /etc/cloudflared/keelanwatlington-credentials.json)" \
-        "$backup/cloudflared/credentials.json"
+    [ -x "$backup_tool" ] || {
+        echo "setup-server: Scriptorium's server-state backup tool is unavailable: $backup_tool" >&2
+        exit 1
+    }
+    SCRIPTORIUM_SYSTEM_ROOT=$SYSTEM_ROOT "$backup_tool" "$backup" >&2
     printf '%s\n' "$backup"
 }
 

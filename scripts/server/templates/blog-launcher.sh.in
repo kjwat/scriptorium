@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+child_pid=
+stop_loop() {
+    [ -z "$child_pid" ] || kill "$child_pid" 2>/dev/null || true
+    exit 0
+}
+trap stop_loop HUP INT TERM
+
+while :; do
+    env @HOME_ENV@ PYTHON_BIN=@PYTHON_BIN_Q@ @SYNC_BLOG_Q@ &
+    child_pid=$!
+    wait "$child_pid" || true
+    child_pid=
+    sleep "${WEBSITE_BLOG_INTERVAL:-1800}" &
+    child_pid=$!
+    wait "$child_pid" || true
+    child_pid=
+done

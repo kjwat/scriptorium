@@ -1567,7 +1567,8 @@ static void check_tailscale(Category *category)
     }
 }
 
-static void set_website_fix(Category *category, const char *website)
+static void set_website_fix(Category *category, const char *website,
+                            const char *server_root)
 {
     append_text(category->fix, sizeof(category->fix),
                 "Reconcile the checkout, Caddy configuration, and local services:\n"
@@ -1575,8 +1576,8 @@ static void set_website_fix(Category *category, const char *website)
                 "Run a read-only local verification afterward:\n"
                 "  setup-server --verify-only --no-public-check\n\n"
                 "The lower-level local check is:\n"
-                "  CHECK_BLOG_TIMER=0 CHECK_CLOUDFLARED=0 %s/tools/check_server.sh\n",
-                website);
+                "  CHECK_BLOG_TIMER=0 CHECK_CLOUDFLARED=0 WEBSITE_DIR=%s %s/check_server.sh\n",
+                website, server_root);
     if (strcmp(service_manager, "systemd") == 0) {
         append_text(category->fix, sizeof(category->fix),
                     "\nInspect the two required services with:\n"
@@ -1646,15 +1647,16 @@ static void discover_site_address(char *address, size_t address_size)
         copy_string(address, address_size, ":8080");
 }
 
-static int run_website_health(const char *checker, const char *origin,
-                              int supporting_services, char *output,
-                              size_t output_size)
+static int run_website_health(const char *checker, const char *website,
+                              const char *origin, int supporting_services,
+                              char *output, size_t output_size)
 {
     const char *arguments[] = {"sh", checker, NULL};
     const EnvPair environment[] = {
         {"CHECK_BLOG_TIMER", supporting_services ? "1" : "0"},
         {"CHECK_CLOUDFLARED", supporting_services ? "1" : "0"},
         {"CADDY_CHECK_ORIGIN", origin},
+        {"WEBSITE_DIR", website},
         {"WEBSITE_SERVICE_MANAGER", service_manager},
         {NULL, NULL}
     };
@@ -1670,6 +1672,7 @@ static void check_website(Category *category)
         NULL
     };
     char website[PATH_MAX];
+    char server_root[PATH_MAX];
     char checker[PATH_MAX];
     char source_config[PATH_MAX];
     char installed_config[PATH_MAX];
@@ -1679,6 +1682,7 @@ static void check_website(Category *category)
     char site_address_buffer[128];
     char output[OUTPUT_SIZE];
     const char *website_override = getenv("SIMPLETRIDENT_WEBSITE_DIR");
+    const char *server_root_override = getenv("SIMPLETRIDENT_SERVER_ROOT");
     const char *checker_override = getenv("SIMPLETRIDENT_WEBSITE_CHECK");
     const char *config_override = getenv("SIMPLETRIDENT_CADDYFILE");
     const char *store_environment_override =
@@ -1718,13 +1722,19 @@ static void check_website(Category *category)
         copy_string(website, sizeof(website), website_override);
     else if (!join_path(website, sizeof(website), home_dir, "/website"))
         copy_string(website, sizeof(website), "(home path is too long)");
+    if (server_root_override && server_root_override[0])
+        copy_string(server_root, sizeof(server_root), server_root_override);
+    else if (!join_path(server_root, sizeof(server_root), home_dir,
+                        "/scriptorium/scripts/server"))
+        copy_string(server_root, sizeof(server_root),
+                    "(home path is too long)");
     if (checker_override && checker_override[0])
         copy_string(checker, sizeof(checker), checker_override);
-    else if (!join_path(checker, sizeof(checker), website,
-                        "/tools/check_server.sh"))
+    else if (!join_path(checker, sizeof(checker), server_root,
+                        "/check_server.sh"))
         checker[0] = '\0';
-    if (!join_path(source_config, sizeof(source_config), website,
-                   "/tools/Caddyfile.production"))
+    if (!join_path(source_config, sizeof(source_config), server_root,
+                   "/Caddyfile.production"))
         source_config[0] = '\0';
     if (config_override && config_override[0])
         copy_string(installed_config, sizeof(installed_config), config_override);
@@ -1769,7 +1779,7 @@ static void check_website(Category *category)
     }
     category_ok(category, "Local Caddy origin is %s", origin);
 
-    source_config_present = website_present && access(source_config, R_OK) == 0;
+    source_config_present = access(source_config, R_OK) == 0;
     installed_config_present = access(installed_config, R_OK) == 0;
     if (!caddy_found) {
         category_blocked(category,
@@ -1802,14 +1812,14 @@ static void check_website(Category *category)
         }
     }
 
-    if (!website_present) {
-        category_blocked(category,
-                         "Production Caddy source config check requires the website checkout");
-    } else if (!source_config_present) {
+    if (!source_config_present) {
         category_partial(category,
-                         "The production Caddy source config is missing");
+                         "Scriptorium's production Caddy source config is missing");
+        append_text(category->details, sizeof(category->details),
+                    "          expected: %s\n", source_config);
     } else {
-        category_ok(category, "Production Caddy source config is present");
+        category_ok(category,
+                    "Scriptorium's production Caddy source config is present");
     }
 
     if (!installed_config_present) {
@@ -1817,21 +1827,19 @@ static void check_website(Category *category)
                          "Installed Caddy config comparison requires a readable installed config");
     } else if (!source_config_present) {
         category_blocked(category,
-                         "Installed Caddy config comparison requires the production source config");
+                         "Installed Caddy config comparison requires Scriptorium's production source config");
     } else if (!files_equal(source_config, installed_config)) {
         category_partial(category,
-                         "The installed Caddy config is stale relative to the website checkout");
+                         "The installed Caddy config is stale relative to Scriptorium");
     } else {
         category_ok(category,
-                    "Installed Caddy config matches the website checkout");
+                    "Installed Caddy config matches Scriptorium");
     }
 
-    checker_present = website_present && access(checker, R_OK) == 0;
-    if (!website_present) {
-        category_blocked(category,
-                         "Website health checker check requires the website checkout");
-    } else if (!checker_present) {
-        category_unknown(category, "The website health checker is missing");
+    checker_present = access(checker, R_OK) == 0;
+    if (!checker_present) {
+        category_unknown(category,
+                         "Scriptorium's website health checker is missing");
         append_text(category->details, sizeof(category->details),
                     "          expected: %s\n", checker);
         category_blocked(category,
@@ -1850,7 +1858,7 @@ static void check_website(Category *category)
     } else if (!checker_present) {
         /* The missing checker and blocked health check were recorded above. */
     } else {
-        int result = run_website_health(checker, origin, 1,
+        int result = run_website_health(checker, website, origin, 1,
                                         output, sizeof(output));
 
         if (result == 0) {
@@ -1895,7 +1903,7 @@ static void check_website(Category *category)
             int core_result;
 
             copy_string(full_output, sizeof(full_output), output);
-            core_result = run_website_health(checker, origin, 0,
+            core_result = run_website_health(checker, website, origin, 0,
                                              output, sizeof(output));
             if (core_result == 0) {
                 if (result == -2) {
@@ -1931,7 +1939,7 @@ static void check_website(Category *category)
         copy_string(category->summary, sizeof(category->summary),
                     "Caddy, fulfillment mail, blog sync, and tunnel are healthy");
     } else {
-        set_website_fix(category, website);
+        set_website_fix(category, website, server_root);
     }
 }
 

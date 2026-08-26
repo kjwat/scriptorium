@@ -1,0 +1,10 @@
+{$SITE_ADDRESS::8080} {
+	@store_backend path /stripe/webhook /shop/recover /shop/recover/* /shop/gleamings/complete /shop/gleamings/complete/* /shop/gleamings/download /shop/gleamings/download/* /shop/long-beach/complete /shop/long-beach/complete/* /shop/long-beach/download /shop/long-beach/download/* /_store/health
+	reverse_proxy @store_backend 127.0.0.1:8787
+
+	@private_paths path /.git* /.github /.github/* /tools /tools/* /editions /editions/* /README.md
+	respond @private_paths 404
+
+	root * {$SITE_ROOT}
+	file_server
+}

@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+description="@DESCRIPTION@"
+command="@LAUNCHER@"
+@COMMAND_USER_LINE@
+supervisor=supervise-daemon
+respawn_delay=5
+respawn_max=0
+
+depend() {
+    need net
+}
+
