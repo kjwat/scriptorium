@@ -1,0 +1,295 @@
+SCRIPTORIUM SERVER SETUP
+=========================
+
+PART ONE — NORMAL SETUP UNDER CURRENT CONDITIONS
+================================================
+
+Use this when the Cloudflare account, Watnet Server tunnel, DNS, and other
+external infrastructure already exist. This is the normal procedure.
+
+1. INSTALL SIMPLEOS AND GET ONLINE
+----------------------------------
+Install/boot SimpleOS and connect the machine to the Internet.
+
+2. INSTALL SCRIPTORIUM
+----------------------
+Open a terminal:
+
+    cd ~
+    git clone https://github.com/kjwat/scriptorium.git
+    cd ~/scriptorium
+    ./install.sh
+
+Follow the prompts.
+
+Choose SERVER for the Trident role.
+
+If Tailscale asks you to authenticate, authenticate this machine into the
+existing tailnet.
+
+Let install.sh finish.
+
+3. GET THE EXISTING WATNET SERVER CONNECTOR TOKEN
+--------------------------------------------------
+You are NOT creating a new tunnel.
+
+In Cloudflare, open the existing:
+
+    Watnet Server
+
+Choose:
+
+    Add a replica
+
+Cloudflare will show a cloudflared command containing a long token, normally
+beginning with something like:
+
+    eyJ...
+
+Copy ONLY that token.
+
+This is the Cloudflare tunnel CONNECTOR TOKEN.
+
+Keep it ready for setup-server.
+
+4. RUN SETUP-SERVER
+-------------------
+Run:
+
+    setup-server
+
+If it says the machine is already a full Trident server and asks:
+
+    Remove server mode and return this machine to client mode? [y/N]
+
+answer:
+
+    n
+
+If setup-server asks for the Cloudflare tunnel token, paste the connector
+token from Watnet Server -> Add a replica.
+
+If setup-server says it is REUSING the protected Cloudflare management API
+token, GOOD. Let it reuse it.
+
+Do NOT create a new management token on every installation.
+
+The management token already created for Scriptorium is a durable credential.
+Scriptorium should preserve it in protected state and in the server-state
+backup.
+
+5. IF REPLACING AN OLD SERVER, RESTORE ITS STATE BACKUP
+-------------------------------------------------------
+If you have a Scriptorium server-state backup from the previous server, use
+it.
+
+If setup-server tells you to run something like:
+
+    setup-server --state-backup /path/to/private-backup
+
+rerun it with the actual backup path.
+
+This is the preferred replacement-server procedure because the backup carries
+protected server state forward instead of making you reconstruct it.
+
+6. LET SETUP-SERVER DO ITS JOB
+------------------------------
+Do NOT manually:
+
+    create another Cloudflare tunnel
+    change the website DNS
+    create public-hostname/ingress rules
+    edit Caddy just to make Cloudflare work
+
+setup-server is supposed to reconcile the existing infrastructure so that:
+
+    keelanwatlington.com
+    www.keelanwatlington.com
+
+both reach:
+
+    existing Watnet Server tunnel
+        -> cloudflared on this machine
+        -> http://localhost:8080
+        -> Caddy
+        -> website
+
+7. VERIFY
+---------
+Run:
+
+    curl -I http://localhost:8080
+    curl -I https://keelanwatlington.com
+    curl -I https://www.keelanwatlington.com
+
+Then load:
+
+    https://keelanwatlington.com
+
+in a browser.
+
+The public website must actually work.
+
+8. REBOOT TEST
+--------------
+Run:
+
+    sudo reboot
+
+After reboot:
+
+    systemctl is-active cloudflared
+    curl -I http://localhost:8080
+    curl -I https://keelanwatlington.com
+    curl -I https://www.keelanwatlington.com
+
+Also verify Tailscale and the SimpleServe/NFS/SMB functions you use.
+
+If the website still works after reboot, the server setup is complete.
+
+
+PART TWO — START-FROM-SCRATCH / LOST-EVERYTHING PROCEDURE
+=========================================================
+
+Use this only if the normal reusable Cloudflare/Scriptorium state is gone:
+for example, there is no usable server-state backup or the required
+management credential no longer exists.
+
+This is NOT the normal reinstall procedure.
+
+A. CREATE OR IDENTIFY THE CLOUDFLARE TUNNEL
+-------------------------------------------
+The intended existing production tunnel is:
+
+    Watnet Server
+
+If that tunnel still exists, USE IT. Do not create another one merely because
+the server was wiped.
+
+Open Watnet Server in Cloudflare and choose:
+
+    Add a replica
+
+Copy the token from the displayed cloudflared command. This is the connector
+token that lets the new machine join that tunnel.
+
+Only create a genuinely new tunnel if the production tunnel itself has been
+lost/deleted and cannot be reused.
+
+B. CREATE THE SCRIPTORIUM MANAGEMENT API TOKEN — ONCE
+-----------------------------------------------------
+If the existing Scriptorium management API token is truly lost or does not
+exist, create a replacement ONCE.
+
+In Cloudflare:
+
+    API Tokens
+    -> Create Token
+    -> Custom Token
+
+Give it a recognizable name such as:
+
+    Scriptorium Server
+
+Give it these permissions:
+
+    Account -> Cloudflare Tunnel -> Edit
+    Zone    -> DNS               -> Edit
+    Zone    -> Zone              -> Read
+
+Cloudflare's dashboard wording can change. The tunnel permission may appear
+with wording related to:
+
+    Cloudflare One Connector: cloudflared
+
+During the working setup, the DNS permission was selected as:
+
+    Zone -> DNS -> Edit
+
+Scope the Account permission to the account that owns Watnet Server.
+
+Scope the Zone permissions specifically to:
+
+    keelanwatlington.com
+
+Create the token.
+
+IMPORTANT:
+
+    COPY THE TOKEN SECRET IMMEDIATELY.
+
+Cloudflare shows a newly created API token secret only once.
+
+This is the MANAGEMENT API TOKEN. It is different from the tunnel connector
+token.
+
+Give it to setup-server when requested.
+
+After that, Scriptorium should store it as protected state. Do not recreate it
+for every server install.
+
+C. RUN THE NORMAL SETUP
+-----------------------
+Once the tunnel connector token and management token exist:
+
+    cd ~/scriptorium
+    ./install.sh
+
+Choose SERVER.
+
+Then:
+
+    setup-server
+
+Supply the connector token and management API token when requested.
+
+Let Scriptorium configure/reconcile the website, tunnel ingress, and DNS.
+
+D. VERIFY EVERYTHING
+--------------------
+Run:
+
+    curl -I http://localhost:8080
+    curl -I https://keelanwatlington.com
+    curl -I https://www.keelanwatlington.com
+
+Load the website in a browser.
+
+Then:
+
+    sudo reboot
+
+After reboot, run the same checks again.
+
+E. MAKE A SERVER-STATE BACKUP
+-----------------------------
+Once the reconstructed server is known-good, create Scriptorium's protected
+server-state backup using the current Scriptorium backup command.
+
+Store that backup somewhere that will survive the loss of this server.
+
+The whole point is that NEXT TIME you should use PART ONE, restore the saved
+state, and never have to manufacture the Cloudflare management credential
+again.
+
+
+THE RULE
+========
+
+NORMAL REPLACEMENT:
+
+    SimpleOS
+      -> Scriptorium
+      -> existing Watnet Server connector token
+      -> restore protected state
+      -> setup-server
+      -> website works
+      -> reboot
+      -> website still works
+
+START FROM SCRATCH:
+
+    reconstruct missing durable credentials/infrastructure ONCE
+      -> setup-server
+      -> make protected state backup
+      -> future replacements use the normal procedure
