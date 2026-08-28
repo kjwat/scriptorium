@@ -177,8 +177,24 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck check simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server; do
+for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
+done
+
+for alias_mapping in \
+    blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck \
+    clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
+    mail:simplemail net:simplenet news:simplenews pdf:simplepdf \
+    pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats \
+    suite-uninstall:simplesuite-uninstall trident:simpletrident \
+    ver:simplever vis:simplevis words:simplewords; do
+    alias_name=${alias_mapping%%:*}
+    alias_target=${alias_mapping#*:}
+    alias_path=$HOME/.local/bin/$alias_name
+    if [ -L "$alias_path" ] &&
+       [ "$(readlink "$alias_path" 2>/dev/null || true)" = "$alias_target" ]; then
+        rm -f "$alias_path"
+    fi
 done
 
 # Remove snapd itself only if Scriptorium installed it.
@@ -296,6 +312,7 @@ clean_shell_rc() {
     tmp="$(mktemp)"
     awk '
         BEGIN {
+            aliases["blue"] = "simpleblue"
             aliases["words"] = "simplewords"
             aliases["files"] = "simplefiles"
             aliases["browse"] = "simplebrowse"
@@ -314,6 +331,8 @@ clean_shell_rc() {
             aliases["news"] = "simplenews"
             aliases["mail"] = "simplemail"
             aliases["net"] = "simplenet"
+            aliases["serve"] = "simpleserve"
+            aliases["suite-uninstall"] = "simplesuite-uninstall"
             quote = sprintf("%c", 39)
         }
         $0 == "# Scriptorium user binaries" { next }

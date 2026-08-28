@@ -49,6 +49,7 @@ simplewords-typewriter-enter.wav
 simplewords-typewriter-delete.wav
 simplewords-typewriter-NOTICE.md
 install-source
+command-abbreviations
 "
 SIMPLESUITE_PROGRAMS="
 simplebrowse
@@ -58,7 +59,6 @@ simplefiles
 simpleflac
 simplegame
 simplemail
-simplenet
 simplepdf
 simplepod
 simpleradio
@@ -68,6 +68,24 @@ simplever
 simplevis
 simplewords
 
+"
+SIMPLESUITE_COMMAND_ALIASES="
+browse:simplebrowse
+cal:simplecal
+clock:simpleclock
+files:simplefiles
+flac:simpleflac
+game:simplegame
+mail:simplemail
+news:simplenews
+pdf:simplepdf
+pod:simplepod
+radio:simpleradio
+stats:simplestats
+suite-uninstall:simplesuite-uninstall
+ver:simplever
+vis:simplevis
+words:simplewords
 "
 SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
 
@@ -80,11 +98,36 @@ case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
 esac
 
 case "$SIMPLESUITE_HOST_OS" in
+    Linux)
+        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
+simplenet
+simpleblue
+"
+        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
+net:simplenet
+blue:simpleblue
+"
+        ;;
+    FreeBSD)
+        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
+simplenet
+"
+        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
+net:simplenet
+"
+        ;;
+    Darwin) ;;
+esac
+
+case "$SIMPLESUITE_HOST_OS" in
     Darwin | FreeBSD | Linux)
         if [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" -eq 1 ]; then
         SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
 simpleserve
 simpleserved
+"
+        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
+serve:simpleserve
 "
         fi
         ;;
@@ -304,6 +347,26 @@ if [ -n "$SIMPLESUITE_SCRIPTS" ]; then
         echo "SimpleSuite build/install did not produce every expected helper script." >&2
         exit 1
     fi
+fi
+
+echo "Verifying SimpleSuite short commands in $HOME/.local/bin"
+for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
+    short_command=${alias_mapping%%:*}
+    full_command=${alias_mapping#*:}
+    alias_path=$HOME/.local/bin/$short_command
+    if [ -L "$alias_path" ] &&
+       [ "$(readlink "$alias_path")" = "$full_command" ] &&
+       [ -x "$alias_path" ]; then
+        printf '  ok: %s -> %s\n' "$short_command" "$full_command"
+    else
+        printf '  missing: %s -> %s\n' "$alias_path" "$full_command" >&2
+        missing=1
+    fi
+done
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite install did not produce every expected short command." >&2
+    exit 1
 fi
 
 echo "Verifying SimpleSuite shared assets in $HOME/.local/share/simplesuite"

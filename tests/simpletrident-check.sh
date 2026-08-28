@@ -194,7 +194,11 @@ chmod 755 "$FAKE_BIN"/* "$SIMPLESERVE_VERIFY" \
 HOME="$HOME_DIR" "$ROOT/scripts/install-simpletrident.sh" \
     >"$TEST_ROOT/install.out"
 TRIDENT=$HOME_DIR/.local/bin/simpletrident
+TRIDENT_ALIAS=$HOME_DIR/.local/bin/trident
 [ -x "$TRIDENT" ]
+[ -L "$TRIDENT_ALIAS" ]
+[ "$(readlink "$TRIDENT_ALIAS")" = simpletrident ]
+[ "$(realpath "$TRIDENT_ALIAS")" = "$TRIDENT" ]
 grep -q "Installed $TRIDENT" "$TEST_ROOT/install.out"
 
 run_check() {

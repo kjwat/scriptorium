@@ -4,6 +4,7 @@ set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE="$ROOT/simpletrident.c"
 DEST="$HOME/.local/bin/simpletrident"
+ALIAS_DEST="$HOME/.local/bin/trident"
 CC_BIN="${CC:-cc}"
 
 prepend_pkgconfig_dir() {
@@ -28,6 +29,14 @@ if [ ! -f "$SOURCE" ]; then
 fi
 
 mkdir -p "$HOME/.local/bin"
+if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
+    if [ ! -L "$ALIAS_DEST" ] ||
+       [ "$(readlink "$ALIAS_DEST")" != simpletrident ]; then
+        printf 'Refusing to replace unrelated trident command: %s\n' \
+            "$ALIAS_DEST" >&2
+        exit 1
+    fi
+fi
 temporary="$(mktemp "${TMPDIR:-/tmp}/simpletrident.XXXXXX")"
 
 cleanup() {
@@ -59,4 +68,7 @@ else
 fi
 
 install -m 0755 "$temporary" "$DEST"
-printf 'Installed %s\n' "$DEST"
+if [ ! -L "$ALIAS_DEST" ]; then
+    ln -s simpletrident "$ALIAS_DEST"
+fi
+printf 'Installed %s and %s\n' "$DEST" "$ALIAS_DEST"

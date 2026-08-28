@@ -1,5 +1,5 @@
 build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev
 git mpv poppler-utils pandoc
-nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils cifs-utils openssh-client openssh-server samba
+nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel bluez libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils cifs-utils openssh-client openssh-server samba
 python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
 isync msmtp calcurse links curl ca-certificates rsync cron

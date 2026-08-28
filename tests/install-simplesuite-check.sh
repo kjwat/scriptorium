@@ -44,16 +44,28 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
 set -eu
 
-programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenet simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
+programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+case "$(uname -s)" in
+    Linux)
+        programs="$programs simplenet simpleblue"
+        aliases="$aliases net:simplenet blue:simpleblue"
+        ;;
+    FreeBSD)
+        programs="$programs simplenet"
+        aliases="$aliases net:simplenet"
+        ;;
+esac
 case "$(uname -s)" in
     Darwin | FreeBSD | Linux)
         if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}" -eq 1 ]; then
             programs="$programs simpleserve simpleserved"
+            aliases="$aliases serve:simpleserve"
         fi
         ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source'
+assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source command-abbreviations'
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
@@ -61,6 +73,11 @@ mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" \
 for name in $programs $helpers; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
     chmod 755 "$HOME/.local/bin/$name"
+done
+for mapping in $aliases; do
+    short=${mapping%%:*}
+    full=${mapping#*:}
+    ln -s "$full" "$HOME/.local/bin/$short"
 done
 printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
     >"$HOME/simpleserve-component-selection"
@@ -156,6 +173,11 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
+[ -r "$HOME/.local/share/simplesuite/command-abbreviations" ]
+[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
+[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
+[ "$(readlink "$HOME/.local/bin/suite-uninstall")" = simplesuite-uninstall ]
+[ ! -e "$HOME/.local/bin/blue" ]
 grep -q '^typewriter_sound=false$' "$HOME/.config/simplewords/config"
 grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -r "$HOME/.config/simplefiles/config" ]
@@ -186,6 +208,9 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -x "$HOME/.local/bin/simpleserved" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
+[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
+[ ! -e "$HOME/.local/bin/net" ]
+[ ! -e "$HOME/.local/bin/blue" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^yes$' "$HOME/macos-build-ran"
 grep -q '^server$' "$HOME/simpleserve-network-role"
@@ -204,10 +229,14 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
     >"$TMP/install-linux.log"
 
 [ -x "$HOME/.local/bin/simplewords" ]
+[ -x "$HOME/.local/bin/simpleblue" ]
 [ -x "$HOME/.local/bin/simpleserve" ]
 [ -x "$HOME/.local/bin/simpleserved" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 [ ! -e "$HOME/package-install-ran" ]
+[ "$(readlink "$HOME/.local/bin/blue")" = simpleblue ]
+[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
+[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
 grep -q '^yes$' "$HOME/linux-build-ran"
 grep -q '^server$' "$HOME/simpleserve-network-role"
 
@@ -227,6 +256,7 @@ SIMPLESUITE_NETWORK_ROLE=client \
 
 [ -x "$HOME/.local/bin/simpleserve" ]
 [ -x "$HOME/.local/bin/simpleserved" ]
+[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
 grep -q '^client$' "$HOME/simpleserve-network-role"
 grep -q '^client$' "$HOME/simpleserve-system-role-verified"
 
@@ -249,10 +279,14 @@ SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
     >"$TMP/install-linux-without-simpleserve.log"
 
 [ -x "$HOME/.local/bin/simplewords" ]
+[ -x "$HOME/.local/bin/simpleblue" ]
 grep -q '^preserved-client$' "$HOME/.local/bin/simpleserve"
 grep -q '^preserved-daemon$' "$HOME/.local/bin/simpleserved"
 grep -q '^preserved-system-service$' "$HOME/simpleserve-system-verified"
 grep -q '^0$' "$HOME/simpleserve-component-selection"
 grep -q '^none$' "$HOME/simpleserve-network-role"
+[ "$(readlink "$HOME/.local/bin/blue")" = simpleblue ]
+[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
+[ ! -e "$HOME/.local/bin/serve" ]
 
 echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'

@@ -43,7 +43,7 @@ case "${1-}" in
         printf '%s\n' "$*" >>"$FAKE_APT_LOG"
         for runtime_command in less ntfsfix blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm \
-            ssh sshd; do
+            ssh sshd bluetoothctl; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
             chmod 755 "$FAKE_BIN/$runtime_command"
         done
@@ -81,6 +81,7 @@ PATH="$fake_bin" \
 
 grep -q '^install -y ' "$apt_log"
 for package_name in \
+    bluez \
     libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils \
     cifs-utils openssh-client openssh-server samba; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \

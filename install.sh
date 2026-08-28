@@ -531,8 +531,18 @@ ensure_simplesuite_aliases_in_file() {
         "alias pdf='simplepdf'"
         "alias news='simplenews'"
         "alias mail='simplemail'"
-        "alias net='simplenet'"
+        "alias suite-uninstall='simplesuite-uninstall'"
     )
+
+    if [[ $HOST_OS != Darwin ]]; then
+        aliases+=("alias net='simplenet'")
+    fi
+    if [[ $HOST_OS == Linux ]]; then
+        aliases+=("alias blue='simpleblue'")
+    fi
+    if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
+        aliases+=("alias serve='simpleserve'")
+    fi
 
     mkdir -p "$(dirname "$shell_rc")"
     touch "$shell_rc"
@@ -587,7 +597,24 @@ declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
 declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
+    browse
+    cal
     check
+    clock
+    files
+    flac
+    game
+    mail
+    news
+    pdf
+    pod
+    radio
+    stats
+    suite-uninstall
+    trident
+    ver
+    vis
+    words
     simplebrowse
     simplecal
     simpleclock
@@ -597,7 +624,6 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simpleflac
     simplegame
     simplemail
-    simplenet
     simplepdf
     simplepod
     simpleradio
@@ -607,6 +633,12 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simplevis
     simplewords
 )
+if [[ $HOST_OS != Darwin ]]; then
+    EXPECTED_SIMPLESUITE_COMMANDS+=(net simplenet)
+fi
+if [[ $HOST_OS == Linux ]]; then
+    EXPECTED_SIMPLESUITE_COMMANDS+=(blue simpleblue)
+fi
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplebrowse-webkitd
     simplebrowse-jsdump
@@ -835,7 +867,7 @@ printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, Open
 choose_network_role
 choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
+    EXPECTED_SIMPLESUITE_COMMANDS+=(serve simpleserve simpleserved)
 fi
 
 prepare_rollback

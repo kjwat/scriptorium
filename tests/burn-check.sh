@@ -40,10 +40,16 @@ exit 0
 EOF
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck check simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server'
+programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
+done
+for mapping in $aliases; do
+    short=${mapping%%:*}
+    full=${mapping#*:}
+    ln -s "$full" "$HOME/.local/bin/$short"
 done
 
 mkdir -p \
@@ -135,6 +141,9 @@ assert_missing "$FAKE_SIMPLESERVE_UNINSTALLER"
 
 for program in $programs simplesuite-uninstall; do
     assert_missing "$HOME/.local/bin/$program"
+done
+for mapping in $aliases; do
+    assert_missing "$HOME/.local/bin/${mapping%%:*}"
 done
 
 [[ -f "$HOME/unrelated-file" ]] || fail "burn removed an unrelated file"
