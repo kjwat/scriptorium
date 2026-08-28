@@ -46,6 +46,9 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
 set -eu
 
+[ "${SIMPLESUITE_REQUIRE_CLEAN:-}" = 1 ]
+[ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
+
 programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
 aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
@@ -67,7 +70,7 @@ case "$(uname -s)" in
         ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source command-abbreviations'
+assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations'
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
@@ -76,6 +79,14 @@ for name in $programs $helpers; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
     chmod 755 "$HOME/.local/bin/$name"
 done
+cat >"$HOME/.local/bin/simplewords" <<SIMPLEWORDS_EOF
+#!/bin/sh
+if [ "\${1-}" = --version ]; then
+    printf '%s\n' 'simplewords ${SIMPLESUITE_SOURCE_SHA:?}'
+fi
+exit 0
+SIMPLEWORDS_EOF
+chmod 755 "$HOME/.local/bin/simplewords"
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
@@ -88,6 +99,9 @@ printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
 for name in $assets; do
     printf '%s\n' fixture >"$HOME/.local/share/simplesuite/$name"
 done
+printf 'simplesuite_source_sha=%s\nsimplewords_build_revision=%s\n' \
+    "${SIMPLESUITE_SOURCE_SHA:?}" "${SIMPLESUITE_SOURCE_SHA:?}" \
+    >"$HOME/.local/share/simplesuite/install-manifest"
 if [ ! -e "$HOME/.config/simplewords/config" ]; then
     printf '%s\n' 'typewriter_sound=false' 'typewriter_sound_volume=70' \
         >"$HOME/.config/simplewords/config"
@@ -178,6 +192,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
+[ -r "$HOME/.local/share/simplesuite/install-manifest" ]
 [ -r "$HOME/.local/share/simplesuite/command-abbreviations" ]
 [ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
 [ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]

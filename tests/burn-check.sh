@@ -92,7 +92,7 @@ rm -f "$SIMPLESERVE_SYSTEM_DAEMON" "$SIMPLESERVE_SYSTEM_UNINSTALLER"
 EOF
 chmod 755 "$FAKE_SIMPLESERVE_DAEMON" "$FAKE_SIMPLESERVE_UNINSTALLER"
 
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source simplewords-typewriter.wav.bak simplewords-typewriter.wav.bak2'
+assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplewords-typewriter.wav.bak simplewords-typewriter.wav.bak2'
 for asset in $assets; do
     printf '%s\n' keep >"$HOME/.local/share/simplesuite/$asset"
 done

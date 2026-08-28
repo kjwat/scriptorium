@@ -29,6 +29,7 @@ simplewords-typewriter-enter.wav
 simplewords-typewriter-delete.wav
 simplewords-typewriter-NOTICE.md
 install-source
+install-manifest
 command-abbreviations
 "
 SIMPLESUITE_PROGRAMS="
@@ -266,6 +267,17 @@ else
     git clone "$REPO_URL" "$DEST"
 fi
 
+SIMPLESUITE_RESOLVED_SHA=$(git -C "$DEST" rev-parse --verify HEAD^{commit}) || {
+    echo "Could not resolve the fetched SimpleSuite commit." >&2
+    exit 1
+}
+if [ -n "$(git -C "$DEST" status --porcelain --untracked-files=normal)" ]; then
+    echo "SimpleSuite release checkout is dirty after update: $DEST" >&2
+    echo "Review or remove local changes before building an installable image." >&2
+    exit 1
+fi
+export SIMPLESUITE_RESOLVED_SHA
+
 configure_homebrew_build_environment
 
 case "$SIMPLESUITE_HOST_OS" in
@@ -287,10 +299,17 @@ if [ -x "$DEST/build.sh" ]; then
         SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
         SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
         SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" \
+        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+        SIMPLESUITE_REQUIRE_CLEAN=1 \
         ./build.sh)
 elif [ -f "$DEST/Makefile" ]; then
     make_cmd=${MAKE:-make}
-    (cd "$DEST" && "$make_cmd" install)
+    (cd "$DEST" && "$make_cmd" \
+        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+        SIMPLESUITE_REQUIRE_CLEAN=1 release-simplewords && \
+        "$make_cmd" \
+        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+        SIMPLESUITE_REQUIRE_CLEAN=1 install)
 else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1
@@ -367,6 +386,37 @@ fi
 
 if [ "$missing" -ne 0 ]; then
     echo "SimpleSuite install did not produce its complete runtime payload." >&2
+    exit 1
+fi
+
+expected_simplewords_version="simplewords $SIMPLESUITE_RESOLVED_SHA"
+actual_simplewords_version=$(
+    "$HOME/.local/bin/simplewords" --version 2>/dev/null || true
+)
+if [ "$actual_simplewords_version" = "$expected_simplewords_version" ]; then
+    printf '  ok: SimpleWords source revision %s\n' "$SIMPLESUITE_RESOLVED_SHA"
+else
+    printf '  stale: SimpleWords version is %s (expected %s)\n' \
+        "${actual_simplewords_version:-unavailable}" \
+        "$expected_simplewords_version" >&2
+    missing=1
+fi
+
+install_manifest=$HOME/.local/share/simplesuite/install-manifest
+if grep -qx "simplesuite_source_sha=$SIMPLESUITE_RESOLVED_SHA" \
+        "$install_manifest" 2>/dev/null &&
+   grep -qx "simplewords_build_revision=$SIMPLESUITE_RESOLVED_SHA" \
+        "$install_manifest" 2>/dev/null; then
+    printf '  ok: %s records %s\n' "$install_manifest" \
+        "$SIMPLESUITE_RESOLVED_SHA"
+else
+    printf '  stale: %s does not record fetched SHA %s\n' \
+        "$install_manifest" "$SIMPLESUITE_RESOLVED_SHA" >&2
+    missing=1
+fi
+
+if [ "$missing" -ne 0 ]; then
+    echo "SimpleSuite revision provenance verification failed." >&2
     exit 1
 fi
 

@@ -287,8 +287,13 @@ SIMPLESUITE_REPO_URL=https://example/repo.git ./install.sh
 ```
 
 If the checkout already exists, Scriptorium updates it with `git pull
---ff-only`. The SimpleSuite build installs binaries to `~/.local/bin`,
-including `simplesuite-uninstall`. Shared audio assets are installed under:
+--ff-only`. Scriptorium resolves that moving `main` checkout to an exact commit,
+requires a clean tree, and refuses installation unless that commit passes the
+SimpleWords release gate. It verifies the installed `simplewords --version`
+and `~/.local/share/simplesuite/install-manifest` against the resolved commit,
+so a captured image retains its source provenance. The SimpleSuite build
+installs binaries to `~/.local/bin`, including `simplesuite-uninstall`. Shared
+audio assets are installed under:
 
 ```text
 ~/.local/share/simplesuite/simplecal-alarm.mp3
