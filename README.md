@@ -460,7 +460,8 @@ Trident machine. Its role-aware ncurses dashboard verifies:
 - **SimpleServe / intranet:** both binaries, the configured client/server role,
   the persistent service, the live daemon control socket, managed NFS mounts,
   and—on servers—active NFS/SMB publishing, phone-compatible Linux NFS export
-  policy, and removable-drive reconciliation.
+  policy, and removable-drive reconciliation. A packaged SimpleSuite source
+  snapshot supplies the system verifier when no working checkout is present.
 - **Tailscale / encrypted extranet:** the client and persistent daemon, a live
   `100.64.0.0/10` tailnet address, SimpleServe's active NFS/SMB publishing
   bridge on servers, and a live NFS reachability probe for every remembered

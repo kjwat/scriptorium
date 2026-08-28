@@ -1026,6 +1026,9 @@ static void check_simpleserve(Category *category)
     char role_path[PATH_MAX];
     char suite[PATH_MAX];
     char verifier[PATH_MAX];
+    char packaged_suite[PATH_MAX];
+    char user_source_suite[PATH_MAX];
+    char verifier_candidate[PATH_MAX];
     char role[64] = "";
     char output[OUTPUT_SIZE];
     const char *role_override = getenv("SIMPLETRIDENT_ROLE_FILE");
@@ -1057,6 +1060,23 @@ static void check_simpleserve(Category *category)
     else if (!join_path(verifier, sizeof(verifier), suite,
                         "/verify-simpleserve-system.sh"))
         verifier[0] = '\0';
+    if ((!verifier_override || !verifier_override[0]) &&
+        access(verifier, R_OK) != 0) {
+        system_path("/usr/local/share/simplesuite/source", packaged_suite,
+                    sizeof(packaged_suite));
+        if (join_path(verifier_candidate, sizeof(verifier_candidate),
+                      packaged_suite, "/verify-simpleserve-system.sh") &&
+            access(verifier_candidate, R_OK) == 0)
+            copy_string(verifier, sizeof(verifier), verifier_candidate);
+    }
+    if ((!verifier_override || !verifier_override[0]) &&
+        access(verifier, R_OK) != 0 &&
+        join_path(user_source_suite, sizeof(user_source_suite), home_dir,
+                  "/.local/share/simplesuite/source") &&
+        join_path(verifier_candidate, sizeof(verifier_candidate),
+                  user_source_suite, "/verify-simpleserve-system.sh") &&
+        access(verifier_candidate, R_OK) == 0)
+        copy_string(verifier, sizeof(verifier), verifier_candidate);
 
     if (client_found)
         category_ok(category, "SimpleServe client is installed at %s", client);

@@ -135,6 +135,9 @@ EOF
 
 cat >"$SIMPLESERVE_VERIFY" <<'EOF'
 #!/bin/sh
+if [ "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" = packaged-verifier ]; then
+    printf '%s\n' ran >"$SIMPLETRIDENT_TEST_VERIFIER_MARKER"
+fi
 if [ "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" = bad-simpleserve-system ]; then
     echo 'SimpleServe runtime prerequisite commands are missing: avahi-browse' >&2
     exit 1
@@ -207,6 +210,8 @@ grep -q "Installed $TRIDENT" "$TEST_ROOT/install.out"
 run_check() {
     scenario=$1
     output=$2
+    verifier_command=$SIMPLESERVE_VERIFY
+    system_root=
     case "$scenario" in
         client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon)
             printf '%s\n' client >"$ROLE_FILE"
@@ -218,6 +223,14 @@ run_check() {
         rm -f "$SERVER_ROOT/Caddyfile.production"
     else
         cp "$CADDY_FILE" "$SERVER_ROOT/Caddyfile.production"
+    fi
+    if [ "$scenario" = packaged-verifier ]; then
+        packaged_suite=$TEST_ROOT/system/usr/local/share/simplesuite/source
+        mkdir -p "$packaged_suite"
+        cp "$SIMPLESERVE_VERIFY" \
+            "$packaged_suite/verify-simpleserve-system.sh"
+        verifier_command=
+        system_root=$TEST_ROOT/system
     fi
     caddy_command=$FAKE_BIN/caddy
     if [ "$scenario" = missing-caddy ] || [ "$scenario" = client-no-caddy ]; then
@@ -254,8 +267,9 @@ run_check() {
     HOME="$HOME_DIR" \
     PATH="$FAKE_BIN:/usr/bin:/bin" \
     SIMPLETRIDENT_SERVICE_MANAGER=systemd \
+    SIMPLETRIDENT_SYSTEM_ROOT="$system_root" \
     SIMPLETRIDENT_ROLE_FILE="$ROLE_FILE" \
-    SIMPLETRIDENT_SIMPLESERVE_VERIFY="$SIMPLESERVE_VERIFY" \
+    SIMPLETRIDENT_SIMPLESERVE_VERIFY="$verifier_command" \
     SIMPLETRIDENT_EXPORTS="$EXPORTS_FILE" \
     SIMPLETRIDENT_SSH="$ssh_command" \
     SIMPLETRIDENT_SSHD="$sshd_command" \
@@ -265,6 +279,7 @@ run_check() {
     SIMPLETRIDENT_WEBSITE_DIR="$WEBSITE" \
     SIMPLETRIDENT_TEST_SCENARIO="$scenario" \
     SIMPLETRIDENT_TEST_HEALTH_MARKER="$TEST_ROOT/health-check-ran" \
+    SIMPLETRIDENT_TEST_VERIFIER_MARKER="$TEST_ROOT/verifier-ran" \
         "$TRIDENT" --check >"$output" 2>&1
     check_status=$?
     set -e
@@ -293,6 +308,12 @@ grep -q '^\[OK *\] Caddy website / local web origin$' \
 [ "$(cat "$TEST_ROOT/health-check-ran")" = ran ]
 ! grep -q "production Caddy source config is missing" \
     "$TEST_ROOT/missing-source-config.out"
+
+run_check packaged-verifier "$TEST_ROOT/packaged-verifier.out"
+[ "$check_status" -eq 0 ]
+grep -q '^\[OK *\] SimpleServe / intranet$' \
+    "$TEST_ROOT/packaged-verifier.out"
+[ "$(cat "$TEST_ROOT/verifier-ran")" = ran ]
 
 run_check server-no-recovery "$TEST_ROOT/server-no-recovery.out"
 [ "$check_status" -eq 1 ]
