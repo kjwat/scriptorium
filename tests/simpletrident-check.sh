@@ -160,6 +160,9 @@ EOF
 
 cat >"$SERVER_ROOT/check_server.sh" <<'EOF'
 #!/bin/sh
+if [ "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" = missing-source-config ]; then
+    printf '%s\n' ran >"$SIMPLETRIDENT_TEST_HEALTH_MARKER"
+fi
 case "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" in
     missing-caddy)
         echo 'error: the Caddy-dependent health checker should have been blocked' >&2
@@ -211,6 +214,11 @@ run_check() {
         unknown-role) rm -f "$ROLE_FILE" ;;
         *) printf '%s\n' server >"$ROLE_FILE" ;;
     esac
+    if [ "$scenario" = missing-source-config ]; then
+        rm -f "$SERVER_ROOT/Caddyfile.production"
+    else
+        cp "$CADDY_FILE" "$SERVER_ROOT/Caddyfile.production"
+    fi
     caddy_command=$FAKE_BIN/caddy
     if [ "$scenario" = missing-caddy ] || [ "$scenario" = client-no-caddy ]; then
         caddy_command=$TEST_ROOT/missing-caddy
@@ -256,6 +264,7 @@ run_check() {
     SIMPLETRIDENT_STORE_ENV="$STORE_ENV" \
     SIMPLETRIDENT_WEBSITE_DIR="$WEBSITE" \
     SIMPLETRIDENT_TEST_SCENARIO="$scenario" \
+    SIMPLETRIDENT_TEST_HEALTH_MARKER="$TEST_ROOT/health-check-ran" \
         "$TRIDENT" --check >"$output" 2>&1
     check_status=$?
     set -e
@@ -275,6 +284,15 @@ grep -q 'connected at 100.70.80.90; NFS/SMB publishing bridge is active' \
     "$TEST_ROOT/healthy.out"
 grep -q '^          Caddy, fulfillment mail, blog sync, and tunnel are healthy$' \
     "$TEST_ROOT/healthy.out"
+
+run_check missing-source-config "$TEST_ROOT/missing-source-config.out"
+[ "$check_status" -eq 0 ]
+grep -q '^Mode: SERVER$' "$TEST_ROOT/missing-source-config.out"
+grep -q '^\[OK *\] Caddy website / local web origin$' \
+    "$TEST_ROOT/missing-source-config.out"
+[ "$(cat "$TEST_ROOT/health-check-ran")" = ran ]
+! grep -q "production Caddy source config is missing" \
+    "$TEST_ROOT/missing-source-config.out"
 
 run_check server-no-recovery "$TEST_ROOT/server-no-recovery.out"
 [ "$check_status" -eq 1 ]

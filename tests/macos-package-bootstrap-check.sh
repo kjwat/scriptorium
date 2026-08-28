@@ -88,6 +88,7 @@ HOME="$home" \
 FAKE_BIN="$fake_bin" \
 FAKE_BREW_ROOT="$brew_root" \
 FAKE_BREW_LOG="$brew_log" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
@@ -103,6 +104,7 @@ HOME="$home" \
 FAKE_BIN="$fake_bin" \
 FAKE_BREW_ROOT="$brew_root" \
 FAKE_BREW_LOG="$brew_log" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin:/usr/bin:/bin" \
     "$BASH_BIN" "$repo/scripts/checkdeps.sh" >"$tmp/checkdeps.log" 2>&1
 grep -q 'native WKWebView helper' "$tmp/checkdeps.log"
@@ -120,6 +122,7 @@ FAKE_BIN="$fake_bin" \
 FAKE_BREW_ROOT="$brew_root" \
 FAKE_BREW_LOG="$brew_log" \
 FAKE_MACOS_VERSION=13.6 \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin:/usr/bin:/bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/old-macos.log" 2>&1
 old_status=$?

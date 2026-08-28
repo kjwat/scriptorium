@@ -12,7 +12,8 @@ pacman_log=$tmp/pacman.log
 sudo_log=$tmp/sudo.log
 network_ready=$tmp/network-ready
 mkdir -p "$fixture/scripts" "$fake_bin" "$home"
-cp "$repo/scripts/install-packages.sh" "$fixture/scripts/install-packages.sh"
+cp "$repo/scripts/install-packages.sh" \
+    "$repo/scripts/resolve-simpleserve-role.sh" "$fixture/scripts/"
 
 cat >"$fixture/scripts/detect-platform.sh" <<'EOF'
 #!/bin/sh

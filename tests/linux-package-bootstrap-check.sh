@@ -10,7 +10,8 @@ fake_bin=$tmp/bin
 home=$tmp/home
 apt_log=$tmp/apt.log
 mkdir -p "$fixture/scripts" "$fake_bin" "$home"
-cp "$repo/scripts/install-packages.sh" "$fixture/scripts/install-packages.sh"
+cp "$repo/scripts/install-packages.sh" \
+    "$repo/scripts/resolve-simpleserve-role.sh" "$fixture/scripts/"
 
 cat >"$fixture/scripts/detect-platform.sh" <<'EOF'
 #!/bin/sh
@@ -76,19 +77,25 @@ for dependency_command in \
 done
 
 HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^install -y ' "$apt_log"
 for package_name in \
-    libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils \
-    cifs-utils openssh-client openssh-server samba; do
+    libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
+    openssh-client openssh-server; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$apt_log" || {
         echo "linux-package-bootstrap-check: apt transaction omitted $package_name" >&2
         exit 1
     }
 done
+if grep -Eq '(^|[[:space:]])(nfs-kernel-server|samba)([[:space:]]|$)' \
+    "$apt_log"; then
+    echo 'linux-package-bootstrap-check: fresh client installed publishing packages' >&2
+    exit 1
+fi
 if grep -Eq '^install -y .*(^|[[:space:]])bluez([[:space:]]|$)' "$apt_log"; then
     echo "linux-package-bootstrap-check: apt transaction forced optional BlueZ" >&2
     exit 1
@@ -101,6 +108,7 @@ grep -q 'Package dependency installation verified' "$tmp/install.log"
 
 : >"$apt_log"
 HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$fixture/scripts/install-packages.sh" >"$tmp/recheck.log" 2>&1
 [ ! -s "$apt_log" ] || {
@@ -112,6 +120,7 @@ grep -q 'Package dependencies already present' "$tmp/recheck.log"
 rm -f "$fake_bin/ntfsfix"
 : >"$apt_log"
 HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$fixture/scripts/install-packages.sh" >"$tmp/ntfs-repair.log" 2>&1
 grep -Eq '^install -y .*ntfs-3g' "$apt_log" || {

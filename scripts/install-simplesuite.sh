@@ -7,32 +7,12 @@ DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
-if [ "${SIMPLESUITE_NETWORK_ROLE+x}" = x ]; then
-    case "$SIMPLESUITE_NETWORK_ROLE" in
-        none) resolved_simpleserve=0 ;;
-        client | server) resolved_simpleserve=1 ;;
-        *)
-            echo "SIMPLESUITE_NETWORK_ROLE must be none, client, or server." >&2
-            exit 2
-            ;;
-    esac
-    if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE+x}" = x ] &&
-       [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" != "$resolved_simpleserve" ]; then
-        echo "SIMPLESUITE_NETWORK_ROLE conflicts with SIMPLESUITE_INSTALL_SIMPLESERVE." >&2
-        exit 2
-    fi
-    SIMPLESUITE_INSTALL_SIMPLESERVE=$resolved_simpleserve
-else
-    SIMPLESUITE_INSTALL_SIMPLESERVE="${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}"
-    case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
-        0) SIMPLESUITE_NETWORK_ROLE=none ;;
-        1) SIMPLESUITE_NETWORK_ROLE=server ;;
-        *)
-            echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
-            exit 2
-            ;;
-    esac
-fi
+. "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
+SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
+case "$SIMPLESUITE_NETWORK_ROLE" in
+    none) SIMPLESUITE_INSTALL_SIMPLESERVE=0 ;;
+    client | server) SIMPLESUITE_INSTALL_SIMPLESERVE=1 ;;
+esac
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"

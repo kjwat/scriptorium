@@ -14,6 +14,8 @@ mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN"
 
 cp "$SOURCE_ROOT/scripts/install-simplesuite.sh" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh"
+cp "$SOURCE_ROOT/scripts/resolve-simpleserve-role.sh" \
+    "$FAKE_SCRIPTORIUM/scripts/resolve-simpleserve-role.sh"
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 chmod 755 "$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 printf '%s\n' '#!/bin/sh' 'printf "%s\n" yes >"$HOME/package-install-ran"' \
@@ -103,7 +105,7 @@ case "$(uname -s)" in
     FreeBSD)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-}" = 1 ]
-        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
+        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = client ]
         [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = require ]
         [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
@@ -113,7 +115,7 @@ case "$(uname -s)" in
         ;;
     Darwin)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
-        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
+        [ "${SIMPLESUITE_NETWORK_ROLE:-}" = client ]
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ "${MAKE:-}" = gmake ]
         printf '%s\n' yes >"$HOME/macos-build-ran"
@@ -153,6 +155,9 @@ git -C "$FAKE_REPO" config user.email 'test@example.invalid'
 git -C "$FAKE_REPO" add build.sh verify-simpleserve-system.sh
 git -C "$FAKE_REPO" commit -qm fixture
 
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$TMP/no-existing-role
+export SCRIPTORIUM_SIMPLESERVE_ROLE_FILE
+
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 FAKE_UNAME=FreeBSD \
 FAKE_BREW_ROOT="$TMP/homebrew" \
@@ -187,7 +192,7 @@ grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 grep -q '^yes$' "$HOME/package-install-ran"
-grep -q '^server$' "$HOME/simpleserve-network-role"
+grep -q '^client$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/macos-home"
 export HOME
@@ -213,7 +218,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ ! -e "$HOME/.local/bin/blue" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^yes$' "$HOME/macos-build-ran"
-grep -q '^server$' "$HOME/simpleserve-network-role"
+grep -q '^client$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/linux-home"
 export HOME
@@ -238,7 +243,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
 [ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
 grep -q '^yes$' "$HOME/linux-build-ran"
-grep -q '^server$' "$HOME/simpleserve-network-role"
+grep -q '^client$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/linux-client-home"
 export HOME

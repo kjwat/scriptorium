@@ -182,7 +182,17 @@ choose_network_role() {
     elif [[ -n ${SIMPLESUITE_INSTALL_SIMPLESERVE+x} ]]; then
         case $SIMPLESUITE_INSTALL_SIMPLESERVE in
             0) requested=none ;;
-            1) requested=server ;;
+            1)
+                set +e
+                requested=$(detect_existing_network_role)
+                existing_status=$?
+                set -e
+                case $existing_status in
+                    0) ;;
+                    1) requested=client ;;
+                    *) exit "$existing_status" ;;
+                esac
+                ;;
             *)
                 warn "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1."
                 exit 2

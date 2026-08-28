@@ -1568,7 +1568,7 @@ static void check_tailscale(Category *category)
 }
 
 static void set_website_fix(Category *category, const char *website,
-                            const char *server_root)
+                            const char *checker)
 {
     append_text(category->fix, sizeof(category->fix),
                 "Reconcile the checkout, Caddy configuration, and local services:\n"
@@ -1576,8 +1576,8 @@ static void set_website_fix(Category *category, const char *website,
                 "Run a read-only local verification afterward:\n"
                 "  setup-server --verify-only --no-public-check\n\n"
                 "The lower-level local check is:\n"
-                "  CHECK_BLOG_TIMER=0 CHECK_CLOUDFLARED=0 WEBSITE_DIR=%s %s/check_server.sh\n",
-                website, server_root);
+                "  CHECK_BLOG_TIMER=0 CHECK_CLOUDFLARED=0 WEBSITE_DIR=%s %s\n",
+                website, checker);
     if (strcmp(service_manager, "systemd") == 0) {
         append_text(category->fix, sizeof(category->fix),
                     "\nInspect the two required services with:\n"
@@ -1673,6 +1673,9 @@ static void check_website(Category *category)
     };
     char website[PATH_MAX];
     char server_root[PATH_MAX];
+    char packaged_server_root[PATH_MAX];
+    char user_source_server_root[PATH_MAX];
+    char candidate[PATH_MAX];
     char checker[PATH_MAX];
     char source_config[PATH_MAX];
     char installed_config[PATH_MAX];
@@ -1736,6 +1739,42 @@ static void check_website(Category *category)
     if (!join_path(source_config, sizeof(source_config), server_root,
                    "/Caddyfile.production"))
         source_config[0] = '\0';
+    packaged_server_root[0] = '\0';
+    user_source_server_root[0] = '\0';
+    if (!server_root_override || !server_root_override[0]) {
+        system_path("/usr/local/share/scriptorium/source/scripts/server",
+                    packaged_server_root, sizeof(packaged_server_root));
+        (void)join_path(user_source_server_root,
+                        sizeof(user_source_server_root), home_dir,
+                        "/.local/share/scriptorium/source/scripts/server");
+    }
+    if ((!checker_override || !checker_override[0]) &&
+        (!server_root_override || !server_root_override[0])) {
+        if (access(checker, R_OK) != 0 && packaged_server_root[0] &&
+            join_path(candidate, sizeof(candidate), packaged_server_root,
+                      "/check_server.sh") &&
+            access(candidate, R_OK) == 0)
+            copy_string(checker, sizeof(checker), candidate);
+        if (access(checker, R_OK) != 0 && user_source_server_root[0] &&
+            join_path(candidate, sizeof(candidate), user_source_server_root,
+                      "/check_server.sh") &&
+            access(candidate, R_OK) == 0)
+            copy_string(checker, sizeof(checker), candidate);
+    }
+    if (!server_root_override || !server_root_override[0]) {
+        if (access(source_config, R_OK) != 0 &&
+            packaged_server_root[0] &&
+            join_path(candidate, sizeof(candidate), packaged_server_root,
+                      "/Caddyfile.production") &&
+            access(candidate, R_OK) == 0)
+            copy_string(source_config, sizeof(source_config), candidate);
+        if (access(source_config, R_OK) != 0 &&
+            user_source_server_root[0] &&
+            join_path(candidate, sizeof(candidate), user_source_server_root,
+                      "/Caddyfile.production") &&
+            access(candidate, R_OK) == 0)
+            copy_string(source_config, sizeof(source_config), candidate);
+    }
     if (config_override && config_override[0])
         copy_string(installed_config, sizeof(installed_config), config_override);
     else
@@ -1813,10 +1852,11 @@ static void check_website(Category *category)
     }
 
     if (!source_config_present) {
-        category_partial(category,
-                         "Scriptorium's production Caddy source config is missing");
+        category_ok(category,
+                    "Installed Caddy config is authoritative; source-only comparison was skipped");
         append_text(category->details, sizeof(category->details),
-                    "          expected: %s\n", source_config);
+                    "          optional source snapshot not found at: %s\n",
+                    source_config);
     } else {
         category_ok(category,
                     "Scriptorium's production Caddy source config is present");
@@ -1826,8 +1866,8 @@ static void check_website(Category *category)
         category_blocked(category,
                          "Installed Caddy config comparison requires a readable installed config");
     } else if (!source_config_present) {
-        category_blocked(category,
-                         "Installed Caddy config comparison requires Scriptorium's production source config");
+        category_ok(category,
+                    "Caddy provenance comparison is optional and does not affect runtime health");
     } else if (!files_equal(source_config, installed_config)) {
         category_partial(category,
                          "The installed Caddy config is stale relative to Scriptorium");
@@ -1939,7 +1979,7 @@ static void check_website(Category *category)
         copy_string(category->summary, sizeof(category->summary),
                     "Caddy, fulfillment mail, blog sync, and tunnel are healthy");
     } else {
-        set_website_fix(category, website, server_root);
+        set_website_fix(category, website, checker);
     }
 }
 

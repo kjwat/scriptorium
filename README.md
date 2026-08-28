@@ -69,8 +69,10 @@ Scriptorium on a server cannot silently demote it. Pre-role legacy server
 installs are also recognized as servers. For unattended installs, set
 `SCRIPTORIUM_NONINTERACTIVE=1` and choose
 `SCRIPTORIUM_NETWORK_ROLE=client`, `server`, or `none`. The older
-`SIMPLESUITE_INSTALL_SIMPLESERVE=1|0` switch remains compatible (`1` retains
-its historical server meaning).
+`SIMPLESUITE_INSTALL_SIMPLESERVE=1|0` switch remains compatible, but `1` now
+preserves an existing role and otherwise selects the safe client default.
+Server publishing is enabled only by an explicit `server` role or
+`setup-server` promotion.
 
 Tailscale follows the Trident choice automatically; there is no second prompt.
 It uses the platform's native trusted package source—Tailscale's signed
@@ -470,9 +472,12 @@ Trident machine. Its role-aware ncurses dashboard verifies:
   blocking, fulfillment/recovery-mail configuration, store health, blog sync,
   and the Cloudflare tunnel service on a server. Missing recovery mail or
   another supporting-service failure is `PARTIAL` when the local origin still
-  works. This server-only prong is omitted entirely in client mode, so clients
-  neither run nor recommend Caddy repair. The public Internet route remains
-  outside this bounded local check.
+  works. The installed Caddy configuration is authoritative at runtime; a
+  missing Scriptorium source snapshot only skips the optional provenance
+  comparison and does not downgrade an otherwise healthy site. Packaged source
+  snapshots are used as a fallback when available. This server-only prong is
+  omitted entirely in client mode, so clients neither run nor recommend Caddy
+  repair. The public Internet route remains outside this bounded local check.
 
 Use Up/Down to select a category and Enter or `D` to open its evidence. A
 failed category also shows repair commands and service-log commands. Press `R`

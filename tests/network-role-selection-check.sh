@@ -62,6 +62,46 @@ existing_server_case() (
     ! grep -q "Join Keelan's Networking Trident" "$tmp/existing.out"
 )
 
+legacy_enable_defaults_client_case() (
+    unset SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SCRIPTORIUM_INSTALL_TAILSCALE
+    ROOT=$tmp/scriptorium
+    HOME=$tmp/home
+    HOST_OS=Linux
+    PATH=$tmp/empty-bin:/usr/bin:/bin
+    SIMPLESUITE_INSTALL_SIMPLESERVE=1
+    SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$tmp/no-role
+    SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON=$tmp/no-daemon
+    export ROOT HOME HOST_OS PATH SIMPLESUITE_INSTALL_SIMPLESERVE \
+        SCRIPTORIUM_SIMPLESERVE_ROLE_FILE \
+        SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON
+
+    choose_network_role >"$tmp/legacy-enable.out"
+    [[ $SCRIPTORIUM_NETWORK_ROLE == client ]]
+    [[ $SIMPLESUITE_NETWORK_ROLE == client ]]
+    [[ $SIMPLESUITE_INSTALL_SIMPLESERVE == 1 ]]
+)
+
+legacy_enable_preserves_server_case() (
+    unset SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE \
+        SCRIPTORIUM_INSTALL_TAILSCALE
+    printf '%s\n' server >"$tmp/legacy-server-role"
+    ROOT=$tmp/scriptorium
+    HOME=$tmp/home
+    HOST_OS=Linux
+    PATH=$tmp/empty-bin:/usr/bin:/bin
+    SIMPLESUITE_INSTALL_SIMPLESERVE=1
+    SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$tmp/legacy-server-role
+    SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON=$tmp/no-daemon
+    export ROOT HOME HOST_OS PATH SIMPLESUITE_INSTALL_SIMPLESERVE \
+        SCRIPTORIUM_SIMPLESERVE_ROLE_FILE \
+        SCRIPTORIUM_LEGACY_SIMPLESERVE_DAEMON
+
+    choose_network_role >"$tmp/legacy-server.out"
+    [[ $SCRIPTORIUM_NETWORK_ROLE == server ]]
+    [[ $SIMPLESUITE_NETWORK_ROLE == server ]]
+)
+
 disabled_case() (
     unset SIMPLESUITE_NETWORK_ROLE SIMPLESUITE_INSTALL_SIMPLESERVE \
         SCRIPTORIUM_INSTALL_TAILSCALE
@@ -160,6 +200,8 @@ unattended_client_offer_case() (
 
 fresh_case
 existing_server_case
+legacy_enable_defaults_client_case
+legacy_enable_preserves_server_case
 disabled_case
 client_without_tailscale_case
 unattended_without_role_case

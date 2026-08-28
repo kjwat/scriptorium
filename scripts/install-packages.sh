@@ -26,32 +26,12 @@ case "$package_scope" in
         ;;
 esac
 
-if [ "${SIMPLESUITE_NETWORK_ROLE+x}" = x ]; then
-    network_role=$SIMPLESUITE_NETWORK_ROLE
-    case "$network_role" in
-        none) resolved_simpleserve=0 ;;
-        client | server) resolved_simpleserve=1 ;;
-        *)
-            echo "SIMPLESUITE_NETWORK_ROLE must be none, client, or server." >&2
-            exit 2
-            ;;
-    esac
-    if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE+x}" = x ] &&
-       [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" != "$resolved_simpleserve" ]; then
-        echo "SIMPLESUITE_NETWORK_ROLE conflicts with SIMPLESUITE_INSTALL_SIMPLESERVE." >&2
-        exit 2
-    fi
-    install_simpleserve=$resolved_simpleserve
+. "$ROOT/scripts/resolve-simpleserve-role.sh"
+network_role=$(scriptorium_resolve_simpleserve_role) || exit $?
+if [ "$network_role" = none ]; then
+    install_simpleserve=0
 else
-    install_simpleserve=${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}
-    case "$install_simpleserve" in
-        0) network_role=none ;;
-        1) network_role=server ;;
-        *)
-            echo "SIMPLESUITE_INSTALL_SIMPLESERVE must be 0 or 1." >&2
-            exit 2
-            ;;
-    esac
+    install_simpleserve=1
 fi
 
 platform_id() {

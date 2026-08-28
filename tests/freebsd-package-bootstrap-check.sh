@@ -11,7 +11,8 @@ home=$tmp/home
 pkg_log=$tmp/pkg.log
 js_ready=$tmp/simplebrowse-js-ready
 mkdir -p "$fixture/scripts" "$fake_bin" "$home"
-cp "$repo/scripts/install-packages.sh" "$fixture/scripts/install-packages.sh"
+cp "$repo/scripts/install-packages.sh" \
+    "$repo/scripts/resolve-simpleserve-role.sh" "$fixture/scripts/"
 
 cat >"$fixture/scripts/detect-platform.sh" <<'EOF'
 #!/bin/sh
