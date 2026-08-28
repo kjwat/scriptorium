@@ -418,7 +418,11 @@ user-facing tool also gets a relative short-command symlink beside its full
 binary, so the short names resolve immediately without waiting for the parent
 shell to reload its startup file. Platform- or role-specific aliases exist only
 when their target is installed, and installers refuse to overwrite unrelated
-commands. When zsh or Fish is the login shell, the installer writes the same
+commands. On Linux, `simpleblue` and `blue` are installed without forcing the
+optional BlueZ system stack onto machines whose owners do not want Bluetooth;
+`simpleblue --setup-help` shows the opt-in setup for each supported platform.
+SimpleOS images may include BlueZ as an explicit distribution feature. When
+zsh or Fish is the login shell, the installer writes the same
 shell setup to `~/.zshrc` or `~/.config/fish/conf.d/scriptorium.fish`, using the
 shell's native PATH setup:
 

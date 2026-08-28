@@ -952,7 +952,7 @@ case "$family" in
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y \
             build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel bluez \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync cron \
             $simpleserve_packages
@@ -962,7 +962,7 @@ case "$family" in
         run_package_command void as_root env LC_ALL=C xbps-install -Sy \
             base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel bluez \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
             isync msmtp calcurse links curl ca-certificates rsync cronie \
             $simpleserve_packages
@@ -990,7 +990,7 @@ case "$family" in
             $pacman_confirmation \
             base-devel pkgconf ncurses curl openssl \
             git mpv poppler pandoc-cli \
-            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel bluez bluez-utils \
+            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync cronie \
             $simpleserve_packages
@@ -1000,7 +1000,7 @@ case "$family" in
         run_package_command alpine as_root env LC_ALL=C apk add \
             build-base bash pkgconf ncurses-dev curl-dev openssl-dev \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel bluez bluez-openrc \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync dcron \
             $simpleserve_packages
@@ -1009,7 +1009,7 @@ case "$family" in
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
             git mpv poppler-utils pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel bluez \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
             isync msmtp calcurse links curl ca-certificates rsync cronie \
             $simpleserve_packages
@@ -1018,7 +1018,7 @@ case "$family" in
         run_package_command suse as_root env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
             git mpv poppler-tools pandoc \
-            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel bluez \
+            nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
             isync msmtp calcurse links curl ca-certificates rsync cron \
             $simpleserve_packages
