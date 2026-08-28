@@ -4,6 +4,7 @@ set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE="$ROOT/simplecheck.c"
 DEST="$HOME/.local/bin/simplecheck"
+ALIAS_DEST="$HOME/.local/bin/check"
 CC_BIN="${CC:-cc}"
 
 prepend_pkgconfig_dir() {
@@ -28,6 +29,14 @@ if [ ! -f "$SOURCE" ]; then
 fi
 
 mkdir -p "$HOME/.local/bin"
+if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
+    if [ ! -L "$ALIAS_DEST" ] ||
+       [ "$(readlink "$ALIAS_DEST")" != simplecheck ]; then
+        printf 'Refusing to replace unrelated check command: %s\n' \
+            "$ALIAS_DEST" >&2
+        exit 1
+    fi
+fi
 tmp="$(mktemp "${TMPDIR:-/tmp}/simplecheck.XXXXXX")"
 
 cleanup() {
@@ -59,4 +68,9 @@ else
 fi
 
 install -m 0755 "$tmp" "$DEST"
-printf 'Installed %s\n' "$DEST"
+
+if [ ! -L "$ALIAS_DEST" ]; then
+    ln -s simplecheck "$ALIAS_DEST"
+fi
+
+printf 'Installed %s and %s\n' "$DEST" "$ALIAS_DEST"

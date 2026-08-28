@@ -587,6 +587,7 @@ declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
 declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
+    check
     simplebrowse
     simplecal
     simpleclock

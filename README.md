@@ -413,9 +413,12 @@ identity under Tailscale's system state directory. Debian/Ubuntu use
 RPM repository definitions. Scriptorium never writes an auth key into those
 paths.
 
-`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. When zsh or Fish
-is the login shell, the installer also writes the same setup to `~/.zshrc` or
-`~/.config/fish/conf.d/scriptorium.fish`, using the shell's native PATH setup:
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. The installer
+also creates `~/.local/bin/check` as a command alias for `simplecheck`, so
+`check` resolves immediately without waiting for the parent shell to reload
+its startup file. When zsh or Fish is the login shell, the installer writes the
+same shell setup to `~/.zshrc` or `~/.config/fish/conf.d/scriptorium.fish`,
+using the shell's native PATH setup:
 
 ```sh
 alias words='simplewords'

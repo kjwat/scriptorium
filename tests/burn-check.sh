@@ -40,7 +40,7 @@ exit 0
 EOF
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server'
+programs='simplewords simplecheck check simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleserve simpleserved setup-server'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
