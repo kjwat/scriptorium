@@ -420,10 +420,14 @@ identity under Tailscale's system state directory. Debian/Ubuntu use
 RPM repository definitions. Scriptorium never writes an auth key into those
 paths.
 
-`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. Every
-user-facing tool also gets a relative short-command symlink beside its full
-binary, so the short names resolve immediately without waiting for the parent
-shell to reload its startup file. Platform- or role-specific aliases exist only
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. The aliases are
+shell configuration, not executable symlinks: only canonical `simple*`
+programs are installed in `~/.local/bin`. On repeated installs Scriptorium
+reuses every canonical binary already present, builds and installs only a
+master-list program that is missing, removes its own legacy short-command
+symlinks, and then reconciles aliases for the installed programs. Every
+short name becomes available after starting a new shell or sourcing
+`~/.bashrc`. Platform- or role-specific aliases exist only
 when their target is installed, and installers refuse to overwrite unrelated
 commands. On Linux, `simpleblue` and `blue` are installed without forcing the
 optional BlueZ system stack onto machines whose owners do not want Bluetooth;

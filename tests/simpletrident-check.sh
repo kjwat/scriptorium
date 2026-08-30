@@ -202,9 +202,7 @@ HOME="$HOME_DIR" "$ROOT/scripts/install-simpletrident.sh" \
 TRIDENT=$HOME_DIR/.local/bin/simpletrident
 TRIDENT_ALIAS=$HOME_DIR/.local/bin/trident
 [ -x "$TRIDENT" ]
-[ -L "$TRIDENT_ALIAS" ]
-[ "$(readlink "$TRIDENT_ALIAS")" = simpletrident ]
-[ "$(realpath "$TRIDENT_ALIAS")" = "$TRIDENT" ]
+[ ! -e "$TRIDENT_ALIAS" ]
 grep -q "Installed $TRIDENT" "$TEST_ROOT/install.out"
 
 run_check() {

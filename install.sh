@@ -86,6 +86,7 @@ unset TAILSCALE_AUTH_KEY
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 HOST_OS="$(uname -s 2>/dev/null || true)"
+. "$ROOT/scripts/simple-programs.sh"
 
 declare -a SHELL_RC_FILES=("$HOME/.bashrc")
 ACTIVE_SHELL_RC_NAME=.bashrc
@@ -522,37 +523,17 @@ ensure_config_key() {
 
 ensure_simplesuite_aliases_in_file() {
     local shell_rc="$1"
-    local alias_line tmp insert_line
-    local aliases=(
-        "alias words='simplewords'"
-        "alias files='simplefiles'"
-        "alias browse='simplebrowse'"
-        "alias flac='simpleflac'"
-        "alias radio='simpleradio'"
-        "alias pod='simplepod'"
-        "alias vis='simplevis'"
-        "alias clock='simpleclock'"
-        "alias check='simplecheck'"
-        "alias trident='simpletrident'"
-        "alias cal='simplecal'"
-        "alias stats='simplestats'"
-        "alias ver='simplever'"
-        "alias game='simplegame'"
-        "alias pdf='simplepdf'"
-        "alias news='simplenews'"
-        "alias mail='simplemail'"
-        "alias suite-uninstall='simplesuite-uninstall'"
-    )
+    local alias_line tmp insert_line short full
+    local aliases=()
 
-    if [[ $HOST_OS != Darwin ]]; then
-        aliases+=("alias net='simplenet'")
-    fi
-    if [[ $HOST_OS == Linux ]]; then
-        aliases+=("alias blue='simpleblue'")
-    fi
-    if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
-        aliases+=("alias serve='simpleserve'")
-    fi
+    while IFS=: read -r short full; do
+        [[ -n $short && -n $full ]] || continue
+        [[ -x $HOME/.local/bin/$full ]] || continue
+        aliases+=("alias $short='$full'")
+    done < <(scriptorium_program_aliases "$HOST_OS" \
+        "$SIMPLESUITE_INSTALL_SIMPLESERVE")
+
+    [[ ${#aliases[@]} -gt 0 ]] || return 0
 
     mkdir -p "$(dirname "$shell_rc")"
     touch "$shell_rc"
@@ -598,6 +579,20 @@ ensure_simplesuite_aliases() {
     done
 }
 
+remove_legacy_program_symlinks() {
+    local short full alias_path
+
+    while IFS=: read -r short full; do
+        [[ -n $short && -n $full ]] || continue
+        alias_path=$HOME/.local/bin/$short
+        if [[ -L $alias_path && $(readlink "$alias_path") == "$full" ]]; then
+            rm -f "$alias_path"
+            CHANGES_MADE=1
+        fi
+    done < <(scriptorium_program_aliases "$HOST_OS" \
+        "$SIMPLESUITE_INSTALL_SIMPLESERVE")
+}
+
 ROLLBACK_DIR=
 ROLLBACK_ACTIVE=0
 CHANGES_MADE=0
@@ -607,24 +602,6 @@ declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
 declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
-    browse
-    cal
-    check
-    clock
-    files
-    flac
-    game
-    mail
-    news
-    pdf
-    pod
-    radio
-    stats
-    suite-uninstall
-    trident
-    ver
-    vis
-    words
     simplebrowse
     simplecal
     simpleclock
@@ -644,10 +621,10 @@ declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
     simplewords
 )
 if [[ $HOST_OS != Darwin ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(net simplenet)
+    EXPECTED_SIMPLESUITE_COMMANDS+=(simplenet)
 fi
 if [[ $HOST_OS == Linux ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(blue simpleblue)
+    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleblue)
 fi
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplebrowse-webkitd
@@ -735,6 +712,11 @@ prepare_rollback() {
                    "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
         track_path "$HOME/.local/bin/$program"
     done
+    while IFS=: read -r short full; do
+        [[ -n $short && -n $full ]] || continue
+        track_path "$HOME/.local/bin/$short"
+    done < <(scriptorium_program_aliases "$HOST_OS" \
+        "$SIMPLESUITE_INSTALL_SIMPLESERVE")
 
     for path in \
         "$HOME/.local" \
@@ -877,7 +859,7 @@ printf "%s\n" "Keelan's Networking Trident provides SimpleServe, Tailscale, Open
 choose_network_role
 choose_tailscale_component
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(serve simpleserve simpleserved)
+    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleserve simpleserved)
 fi
 
 prepare_rollback
@@ -1082,8 +1064,6 @@ for shell_rc in "${SHELL_RC_FILES[@]}"; do
     }
 done
 
-ensure_simplesuite_aliases
-
 export PATH="$HOME/.local/bin:$PATH"
 hash -r
 
@@ -1104,18 +1084,44 @@ elif [[ ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux )
     # not merely an inert daemon binary in the user's bin directory.
     simpleserve_service_mode=require
 fi
-SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
-SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
-SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
-SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
-SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
-    "$ROOT/scripts/install-simplesuite.sh"
+missing_suite_programs=()
+existing_suite_programs=0
+while IFS= read -r program; do
+    [[ -n $program ]] || continue
+    if [[ ! -x $HOME/.local/bin/$program ]]; then
+        missing_suite_programs+=("$program")
+    else
+        ((existing_suite_programs += 1))
+    fi
+done < <(scriptorium_suite_programs "$HOST_OS" \
+    "$SIMPLESUITE_INSTALL_SIMPLESERVE")
+
+if [[ ${#missing_suite_programs[@]} -gt 0 ]]; then
+    printf 'Missing canonical programs: %s\n' "${missing_suite_programs[*]}"
+    suite_filter=
+    if [[ $existing_suite_programs -gt 0 ]]; then
+        suite_filter=${missing_suite_programs[*]}
+    fi
+    SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
+        SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
+        SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
+        SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
+        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
+        SIMPLESUITE_PROGRAM_FILTER="$suite_filter" \
+            "$ROOT/scripts/install-simplesuite.sh"
+else
+    say "Reusing complete canonical SimpleSuite installation"
+fi
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
 
 say "Installing SimpleTrident"
 "$ROOT/scripts/install-simpletrident.sh"
+
+say "Installing shell aliases for canonical programs"
+remove_legacy_program_symlinks
+ensure_simplesuite_aliases
 
 say "Installing website server bootstrap"
 install -m 0755 "$ROOT/setup-server.sh" "$HOME/.local/bin/setup-server"

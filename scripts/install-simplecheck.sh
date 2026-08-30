@@ -30,12 +30,18 @@ fi
 
 mkdir -p "$HOME/.local/bin"
 if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
-    if [ ! -L "$ALIAS_DEST" ] ||
-       [ "$(readlink "$ALIAS_DEST")" != simplecheck ]; then
+    if [ -L "$ALIAS_DEST" ] &&
+       [ "$(readlink "$ALIAS_DEST")" = simplecheck ]; then
+        rm -f "$ALIAS_DEST"
+    else
         printf 'Refusing to replace unrelated check command: %s\n' \
             "$ALIAS_DEST" >&2
         exit 1
     fi
+fi
+if [ -x "$DEST" ]; then
+    printf 'Reusing existing %s; Bash installs alias check=%s\n' "$DEST" "$DEST"
+    exit 0
 fi
 tmp="$(mktemp "${TMPDIR:-/tmp}/simplecheck.XXXXXX")"
 
@@ -68,9 +74,4 @@ else
 fi
 
 install -m 0755 "$tmp" "$DEST"
-
-if [ ! -L "$ALIAS_DEST" ]; then
-    ln -s simplecheck "$ALIAS_DEST"
-fi
-
-printf 'Installed %s and %s\n' "$DEST" "$ALIAS_DEST"
+printf 'Installed %s (shell alias: check)\n' "$DEST"

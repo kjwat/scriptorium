@@ -11,20 +11,14 @@ mkdir -p "$HOME"
 "$ROOT/scripts/install-simplecheck.sh" >"$TMP/first-install.log"
 
 [ -x "$HOME/.local/bin/simplecheck" ]
-[ -L "$HOME/.local/bin/check" ]
-[ "$(readlink "$HOME/.local/bin/check")" = simplecheck ]
-[ "$(PATH="$HOME/.local/bin:$PATH" command -v check)" = \
-  "$HOME/.local/bin/check" ]
-[ "$(realpath "$HOME/.local/bin/check")" = \
-  "$HOME/.local/bin/simplecheck" ]
+[ ! -e "$HOME/.local/bin/check" ]
 
-# A repeated install must keep the managed command alias intact.
+# A repeated install reuses the canonical binary and creates no executable alias.
 "$ROOT/scripts/install-simplecheck.sh" >"$TMP/second-install.log"
-[ -L "$HOME/.local/bin/check" ]
-[ "$(readlink "$HOME/.local/bin/check")" = simplecheck ]
+[ ! -e "$HOME/.local/bin/check" ]
+grep -q 'Reusing existing' "$TMP/second-install.log"
 
 # Never silently overwrite an unrelated user command.
-rm "$HOME/.local/bin/check"
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/check"
 chmod 755 "$HOME/.local/bin/check"
 if "$ROOT/scripts/install-simplecheck.sh" >"$TMP/conflict.log" 2>&1; then
@@ -33,4 +27,4 @@ if "$ROOT/scripts/install-simplecheck.sh" >"$TMP/conflict.log" 2>&1; then
 fi
 grep -q 'Refusing to replace unrelated check command' "$TMP/conflict.log"
 
-echo 'OK SimpleCheck installs an immediate, idempotent check command alias'
+echo 'OK SimpleCheck installs only its canonical binary and reuses it idempotently'

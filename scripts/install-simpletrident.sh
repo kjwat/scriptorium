@@ -30,12 +30,18 @@ fi
 
 mkdir -p "$HOME/.local/bin"
 if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
-    if [ ! -L "$ALIAS_DEST" ] ||
-       [ "$(readlink "$ALIAS_DEST")" != simpletrident ]; then
+    if [ -L "$ALIAS_DEST" ] &&
+       [ "$(readlink "$ALIAS_DEST")" = simpletrident ]; then
+        rm -f "$ALIAS_DEST"
+    else
         printf 'Refusing to replace unrelated trident command: %s\n' \
             "$ALIAS_DEST" >&2
         exit 1
     fi
+fi
+if [ -x "$DEST" ]; then
+    printf 'Reusing existing %s; Bash installs alias trident=%s\n' "$DEST" "$DEST"
+    exit 0
 fi
 temporary="$(mktemp "${TMPDIR:-/tmp}/simpletrident.XXXXXX")"
 
@@ -68,7 +74,4 @@ else
 fi
 
 install -m 0755 "$temporary" "$DEST"
-if [ ! -L "$ALIAS_DEST" ]; then
-    ln -s simpletrident "$ALIAS_DEST"
-fi
-printf 'Installed %s and %s\n' "$DEST" "$ALIAS_DEST"
+printf 'Installed %s (shell alias: trident)\n' "$DEST"

@@ -194,9 +194,9 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 [ -r "$HOME/.local/share/simplesuite/install-manifest" ]
 [ -r "$HOME/.local/share/simplesuite/command-abbreviations" ]
-[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
-[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
-[ "$(readlink "$HOME/.local/bin/suite-uninstall")" = simplesuite-uninstall ]
+[ ! -e "$HOME/.local/bin/net" ]
+[ ! -e "$HOME/.local/bin/serve" ]
+[ ! -e "$HOME/.local/bin/suite-uninstall" ]
 [ ! -e "$HOME/.local/bin/blue" ]
 grep -q '^typewriter_sound=false$' "$HOME/.config/simplewords/config"
 grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
@@ -228,7 +228,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -x "$HOME/.local/bin/simpleserved" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
-[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
+[ ! -e "$HOME/.local/bin/serve" ]
 [ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/blue" ]
 grep -q '^yes$' "$HOME/package-install-ran"
@@ -254,9 +254,9 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ -x "$HOME/.local/bin/simpleserved" ]
 [ -r "$HOME/simpleserve-system-verified" ]
 [ ! -e "$HOME/package-install-ran" ]
-[ "$(readlink "$HOME/.local/bin/blue")" = simpleblue ]
-[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
-[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
+[ ! -e "$HOME/.local/bin/blue" ]
+[ ! -e "$HOME/.local/bin/net" ]
+[ ! -e "$HOME/.local/bin/serve" ]
 grep -q '^yes$' "$HOME/linux-build-ran"
 grep -q '^client$' "$HOME/simpleserve-network-role"
 
@@ -276,7 +276,7 @@ SIMPLESUITE_NETWORK_ROLE=client \
 
 [ -x "$HOME/.local/bin/simpleserve" ]
 [ -x "$HOME/.local/bin/simpleserved" ]
-[ "$(readlink "$HOME/.local/bin/serve")" = simpleserve ]
+[ ! -e "$HOME/.local/bin/serve" ]
 grep -q '^client$' "$HOME/simpleserve-network-role"
 grep -q '^client$' "$HOME/simpleserve-system-role-verified"
 
@@ -305,8 +305,8 @@ grep -q '^preserved-daemon$' "$HOME/.local/bin/simpleserved"
 grep -q '^preserved-system-service$' "$HOME/simpleserve-system-verified"
 grep -q '^0$' "$HOME/simpleserve-component-selection"
 grep -q '^none$' "$HOME/simpleserve-network-role"
-[ "$(readlink "$HOME/.local/bin/blue")" = simpleblue ]
-[ "$(readlink "$HOME/.local/bin/net")" = simplenet ]
+[ ! -e "$HOME/.local/bin/blue" ]
+[ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 
 echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'

@@ -7,6 +7,7 @@ DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
+SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
 case "$SIMPLESUITE_NETWORK_ROLE" in
@@ -293,7 +294,38 @@ elif [ -x "$DEST/checkdeps.sh" ]; then
     run_checkdeps "$DEST/checkdeps.sh"
 fi
 
-if [ -x "$DEST/build.sh" ]; then
+if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    make_cmd=${MAKE:-make}
+    for program in $SIMPLESUITE_PROGRAM_FILTER; do
+        listed=0
+        for allowed_program in $SIMPLESUITE_PROGRAMS $SIMPLESUITE_SCRIPTS; do
+            if [ "$allowed_program" = "$program" ]; then
+                listed=1
+                break
+            fi
+        done
+        if [ "$listed" -ne 1 ]; then
+            echo "Refusing program outside the SimpleSuite master list: $program" >&2
+            exit 2
+        fi
+        case $program in
+            simplesuite-uninstall)
+                install -m 0755 "$DEST/uninstall.sh" \
+                    "$HOME/.local/bin/simplesuite-uninstall"
+                ;;
+            simplebrowse-webkitd | simplebrowse-jsdump)
+                install -m 0755 "$DEST/$program" "$HOME/.local/bin/$program"
+                ;;
+            *)
+                (cd "$DEST" && "$make_cmd" \
+                    SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+                    "$program")
+                install -m 0755 "$DEST/build/$program" \
+                    "$HOME/.local/bin/$program"
+                ;;
+        esac
+    done
+elif [ -x "$DEST/build.sh" ]; then
     (cd "$DEST" && \
         SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
         SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
@@ -313,6 +345,26 @@ elif [ -f "$DEST/Makefile" ]; then
 else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1
+fi
+
+if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    for program in $SIMPLESUITE_PROGRAM_FILTER; do
+        if [ ! -x "$HOME/.local/bin/$program" ]; then
+            echo "Missing filtered SimpleSuite install: $program" >&2
+            exit 1
+        fi
+        printf '  installed missing program: %s\n' "$program"
+    done
+    for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
+        short_command=${alias_mapping%%:*}
+        full_command=${alias_mapping#*:}
+        alias_path=$HOME/.local/bin/$short_command
+        if [ -L "$alias_path" ] &&
+           [ "$(readlink "$alias_path")" = "$full_command" ]; then
+            rm -f "$alias_path"
+        fi
+    done
+    exit 0
 fi
 
 echo "Verifying SimpleSuite binaries in $HOME/.local/bin"
@@ -348,25 +400,18 @@ if [ -n "$SIMPLESUITE_SCRIPTS" ]; then
     fi
 fi
 
-echo "Verifying SimpleSuite short commands in $HOME/.local/bin"
+echo "Removing legacy SimpleSuite short-command symlinks"
 for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
     short_command=${alias_mapping%%:*}
     full_command=${alias_mapping#*:}
     alias_path=$HOME/.local/bin/$short_command
     if [ -L "$alias_path" ] &&
-       [ "$(readlink "$alias_path")" = "$full_command" ] &&
-       [ -x "$alias_path" ]; then
-        printf '  ok: %s -> %s\n' "$short_command" "$full_command"
-    else
-        printf '  missing: %s -> %s\n' "$alias_path" "$full_command" >&2
-        missing=1
+       [ "$(readlink "$alias_path")" = "$full_command" ]; then
+        rm -f "$alias_path"
+        printf '  removed: %s (shell alias targets %s)\n' \
+            "$short_command" "$full_command"
     fi
 done
-
-if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite install did not produce every expected short command." >&2
-    exit 1
-fi
 
 echo "Verifying SimpleSuite shared assets in $HOME/.local/share/simplesuite"
 for asset in $SIMPLESUITE_ASSETS; do
