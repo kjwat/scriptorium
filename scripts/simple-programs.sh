@@ -48,5 +48,4 @@ scriptorium_suite_programs() {
     if [ "${2:-0}" = 1 ]; then
         printf '%s\n' simpleserved
     fi
-    printf '%s\n' simplebrowse-webkitd simplebrowse-jsdump
 }

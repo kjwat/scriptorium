@@ -627,8 +627,6 @@ if [[ $HOST_OS == Linux ]]; then
     EXPECTED_SIMPLESUITE_COMMANDS+=(simpleblue)
 fi
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
-    simplebrowse-webkitd
-    simplebrowse-jsdump
     simplesuite-uninstall
 )
 track_path() {
