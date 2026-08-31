@@ -601,31 +601,9 @@ KEEP_ROLLBACK_BACKUP=0
 declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
-declare -a EXPECTED_SIMPLESUITE_COMMANDS=(
-    simplebrowse
-    simplecal
-    simpleclock
-    simplecheck
-    simpletrident
-    simplefiles
-    simpleflac
-    simplegame
-    simplemail
-    simplepdf
-    simplepod
-    simpleradio
-    simplenews
-    simplestats
-    simplever
-    simplevis
-    simplewords
-)
-if [[ $HOST_OS != Darwin ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(simplenet)
-fi
-if [[ $HOST_OS == Linux ]]; then
-    EXPECTED_SIMPLESUITE_COMMANDS+=(simpleblue)
-fi
+mapfile -t EXPECTED_SIMPLESUITE_COMMANDS \
+    < <(scriptorium_suite_programs "$HOST_OS" 0)
+EXPECTED_SIMPLESUITE_COMMANDS+=(simplecheck simpletrident)
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplesuite-uninstall
 )

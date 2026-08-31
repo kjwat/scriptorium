@@ -21,6 +21,10 @@ printf '%s\n' '# fixture' > README
 printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
+cat >program-manifest.sh <<'EOF'
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock; }
+simplesuite_programs() { printf '%s\n' simpleclock; }
+EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
     '' \

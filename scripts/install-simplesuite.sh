@@ -33,43 +33,10 @@ simplewords-typewriter-NOTICE.md
 install-source
 install-manifest
 command-abbreviations
+program-manifest.sh
 "
-SIMPLESUITE_PROGRAMS="
-simplebrowse
-simplecal
-simpleclock
-simplefiles
-simpleflac
-simplegame
-simplemail
-simplepdf
-simplepod
-simpleradio
-simplenews
-simplestats
-simplever
-simplevis
-simplewords
-
-"
-SIMPLESUITE_COMMAND_ALIASES="
-browse:simplebrowse
-cal:simplecal
-clock:simpleclock
-files:simplefiles
-flac:simpleflac
-game:simplegame
-mail:simplemail
-news:simplenews
-pdf:simplepdf
-pod:simplepod
-radio:simpleradio
-stats:simplestats
-suite-uninstall:simplesuite-uninstall
-ver:simplever
-vis:simplevis
-words:simplewords
-"
+SIMPLESUITE_PROGRAMS=
+SIMPLESUITE_COMMAND_ALIASES=
 SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
 
 case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
@@ -80,41 +47,6 @@ case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
         ;;
 esac
 
-case "$SIMPLESUITE_HOST_OS" in
-    Linux)
-        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
-simplenet
-simpleblue
-"
-        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
-net:simplenet
-blue:simpleblue
-"
-        ;;
-    FreeBSD)
-        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
-simplenet
-"
-        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
-net:simplenet
-"
-        ;;
-    Darwin) ;;
-esac
-
-case "$SIMPLESUITE_HOST_OS" in
-    Darwin | FreeBSD | Linux)
-        if [ "$SIMPLESUITE_INSTALL_SIMPLESERVE" -eq 1 ]; then
-        SIMPLESUITE_PROGRAMS="$SIMPLESUITE_PROGRAMS
-simpleserve
-simpleserved
-"
-        SIMPLESUITE_COMMAND_ALIASES="$SIMPLESUITE_COMMAND_ALIASES
-serve:simpleserve
-"
-        fi
-        ;;
-esac
 
 case "$SIMPLESUITE_INSTALL_REMINDERS" in
     0 | 1) ;;
@@ -286,6 +218,15 @@ if [ -n "$(git -C "$DEST" status --porcelain --untracked-files=normal)" ]; then
     echo "Review or remove local changes before building an installable image." >&2
     exit 1
 fi
+if [ ! -r "$DEST/program-manifest.sh" ]; then
+    echo "SimpleSuite checkout has no program manifest: $DEST/program-manifest.sh" >&2
+    exit 1
+fi
+. "$DEST/program-manifest.sh"
+SIMPLESUITE_PROGRAMS=$(simplesuite_programs "$SIMPLESUITE_HOST_OS" \
+    "$SIMPLESUITE_INSTALL_SIMPLESERVE")
+SIMPLESUITE_COMMAND_ALIASES=$(simplesuite_program_aliases \
+    "$SIMPLESUITE_HOST_OS" "$SIMPLESUITE_INSTALL_SIMPLESERVE")
 export SIMPLESUITE_RESOLVED_SHA
 
 configure_homebrew_build_environment

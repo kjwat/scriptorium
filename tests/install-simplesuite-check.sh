@@ -11,6 +11,22 @@ FAKE_REPO="$TMP/simple-source"
 FAKE_BIN="$TMP/test-bin"
 REAL_GIT_DIR="$(dirname "$(command -v git)")"
 mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN"
+cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
+simplesuite_program_aliases() {
+    printf '%s\n' browse:simplebrowse cal:simplecal clock:simpleclock \
+        files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
+        news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio \
+        stats:simplestats suite-uninstall:simplesuite-uninstall \
+        ver:simplever vis:simplevis words:simplewords
+    case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue ;; \
+        FreeBSD) printf '%s\n' net:simplenet ;; esac
+    [ "$2" = 1 ] && printf '%s\n' serve:simpleserve || :
+}
+simplesuite_programs() {
+    simplesuite_program_aliases "$1" "$2" | sed '/simplesuite-uninstall$/d;s/.*://'
+    [ "$2" = 1 ] && printf '%s\n' simpleserved || :
+}
+EOF
 
 cp "$SOURCE_ROOT/scripts/install-simplesuite.sh" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh"
@@ -70,7 +86,7 @@ case "$(uname -s)" in
         ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations'
+assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
 
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" "$PWD/build" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
@@ -174,7 +190,8 @@ chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
-git -C "$FAKE_REPO" add build.sh verify-simpleserve-system.sh
+git -C "$FAKE_REPO" add build.sh program-manifest.sh \
+    verify-simpleserve-system.sh
 git -C "$FAKE_REPO" commit -qm fixture
 
 SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$TMP/no-existing-role
