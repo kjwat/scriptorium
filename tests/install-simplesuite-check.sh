@@ -72,12 +72,19 @@ esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations'
 
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" \
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" "$PWD/build" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
     "$HOME/.config/simplenews" "$HOME/.config/simplewords"
 for name in $programs $helpers; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
     chmod 755 "$HOME/.local/bin/$name"
+    case $name in
+        simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump) ;;
+        *)
+            cp "$HOME/.local/bin/$name" "$PWD/build/$name"
+            chmod 755 "$PWD/build/$name"
+            ;;
+    esac
 done
 cat >"$HOME/.local/bin/simplewords" <<SIMPLEWORDS_EOF
 #!/bin/sh
@@ -87,6 +94,7 @@ fi
 exit 0
 SIMPLEWORDS_EOF
 chmod 755 "$HOME/.local/bin/simplewords"
+cp "$HOME/.local/bin/simplewords" "$PWD/build/simplewords"
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
@@ -237,7 +245,10 @@ grep -q '^client$' "$HOME/simpleserve-network-role"
 
 HOME="$TMP/linux-home"
 export HOME
-mkdir -p "$HOME"
+mkdir -p "$HOME/.local/bin"
+printf '%s\n' stale >"$HOME/.local/bin/simpleblue"
+printf '%s\n' unrelated >"$HOME/.local/bin/personal-tool"
+chmod 755 "$HOME/.local/bin/simpleblue" "$HOME/.local/bin/personal-tool"
 
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 FAKE_UNAME=Linux \
@@ -250,6 +261,10 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 
 [ -x "$HOME/.local/bin/simplewords" ]
 [ -x "$HOME/.local/bin/simpleblue" ]
+[ -L "$HOME/.local/bin/simpleblue" ]
+[ "$(readlink "$HOME/.local/bin/simpleblue")" = \
+    "$HOME/simplesuite/build/simpleblue" ]
+[ "$(cat "$HOME/.local/bin/personal-tool")" = unrelated ]
 [ -x "$HOME/.local/bin/simpleserve" ]
 [ -x "$HOME/.local/bin/simpleserved" ]
 [ -r "$HOME/simpleserve-system-verified" ]

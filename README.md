@@ -291,8 +291,12 @@ If the checkout already exists, Scriptorium updates it with `git pull
 requires a clean tree, and refuses installation unless that commit passes the
 SimpleWords release gate. It verifies the installed `simplewords --version`
 and `~/.local/share/simplesuite/install-manifest` against the resolved commit,
-so a captured image retains its source provenance. The SimpleSuite build
-installs binaries to `~/.local/bin`, including `simplesuite-uninstall`. Shared
+so a captured image retains its source provenance. The SimpleSuite build keeps
+compiled programs in `~/simplesuite/build`, and Scriptorium atomically replaces
+the canonical `~/.local/bin/simple*` entries with absolute symlinks to those
+current build outputs. It only replaces names from the SimpleSuite program
+manifest; unrelated commands in `~/.local/bin` are preserved. Helper scripts
+such as `simplesuite-uninstall` remain installed files. Shared
 audio assets are installed under:
 
 ```text
@@ -422,10 +426,11 @@ paths.
 
 `~/.bashrc` receives `~/.local/bin` on PATH and these aliases. The aliases are
 shell configuration, not executable symlinks: only canonical `simple*`
-programs are installed in `~/.local/bin`. On repeated installs Scriptorium
-reuses every canonical binary already present, builds and installs only a
-master-list program that is missing, removes its own legacy short-command
-symlinks, and then reconciles aliases for the installed programs. Every
+programs are exposed in `~/.local/bin`. On every repeated install Scriptorium
+fast-forwards the SimpleSuite checkout, rebuilds the complete platform program
+set, atomically repoints canonical commands at `~/simplesuite/build`, removes
+its own legacy short-command symlinks, and then reconciles aliases for the
+installed programs. Every
 short name becomes available after starting a new shell or sourcing
 `~/.bashrc`. Platform- or role-specific aliases exist only
 when their target is installed, and installers refuse to overwrite unrelated

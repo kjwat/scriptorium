@@ -8,6 +8,7 @@ SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-js
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
+SIMPLESUITE_LINK_BUILD_OUTPUTS="${SIMPLESUITE_LINK_BUILD_OUTPUTS:-1}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
 case "$SIMPLESUITE_NETWORK_ROLE" in
@@ -127,6 +128,14 @@ case "$SIMPLESUITE_INSTALL_PACKAGES" in
     0 | 1 | auto) ;;
     *)
         echo "SIMPLESUITE_INSTALL_PACKAGES must be 0, 1, or auto." >&2
+        exit 2
+        ;;
+esac
+
+case "$SIMPLESUITE_LINK_BUILD_OUTPUTS" in
+    0 | 1) ;;
+    *)
+        echo "SIMPLESUITE_LINK_BUILD_OUTPUTS must be 0 or 1." >&2
         exit 2
         ;;
 esac
@@ -345,6 +354,33 @@ elif [ -f "$DEST/Makefile" ]; then
 else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1
+fi
+
+if [ "$SIMPLESUITE_LINK_BUILD_OUTPUTS" -eq 1 ]; then
+    echo "Linking canonical SimpleSuite commands to $DEST/build"
+    mkdir -p "$HOME/.local/bin"
+    linked_programs=$SIMPLESUITE_PROGRAMS
+    if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+        linked_programs=$SIMPLESUITE_PROGRAM_FILTER
+    fi
+    for program in $linked_programs; do
+        case $program in
+            simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump)
+                continue
+                ;;
+        esac
+        build_output=$DEST/build/$program
+        link_path=$HOME/.local/bin/$program
+        link_tmp=$HOME/.local/bin/.$program.link.$$
+        if [ ! -x "$build_output" ]; then
+            echo "Missing SimpleSuite build output: $build_output" >&2
+            exit 1
+        fi
+        rm -f "$link_tmp"
+        ln -s "$build_output" "$link_tmp"
+        mv -f "$link_tmp" "$link_path"
+        printf '  linked: %s -> %s\n' "$link_path" "$build_output"
+    done
 fi
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then

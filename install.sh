@@ -1082,34 +1082,12 @@ elif [[ ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux )
     # not merely an inert daemon binary in the user's bin directory.
     simpleserve_service_mode=require
 fi
-missing_suite_programs=()
-existing_suite_programs=0
-while IFS= read -r program; do
-    [[ -n $program ]] || continue
-    if [[ ! -x $HOME/.local/bin/$program ]]; then
-        missing_suite_programs+=("$program")
-    else
-        ((existing_suite_programs += 1))
-    fi
-done < <(scriptorium_suite_programs "$HOST_OS" \
-    "$SIMPLESUITE_INSTALL_SIMPLESERVE")
-
-if [[ ${#missing_suite_programs[@]} -gt 0 ]]; then
-    printf 'Missing canonical programs: %s\n' "${missing_suite_programs[*]}"
-    suite_filter=
-    if [[ $existing_suite_programs -gt 0 ]]; then
-        suite_filter=${missing_suite_programs[*]}
-    fi
-    SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
-        SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
-        SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
-        SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
-        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
-        SIMPLESUITE_PROGRAM_FILTER="$suite_filter" \
-            "$ROOT/scripts/install-simplesuite.sh"
-else
-    say "Reusing complete canonical SimpleSuite installation"
-fi
+SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
+    SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
+    SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
+    SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
+    SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
+        "$ROOT/scripts/install-simplesuite.sh"
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
