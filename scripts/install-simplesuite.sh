@@ -8,7 +8,7 @@ SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-js
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
-SIMPLESUITE_LINK_BUILD_OUTPUTS="${SIMPLESUITE_LINK_BUILD_OUTPUTS:-1}"
+SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
 case "$SIMPLESUITE_NETWORK_ROLE" in
@@ -60,14 +60,6 @@ case "$SIMPLESUITE_INSTALL_PACKAGES" in
     0 | 1 | auto) ;;
     *)
         echo "SIMPLESUITE_INSTALL_PACKAGES must be 0, 1, or auto." >&2
-        exit 2
-        ;;
-esac
-
-case "$SIMPLESUITE_LINK_BUILD_OUTPUTS" in
-    0 | 1) ;;
-    *)
-        echo "SIMPLESUITE_LINK_BUILD_OUTPUTS must be 0 or 1." >&2
         exit 2
         ;;
 esac
@@ -259,19 +251,15 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             exit 2
         fi
         case $program in
-            simplesuite-uninstall)
-                install -m 0755 "$DEST/uninstall.sh" \
-                    "$HOME/.local/bin/simplesuite-uninstall"
+            simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump)
                 ;;
-            simplebrowse-webkitd | simplebrowse-jsdump)
-                install -m 0755 "$DEST/$program" "$HOME/.local/bin/$program"
+            simpleserved)
+                echo "Preserving installed simpleserved; it is not updated by Scriptorium."
                 ;;
             *)
                 (cd "$DEST" && "$make_cmd" \
                     SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
                     "$program")
-                install -m 0755 "$DEST/build/$program" \
-                    "$HOME/.local/bin/$program"
                 ;;
         esac
     done
@@ -280,7 +268,7 @@ elif [ -x "$DEST/build.sh" ]; then
         SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
         SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
         SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
-        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" \
+        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip \
         SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
         SIMPLESUITE_REQUIRE_CLEAN=1 \
         ./build.sh)
@@ -297,84 +285,98 @@ else
     exit 1
 fi
 
-if [ "$SIMPLESUITE_LINK_BUILD_OUTPUTS" -eq 1 ]; then
-    echo "Linking canonical SimpleSuite commands to $DEST/build"
-    mkdir -p "$HOME/.local/bin"
-    linked_programs=$SIMPLESUITE_PROGRAMS
-    if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
-        linked_programs=$SIMPLESUITE_PROGRAM_FILTER
+run_as_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        doas "$@"
+    else
+        echo "Root privileges are required to install SimpleSuite in $SYSTEM_BIN_DIR." >&2
+        exit 1
     fi
-    for program in $linked_programs; do
-        case $program in
-            simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump)
-                continue
-                ;;
-        esac
-        build_output=$DEST/build/$program
-        link_path=$HOME/.local/bin/$program
-        link_tmp=$HOME/.local/bin/.$program.link.$$
-        if [ ! -x "$build_output" ]; then
-            echo "Missing SimpleSuite build output: $build_output" >&2
-            exit 1
-        fi
-        rm -f "$link_tmp"
-        ln -s "$build_output" "$link_tmp"
-        mv -f "$link_tmp" "$link_path"
-        printf '  linked: %s -> %s\n' "$link_path" "$build_output"
-    done
-fi
+}
+
+simplesuite_program_source() {
+    case $1 in
+        simplesuite-uninstall)
+            printf '%s\n' "$DEST/uninstall.sh"
+            ;;
+        simplebrowse-webkitd | simplebrowse-jsdump)
+            printf '%s\n' "$DEST/$1"
+            ;;
+        *)
+            printf '%s\n' "$DEST/build/$1"
+            ;;
+    esac
+}
+
+install_definitive_program() {
+    program=$1
+
+    # simpleserved is deliberately frozen.  SimpleOS owns the installed daemon;
+    # Scriptorium must never replace it with the newly fetched upstream build.
+    if [ "$program" = simpleserved ]; then
+        rm -f "$HOME/.local/bin/simpleserved"
+        printf '  preserved: %s\n' /usr/local/sbin/simpleserved
+        return 0
+    fi
+
+    source_path=$(simplesuite_program_source "$program")
+    if [ ! -x "$source_path" ]; then
+        echo "Missing SimpleSuite build/install source: $source_path" >&2
+        exit 1
+    fi
+
+    target_path=$SYSTEM_BIN_DIR/$program
+    target_tmp=$SYSTEM_BIN_DIR/.$program.scriptorium.$$
+
+    # Stage first, then atomically replace the bundled SimpleOS copy.  This
+    # gives us the intended wipe-and-replace semantics without leaving a
+    # missing command if the copy itself fails.
+    run_as_root mkdir -p "$SYSTEM_BIN_DIR"
+    run_as_root rm -f "$target_tmp"
+    run_as_root install -m 0755 "$source_path" "$target_tmp"
+    run_as_root mv -f "$target_tmp" "$target_path"
+
+    # Older Scriptorium installs shadowed /usr/local/bin from ~/.local/bin.
+    # Remove that second copy so the systemwide install is definitive.
+    rm -f "$HOME/.local/bin/$program"
+    printf '  replaced: %s\n' "$target_path"
+}
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
-    for program in $SIMPLESUITE_PROGRAM_FILTER; do
-        if [ ! -x "$HOME/.local/bin/$program" ]; then
-            echo "Missing filtered SimpleSuite install: $program" >&2
-            exit 1
-        fi
-        printf '  installed missing program: %s\n' "$program"
-    done
-    for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
-        short_command=${alias_mapping%%:*}
-        full_command=${alias_mapping#*:}
-        alias_path=$HOME/.local/bin/$short_command
-        if [ -L "$alias_path" ] &&
-           [ "$(readlink "$alias_path")" = "$full_command" ]; then
-            rm -f "$alias_path"
-        fi
-    done
-    exit 0
+    definitive_programs=$SIMPLESUITE_PROGRAM_FILTER
+else
+    definitive_programs="$SIMPLESUITE_PROGRAMS $SIMPLESUITE_SCRIPTS"
 fi
 
-echo "Verifying SimpleSuite binaries in $HOME/.local/bin"
+echo "Installing definitive SimpleSuite in $SYSTEM_BIN_DIR"
+for program in $definitive_programs; do
+    install_definitive_program "$program"
+done
+
+# A previous installer may have left this symlink pointing straight into the
+# newly rebuilt tree.  Remove it even when simpleserved was not in this run's
+# manifest so the frozen daemon cannot be silently upgraded through PATH.
+rm -f "$HOME/.local/bin/simpleserved"
+
 missing=0
-for program in $SIMPLESUITE_PROGRAMS; do
-    if [ -x "$HOME/.local/bin/$program" ]; then
+echo "Verifying definitive SimpleSuite binaries in $SYSTEM_BIN_DIR"
+for program in $definitive_programs; do
+    [ "$program" = simpleserved ] && continue
+    if [ -x "$SYSTEM_BIN_DIR/$program" ]; then
         printf '  ok: %s\n' "$program"
     else
-        printf '  missing: %s\n' "$HOME/.local/bin/$program" >&2
+        printf '  missing: %s\n' "$SYSTEM_BIN_DIR/$program" >&2
         missing=1
     fi
 done
 
 if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite build/install did not produce every expected binary." >&2
+    echo "SimpleSuite definitive install did not produce every expected command." >&2
     exit 1
-fi
-
-if [ -n "$SIMPLESUITE_SCRIPTS" ]; then
-    echo "Verifying SimpleSuite helper scripts in $HOME/.local/bin"
-    for program in $SIMPLESUITE_SCRIPTS; do
-        if [ -x "$HOME/.local/bin/$program" ]; then
-            printf '  ok: %s\n' "$program"
-        else
-            printf '  missing: %s\n' "$HOME/.local/bin/$program" >&2
-            missing=1
-        fi
-    done
-
-    if [ "$missing" -ne 0 ]; then
-        echo "SimpleSuite build/install did not produce every expected helper script." >&2
-        exit 1
-    fi
 fi
 
 echo "Removing legacy SimpleSuite short-command symlinks"
@@ -389,6 +391,10 @@ for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
             "$short_command" "$full_command"
     fi
 done
+
+if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    exit 0
+fi
 
 echo "Verifying SimpleSuite shared assets in $HOME/.local/share/simplesuite"
 for asset in $SIMPLESUITE_ASSETS; do
@@ -413,7 +419,7 @@ fi
 
 expected_simplewords_version="simplewords $SIMPLESUITE_RESOLVED_SHA"
 actual_simplewords_version=$(
-    "$HOME/.local/bin/simplewords" --version 2>/dev/null || true
+    "$SYSTEM_BIN_DIR/simplewords" --version 2>/dev/null || true
 )
 if [ "$actual_simplewords_version" = "$expected_simplewords_version" ]; then
     printf '  ok: SimpleWords source revision %s\n' "$SIMPLESUITE_RESOLVED_SHA"
@@ -481,7 +487,7 @@ case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL
     Darwin:1:*|FreeBSD:1:*|Linux:1:*)
         if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
            "$DEST/verify-simpleserve-system.sh" \
-               "$HOME/.local/bin/simpleserved" >/dev/null 2>&1; then
+               /usr/local/sbin/simpleserved >/dev/null 2>&1; then
             printf '  ok: %s\n' /usr/local/sbin/simpleserved
         elif [ "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" = require ]; then
             echo "SimpleServe system service is missing, stale, or stopped." >&2
@@ -498,8 +504,8 @@ if [ "$missing" -ne 0 ]; then
 fi
 
 if [ "$SIMPLESUITE_INSTALL_REMINDERS" -eq 1 ]; then
-    if [ -x "$HOME/.local/bin/simplecal" ]; then
-        "$HOME/.local/bin/simplecal" --install-reminders || echo "Warning: SimpleCal reminder setup failed; run simplecal --install-reminders later." >&2
+    if [ -x "$SYSTEM_BIN_DIR/simplecal" ]; then
+        "$SYSTEM_BIN_DIR/simplecal" --install-reminders || echo "Warning: SimpleCal reminder setup failed; run simplecal --install-reminders later." >&2
     elif command -v simplecal >/dev/null 2>&1; then
         simplecal --install-reminders || echo "Warning: SimpleCal reminder setup failed; run simplecal --install-reminders later." >&2
     fi
