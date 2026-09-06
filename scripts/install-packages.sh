@@ -267,6 +267,10 @@ dependencies_already_present() {
     have_pkgconfig libcurl || return 1
     have_pkgconfig openssl || return 1
     have_pkgconfig gio-2.0 || return 1
+    if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
+       [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
+        have_pkgconfig 'libnm >= 1.24' || return 1
+    fi
     have_reminder_scheduler || return 1
 
     case "$family" in
@@ -917,6 +921,18 @@ if [ "$package_scope" = network ]; then
     exit 0
 fi
 
+simplenet_packages=
+if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
+   [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
+    case "$family" in
+        debian) simplenet_packages=libnm-dev ;;
+        void | suse) simplenet_packages=NetworkManager-devel ;;
+        arch) simplenet_packages=libnm ;;
+        alpine) simplenet_packages=networkmanager-dev ;;
+        fedora) simplenet_packages=NetworkManager-libnm-devel ;;
+    esac
+fi
+
 case "$family" in
     debian)
         check_repository_configuration debian
@@ -930,7 +946,7 @@ case "$family" in
 
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get update
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y \
-            build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev \
+            build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev $simplenet_packages \
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
@@ -940,7 +956,7 @@ case "$family" in
     void)
         check_repository_configuration void
         run_package_command void as_root env LC_ALL=C xbps-install -Sy \
-            base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel \
+            base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel $simplenet_packages \
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
@@ -968,7 +984,7 @@ case "$family" in
         # shellcheck disable=SC2086
         run_package_command arch as_root env LC_ALL=C pacman -Syu --needed \
             $pacman_confirmation \
-            base-devel pkgconf ncurses curl openssl \
+            base-devel pkgconf ncurses curl openssl $simplenet_packages \
             git mpv poppler pandoc-cli \
             nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
@@ -978,7 +994,7 @@ case "$family" in
     alpine)
         check_repository_configuration alpine
         run_package_command alpine as_root env LC_ALL=C apk add \
-            build-base bash pkgconf ncurses-dev curl-dev openssl-dev \
+            build-base bash pkgconf ncurses-dev curl-dev openssl-dev $simplenet_packages \
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
@@ -987,7 +1003,7 @@ case "$family" in
         ;;
     fedora)
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
-            gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel \
+            gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel $simplenet_packages \
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
@@ -996,7 +1012,7 @@ case "$family" in
         ;;
     suse)
         run_package_command suse as_root env LC_ALL=C zypper install -y \
-            gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel \
+            gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel $simplenet_packages \
             git mpv poppler-tools pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \

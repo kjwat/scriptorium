@@ -86,6 +86,9 @@ unset TAILSCALE_AUTH_KEY
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 HOST_OS="$(uname -s 2>/dev/null || true)"
+SIMPLESUITE_SYSTEM_BIN_DIR=${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}
+SIMPLESERVE_DAEMON_BINARY=${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}
+export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
 . "$ROOT/scripts/simple-programs.sh"
 
 declare -a SHELL_RC_FILES=("$HOME/.bashrc")
@@ -528,7 +531,7 @@ ensure_simplesuite_aliases_in_file() {
 
     while IFS=: read -r short full; do
         [[ -n $short && -n $full ]] || continue
-        [[ -x $HOME/.local/bin/$full ]] || continue
+        command -v "$full" >/dev/null 2>&1 || continue
         aliases+=("alias $short='$full'")
     done < <(scriptorium_program_aliases "$HOST_OS" \
         "$SIMPLESUITE_INSTALL_SIMPLESERVE")
@@ -1040,7 +1043,7 @@ for shell_rc in "${SHELL_RC_FILES[@]}"; do
     }
 done
 
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$SIMPLESUITE_SYSTEM_BIN_DIR:${SIMPLESERVE_DAEMON_BINARY%/*}:$HOME/.local/bin:$PATH"
 hash -r
 
 say "Installing SimpleSuite"
@@ -1051,14 +1054,11 @@ if [[ "$HOST_OS" == FreeBSD &&
     # root-owned mount/recovery helper missing or stale.
     simplesuite_helper_mode=require
 fi
-simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
+# The SimpleOS daemon is deliberately frozen by install-simplesuite.sh.
+# Application updates check its file without requiring a live network session.
+simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-preserve}"
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 0 ]]; then
     simpleserve_service_mode=skip
-elif [[ ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) &&
-      -z "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM+x}" ]]; then
-    # A full Scriptorium install promises a usable discovery/mount service,
-    # not merely an inert daemon binary in the user's bin directory.
-    simpleserve_service_mode=require
 fi
 SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
     SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
@@ -1135,26 +1135,34 @@ if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
       ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) ]]; then
     case "$simpleserve_service_mode" in
         skip | no | false | 0) ;;
+        preserve)
+            [[ -x $SIMPLESERVE_DAEMON_BINARY ]] || {
+                warn "Preserved SimpleServe daemon is missing: $SIMPLESERVE_DAEMON_BINARY"
+                exit 1
+            }
+            printf '  preserved: %s\n' "$SIMPLESERVE_DAEMON_BINARY"
+            ;;
         *)
             SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
                 "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
-                "$HOME/.local/bin/simpleserved" >/dev/null 2>&1 || {
+                "$SIMPLESERVE_DAEMON_BINARY" \
+                "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" || {
                 warn "SimpleServe system service is not installed and running"
                 exit 1
             }
-            printf '  %s\n' /usr/local/sbin/simpleserved
+            printf '  %s\n' "$SIMPLESERVE_DAEMON_BINARY"
             ;;
     esac
 fi
 if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 &&
       $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
     case $simpleserve_service_mode in
-        skip | no | false | 0) ;;
+        preserve | skip | no | false | 0) ;;
         *)
             tailscale_ready=0
             for _attempt in {1..10}; do
-                "$HOME/.local/bin/simpleserve" refresh >/dev/null 2>&1 || true
-                simpleserve_status=$("$HOME/.local/bin/simpleserve" status 2>/dev/null || true)
+                "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" refresh >/dev/null 2>&1 || true
+                simpleserve_status=$("$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" status 2>/dev/null || true)
                 if grep -Eq '^Tailscale: active \(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' \
                     <<<"$simpleserve_status"; then
                     tailscale_ready=1
@@ -1172,7 +1180,7 @@ if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 &&
 fi
 
 say "Installing SimpleCal reminder backend"
-if ! "$HOME/.local/bin/simplecal" --install-reminders; then
+if ! "$SIMPLESUITE_SYSTEM_BIN_DIR/simplecal" --install-reminders; then
     warn "SimpleCal reminder setup failed; run 'simplecal --install-reminders' later."
 fi
 

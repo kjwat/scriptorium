@@ -10,7 +10,19 @@ FAKE_SCRIPTORIUM="$TMP/scriptorium"
 FAKE_REPO="$TMP/simple-source"
 FAKE_BIN="$TMP/test-bin"
 REAL_GIT_DIR="$(dirname "$(command -v git)")"
-mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN"
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin"
+SIMPLESERVE_DAEMON_BINARY="$TMP/system-sbin/simpleserved"
+export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
+mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN" \
+    "$SIMPLESUITE_SYSTEM_BIN_DIR" "${SIMPLESERVE_DAEMON_BINARY%/*}"
+printf '%s\n' '#!/bin/sh' '# frozen SimpleOS daemon' 'exit 99' \
+    >"$SIMPLESERVE_DAEMON_BINARY"
+chmod 755 "$SIMPLESERVE_DAEMON_BINARY"
+cat >"$FAKE_BIN/sudo" <<'EOF'
+#!/bin/sh
+exec "$@"
+EOF
+chmod 755 "$FAKE_BIN/sudo"
 cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
     printf '%s\n' browse:simplebrowse cal:simplecal clock:simpleclock \
@@ -64,6 +76,7 @@ set -eu
 
 [ "${SIMPLESUITE_REQUIRE_CLEAN:-}" = 1 ]
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
+[ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
 programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
 aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
@@ -145,7 +158,6 @@ case "$(uname -s)" in
         [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-}" = 1 ]
         [ "${SIMPLESUITE_NETWORK_ROLE:-}" = client ]
         [ "${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-}" = require ]
-        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = require ]
         [ -n "${FREEBSD_UNMOUNT_HELPER:-}" ]
         mkdir -p "$(dirname "$FREEBSD_UNMOUNT_HELPER")"
         printf '%s\n' '#!/bin/sh' 'exit 0' >"$FREEBSD_UNMOUNT_HELPER"
@@ -154,7 +166,6 @@ case "$(uname -s)" in
     Darwin)
         [ "${SIMPLESUITE_INSTALL_PACKAGES:-}" = 0 ]
         [ "${SIMPLESUITE_NETWORK_ROLE:-}" = client ]
-        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ "${MAKE:-}" = gmake ]
         printf '%s\n' yes >"$HOME/macos-build-ran"
         ;;
@@ -168,7 +179,6 @@ case "$(uname -s)" in
         else
             [ "${SIMPLESUITE_NETWORK_ROLE:-}" = none ]
         fi
-        [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = auto ]
         [ -z "${MAKE:-}" ]
         printf '%s\n' yes >"$HOME/linux-build-ran"
         ;;
@@ -176,11 +186,24 @@ esac
 EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
+for helper in uninstall.sh simplebrowse-webkitd simplebrowse-jsdump; do
+    printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_REPO/$helper"
+    chmod 755 "$FAKE_REPO/$helper"
+done
+printf '%s\n' /build/ >"$FAKE_REPO/.gitignore"
+
 cat >"$FAKE_REPO/verify-simpleserve-system.sh" <<'EOF'
 #!/bin/sh
 set -eu
-[ "$#" -eq 1 ]
-[ -x "$1" ]
+[ "$#" -eq 2 ]
+[ "$1" = "$SIMPLESERVE_DAEMON_BINARY" ]
+[ "$2" = "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
+[ -x "$1" ] && [ -x "$2" ]
+grep -q '^# frozen SimpleOS daemon$' "$1"
+if [ "${FAKE_SERVICE_FAILURE:-0}" = 1 ]; then
+    echo 'fixture: existing daemon is not responding' >&2
+    exit 1
+fi
 printf '%s\n' yes >"$HOME/simpleserve-system-verified"
 printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
     >"$HOME/simpleserve-system-role-verified"
@@ -190,8 +213,8 @@ chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
-git -C "$FAKE_REPO" add build.sh program-manifest.sh \
-    verify-simpleserve-system.sh
+git -C "$FAKE_REPO" add build.sh program-manifest.sh .gitignore \
+    verify-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump
 git -C "$FAKE_REPO" commit -qm fixture
 
 SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$TMP/no-existing-role
@@ -209,11 +232,12 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install.log"
 
-[ -x "$HOME/.local/bin/simplewords" ]
-[ -x "$HOME/.local/bin/simplenet" ]
-[ -x "$HOME/.local/bin/simpleserve" ]
-[ -x "$HOME/.local/bin/simpleserved" ]
-[ -x "$HOME/.local/bin/simplesuite-uninstall" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenet" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
+[ ! -e "$HOME/.local/bin/simpleserved" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesuite-uninstall" ]
+grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
 [ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
@@ -247,11 +271,11 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install-macos.log"
 
-[ -x "$HOME/.local/bin/simplewords" ]
-[ -x "$HOME/.local/bin/simplebrowse-webkitd" ]
-[ -x "$HOME/.local/bin/simpleserve" ]
-[ -x "$HOME/.local/bin/simpleserved" ]
-[ -r "$HOME/simpleserve-system-verified" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webkitd" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
+[ ! -e "$HOME/.local/bin/simpleserved" ]
+[ ! -e "$HOME/simpleserve-system-verified" ]
 [ -r "$HOME/.local/share/simplesuite/install-source" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 [ ! -e "$HOME/.local/bin/net" ]
@@ -273,18 +297,20 @@ FAKE_BREW_ROOT="$TMP/homebrew" \
 SIMPLESUITE_REPO_URL="$FAKE_REPO" \
 SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
+FAKE_SERVICE_FAILURE=1 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install-linux.log"
 
-[ -x "$HOME/.local/bin/simplewords" ]
-[ -x "$HOME/.local/bin/simpleblue" ]
-[ -L "$HOME/.local/bin/simpleblue" ]
-[ "$(readlink "$HOME/.local/bin/simpleblue")" = \
-    "$HOME/simplesuite/build/simpleblue" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
+[ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
+cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" "$HOME/simplesuite/build/simpleblue"
+[ ! -e "$HOME/.local/bin/simpleblue" ]
 [ "$(cat "$HOME/.local/bin/personal-tool")" = unrelated ]
-[ -x "$HOME/.local/bin/simpleserve" ]
-[ -x "$HOME/.local/bin/simpleserved" ]
-[ -r "$HOME/simpleserve-system-verified" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
+[ ! -e "$HOME/.local/bin/simpleserved" ]
+[ ! -e "$HOME/simpleserve-system-verified" ]
+grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 [ ! -e "$HOME/package-install-ran" ]
 [ ! -e "$HOME/.local/bin/blue" ]
 [ ! -e "$HOME/.local/bin/net" ]
@@ -306,11 +332,46 @@ SIMPLESUITE_NETWORK_ROLE=client \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install-linux-client.log"
 
-[ -x "$HOME/.local/bin/simpleserve" ]
-[ -x "$HOME/.local/bin/simpleserved" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
+[ ! -e "$HOME/.local/bin/simpleserved" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 grep -q '^client$' "$HOME/simpleserve-network-role"
-grep -q '^client$' "$HOME/simpleserve-system-role-verified"
+[ ! -e "$HOME/simpleserve-system-role-verified" ]
+
+# Repeated application updates also preserve the daemon when it is unhealthy.
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux FAKE_SERVICE_FAILURE=1 \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/reinstall.log"
+[ ! -e "$HOME/simpleserve-system-verified" ]
+grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
+
+# Explicit health verification still fails with the verifier's actual reason.
+if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+   FAKE_UNAME=Linux FAKE_SERVICE_FAILURE=1 \
+   SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+   SIMPLESUITE_INSTALL_REMINDERS=0 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require \
+       "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+       >"$TMP/require-unhealthy.log" 2>&1; then
+    echo 'install-simplesuite-check: required service verification was ignored' >&2
+    exit 1
+fi
+grep -q 'fixture: existing daemon is not responding' "$TMP/require-unhealthy.log"
+
+# Preservation still requires the installed daemon file.
+mv "$SIMPLESERVE_DAEMON_BINARY" "$TMP/frozen-daemon"
+if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+   FAKE_UNAME=Linux \
+   SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+   SIMPLESUITE_INSTALL_REMINDERS=0 \
+       "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+       >"$TMP/missing-daemon.log" 2>&1; then
+    echo 'install-simplesuite-check: missing preserved daemon was accepted' >&2
+    exit 1
+fi
+grep -q 'Preserved SimpleServe daemon is missing' "$TMP/missing-daemon.log"
+mv "$TMP/frozen-daemon" "$SIMPLESERVE_DAEMON_BINARY"
 
 HOME="$TMP/linux-without-simpleserve-home"
 export HOME
@@ -330,10 +391,11 @@ SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
     >"$TMP/install-linux-without-simpleserve.log"
 
-[ -x "$HOME/.local/bin/simplewords" ]
-[ -x "$HOME/.local/bin/simpleblue" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
 grep -q '^preserved-client$' "$HOME/.local/bin/simpleserve"
-grep -q '^preserved-daemon$' "$HOME/.local/bin/simpleserved"
+[ ! -e "$HOME/.local/bin/simpleserved" ]
+grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 grep -q '^preserved-system-service$' "$HOME/simpleserve-system-verified"
 grep -q '^0$' "$HOME/simpleserve-component-selection"
 grep -q '^none$' "$HOME/simpleserve-network-role"
@@ -341,4 +403,4 @@ grep -q '^none$' "$HOME/simpleserve-network-role"
 [ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 
-echo 'OK Scriptorium verifies platform and optional SimpleServe bootstrap handoffs'
+echo 'OK Scriptorium installs system binaries, preserves the daemon, and keeps explicit service verification'

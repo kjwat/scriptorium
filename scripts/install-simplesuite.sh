@@ -9,6 +9,7 @@ SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
+SYSTEM_DAEMON="${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
 case "$SIMPLESUITE_NETWORK_ROLE" in
@@ -16,7 +17,7 @@ case "$SIMPLESUITE_NETWORK_ROLE" in
     client | server) SIMPLESUITE_INSTALL_SIMPLESERVE=1 ;;
 esac
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
-SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-auto}"
+SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-preserve}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
 export SIMPLESUITE_INSTALL_SIMPLESERVE SIMPLESUITE_NETWORK_ROLE \
     SIMPLESUITE_INSTALL_FREEBSD_HELPER \
@@ -73,9 +74,9 @@ case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
 esac
 
 case "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
-    auto | yes | true | 1 | require | skip | no | false | 0) ;;
+    preserve | auto | yes | true | 1 | require | skip | no | false | 0) ;;
     *)
-        echo "SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM must be auto, require, or skip." >&2
+        echo "SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM must be preserve, auto, require, or skip." >&2
         exit 2
         ;;
 esac
@@ -319,7 +320,7 @@ install_definitive_program() {
     # Scriptorium must never replace it with the newly fetched upstream build.
     if [ "$program" = simpleserved ]; then
         rm -f "$HOME/.local/bin/simpleserved"
-        printf '  preserved: %s\n' /usr/local/sbin/simpleserved
+        printf '  preserved: %s\n' "$SYSTEM_DAEMON"
         return 0
     fi
 
@@ -484,11 +485,21 @@ fi
 case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
     Darwin:0:*|FreeBSD:0:*|Linux:0:*) ;;
     Darwin:1:skip|Darwin:1:no|Darwin:1:false|Darwin:1:0|FreeBSD:1:skip|FreeBSD:1:no|FreeBSD:1:false|FreeBSD:1:0|Linux:1:skip|Linux:1:no|Linux:1:false|Linux:1:0) ;;
+    Darwin:1:preserve|FreeBSD:1:preserve|Linux:1:preserve)
+        # Scriptorium updates applications while SimpleOS owns this daemon.
+        # Verify the preserved file, without gating updates on live networking.
+        if [ -x "$SYSTEM_DAEMON" ]; then
+            printf '  preserved: %s\n' "$SYSTEM_DAEMON"
+        else
+            echo "Preserved SimpleServe daemon is missing or not executable: $SYSTEM_DAEMON" >&2
+            missing=1
+        fi
+        ;;
     Darwin:1:*|FreeBSD:1:*|Linux:1:*)
         if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
            "$DEST/verify-simpleserve-system.sh" \
-               /usr/local/sbin/simpleserved >/dev/null 2>&1; then
-            printf '  ok: %s\n' /usr/local/sbin/simpleserved
+               "$SYSTEM_DAEMON" "$SYSTEM_BIN_DIR/simpleserve"; then
+            printf '  ok: %s\n' "$SYSTEM_DAEMON"
         elif [ "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" = require ]; then
             echo "SimpleServe system service is missing, stale, or stopped." >&2
             missing=1

@@ -1,4 +1,4 @@
-build-base bash pkgconf ncurses-dev curl-dev openssl-dev
+build-base bash pkgconf ncurses-dev curl-dev openssl-dev networkmanager-dev
 git mpv poppler-utils pandoc
 nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel avahi-dev nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools cifs-utils openssh samba samba-server-openrc
 python3 py3-gobject3 webkit2gtk-4.1

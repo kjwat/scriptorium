@@ -8,7 +8,9 @@ trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 SOURCE=$TMP/source
 ORIGIN=$TMP/origin.git
 export HOME=$TMP/home
-mkdir -p "$SOURCE" "$HOME/.local/bin"
+mkdir -p "$SOURCE" "$HOME/.local/bin" "$TMP/system-bin" "$TMP/test-bin"
+printf '%s\n' '#!/bin/sh' 'exec "$@"' >"$TMP/test-bin/sudo"
+chmod 755 "$TMP/test-bin/sudo"
 
 printf '%s\n' preserved >"$HOME/.local/bin/simplecal"
 chmod 755 "$HOME/.local/bin/simplecal"
@@ -41,11 +43,14 @@ SIMPLESUITE_DIR="$TMP/checkout" \
 SIMPLESUITE_NETWORK_ROLE=none \
 SIMPLESUITE_PROGRAM_FILTER=simpleclock \
 SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+PATH="$TMP/test-bin:$PATH" \
     "$ROOT/scripts/install-simplesuite.sh" >"$TMP/install.log"
 
-[ -x "$HOME/.local/bin/simpleclock" ]
+[ -x "$TMP/system-bin/simpleclock" ]
+[ ! -e "$HOME/.local/bin/simpleclock" ]
 [ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
-[ ! -e "$HOME/.local/bin/simplewords" ]
-grep -q 'installed missing program: simpleclock' "$TMP/install.log"
+[ ! -e "$TMP/system-bin/simplewords" ]
+grep -q "replaced: $TMP/system-bin/simpleclock" "$TMP/install.log"
 
 echo 'OK Scriptorium builds and installs only a missing master-list program'

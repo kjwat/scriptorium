@@ -5,7 +5,7 @@ terminal tools.
 
 `install.sh` installs package dependencies, clones or updates
 [SimpleSuite](https://github.com/kjwat/simplesuite), builds it, installs the
-binaries into `~/.local/bin`, links Scriptorium-managed dotfiles, and prepares
+binaries into `/usr/local/bin`, links Scriptorium-managed dotfiles, and prepares
 the local shell environment. It also establishes **Keelan's Networking
 Trident** in the same run: SimpleServe for the intranet, Tailscale for the
 encrypted extranet, OpenSSH client and daemon access, and the `setup-server`
@@ -59,7 +59,8 @@ installation instead prints the shell file to source before using the commands.
 On FreeBSD, Linux, and macOS, the installer asks one networking question:
 `Join Keelan's Networking Trident?` Answering yes creates a **client**. It
 installs discovery/mount dependencies and both OpenSSH programs, installs
-Tailscale, and enables a mount-only SimpleServe service. Client mode is
+Tailscale, and updates the SimpleServe client while preserving the SimpleOS
+daemon. Client mode is
 enforced: `simpleserve share` is rejected and NFS/Samba publishing services
 are not installed or enabled. Answering no leaves any existing networking
 installation untouched.
@@ -219,8 +220,8 @@ SimpleSuite programs:
 - `simplever`
 - `simplevis`
 
-When selected on FreeBSD, Linux, or macOS, the installer also includes `simpleserve`
-and its `simpleserved` system daemon.
+When selected on FreeBSD, Linux, or macOS, the installer also updates `simpleserve`
+and requires the existing `simpleserved` system daemon.
 
 Scriptorium also builds and installs two ncurses dashboards: `simplecheck` for
 the `~/writing`, `~/scriptorium`, `~/simplesuite`, and `~/website` Git
@@ -231,6 +232,8 @@ Runtime and workflow tools installed by the package script include, depending
 on platform availability:
 
 - build tools, `pkg-config`, ncurses, GIO/GLib, libcurl, and OpenSSL headers
+- `libnm >= 1.24` development files for the default SimpleNet Linux build
+  (`libnm-dev` on Debian/Ubuntu)
 - Python GI, GTK 3 introspection, and WebKit2GTK 4.1 for SimpleBrowse v4
   JavaScript mode on supported Linux and BSD families; macOS uses WKWebView
 - `git`, `mpv`, `links`, `fzf`, `calcurse`
@@ -248,6 +251,10 @@ on platform availability:
 - when selected, the official/native Tailscale package and persistent daemon
   for SimpleServe's encrypted remote transport on every Trident platform
 - clipboard, desktop-open, trash, and audio helper packages where available
+
+For a standalone SimpleNet build using wpa_supplicant, run the installer with
+`SIMPLENET_WITH_NM=0` and launch `simplenet -b wpa`. This explicitly skips the
+libnm build dependency; Linux builds otherwise require it.
 
 Supported package targets are current Debian/Ubuntu, Arch-family distributions,
 Fedora, Alpine (with `main` and `community`), Void, openSUSE Tumbleweed,
@@ -292,11 +299,12 @@ requires a clean tree, and refuses installation unless that commit passes the
 SimpleWords release gate. It verifies the installed `simplewords --version`
 and `~/.local/share/simplesuite/install-manifest` against the resolved commit,
 so a captured image retains its source provenance. The SimpleSuite build keeps
-compiled programs in `~/simplesuite/build`, and Scriptorium atomically replaces
-the canonical `~/.local/bin/simple*` entries with absolute symlinks to those
-current build outputs. It only replaces names from the SimpleSuite program
-manifest; unrelated commands in `~/.local/bin` are preserved. Helper scripts
-such as `simplesuite-uninstall` remain installed files. Shared
+compiled programs in `~/simplesuite/build`, and Scriptorium atomically copies
+those outputs into `/usr/local/bin` (override with `SIMPLESUITE_SYSTEM_BIN_DIR`).
+It removes older copies of those commands from `~/.local/bin`, preserves
+unrelated user commands, and keeps the existing SimpleOS daemon at
+`/usr/local/sbin/simpleserved`. Helper scripts such as `simplesuite-uninstall`
+are also installed in the system bin directory. Shared
 audio assets are installed under:
 
 ```text
@@ -311,13 +319,12 @@ audio assets are installed under:
 The same directory also carries the sound-provenance notice and the internal
 source-checkout record used by destructive uninstallation.
 
-When SimpleServe is selected on FreeBSD or Linux, installation also installs,
-enables, starts, and verifies its privileged service. This is the piece that
-turns discovered NFS shares into real VFS mounts and exports every active Linux
-share over SMB as well. The install fails clearly if its NFS, Samba, or Avahi
-runtime commands are absent or that system service cannot be made ready; set
-`SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip` only when intentionally managing
-the daemon separately.
+SimpleOS owns the installed SimpleServe daemon. Scriptorium defaults to
+`SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=preserve`: it verifies that the daemon
+file exists and is executable while leaving the service unchanged. Application
+updates can finish when the existing service or a network share is unavailable.
+Set `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require` to explicitly make live
+service verification a condition of installation, or `skip` to omit that check.
 
 On Linux, SimpleServe records shared local drives by UUID in a marked managed
 block in `/etc/fstab`, using `nofail` so an unplugged disk cannot block boot.
@@ -424,11 +431,11 @@ identity under Tailscale's system state directory. Debian/Ubuntu use
 RPM repository definitions. Scriptorium never writes an auth key into those
 paths.
 
-`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. The aliases are
-shell configuration, not executable symlinks: only canonical `simple*`
-programs are exposed in `~/.local/bin`. On every repeated install Scriptorium
+`~/.bashrc` receives `~/.local/bin` on PATH and these aliases. SimpleSuite
+applications are installed in `/usr/local/bin`; the SimpleCheck and SimpleTrident
+dashboards remain in `~/.local/bin`. On every repeated install Scriptorium
 fast-forwards the SimpleSuite checkout, rebuilds the complete platform program
-set, atomically repoints canonical commands at `~/simplesuite/build`, removes
+set, atomically replaces the system commands, preserves `simpleserved`, removes
 its own legacy short-command symlinks, and then reconciles aliases for the
 installed programs. Every
 short name becomes available after starting a new shell or sourcing
@@ -599,13 +606,14 @@ Before linking dotfiles, existing targets are moved into:
 ```
 
 The main installer also prepares a temporary rollback copy of Git config,
-SimpleSuite files, linked dotfiles, mail config, SimpleCal config/state, and
-installed binaries. If installation fails, it asks whether to roll those user
-files back. Package-manager changes are not rolled back.
+SimpleSuite user files, linked dotfiles, mail config, SimpleCal config/state, and
+user-installed dashboards. If installation fails, it asks whether to roll those
+user files back. System binary replacements and package-manager changes are
+not rolled back.
 APT source repairs and AppArmor profile changes are system-level changes and
 are not included in that rollback either. The enabled SimpleServe system
-service is likewise outside the user-file rollback; rerunning the installer
-safely updates and re-verifies it, while `simplesuite-uninstall` removes it and
+service is preserved during installation and is outside the user-file rollback;
+`simplesuite-uninstall` removes it and
 its managed NFS/SMB configuration.
 
 Tailscale package installation and tailnet enrollment are also outside the
