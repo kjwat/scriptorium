@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+. "$ROOT/bounded-command.sh"
 FAMILY=${SCRIPTORIUM_TAILSCALE_FAMILY:-$("$ROOT/detect-platform.sh")}
 HOST_OS=${SCRIPTORIUM_TAILSCALE_HOST_OS:-$(uname -s 2>/dev/null || true)}
 TEST_MODE=${SCRIPTORIUM_TAILSCALE_TEST_MODE:-0}
@@ -47,6 +48,13 @@ run_as_root() {
     fi
 }
 
+bounded_root() {
+    local seconds=$1
+    shift
+    run_as_root bash -c '. "$1"; shift; scriptorium_bounded "$@"' \
+        bash "$ROOT/bounded-command.sh" "$seconds" "$@"
+}
+
 root_path() {
     printf '%s%s\n' "$SYSTEM_ROOT" "$1"
 }
@@ -79,7 +87,7 @@ install_root_file_if_changed() {
 download() {
     local url=$1 output=$2
 
-    curl --fail --silent --show-error --location --output "$output" "$url"
+    curl --connect-timeout 5 --max-time 15 --fail --silent --show-error --location --output "$output" "$url"
     [[ -s $output ]] || die "downloaded an empty file from $url"
 }
 
@@ -262,7 +270,7 @@ find_tailscale() {
 }
 
 tailscale_cli() {
-    TAILSCALE_BE_CLI=1 "$TAILSCALE_BIN" "$@"
+    scriptorium_bounded 3 env TAILSCALE_BE_CLI=1 "$TAILSCALE_BIN" "$@"
 }
 
 tailscale_ipv4() {
@@ -336,41 +344,41 @@ ensure_tailscale_service() {
 
     case $INIT_SYSTEM in
         systemd)
-            if ! run_as_root systemctl is-enabled --quiet tailscaled.service 2>/dev/null; then
-                run_as_root systemctl enable tailscaled.service
+            if ! bounded_root 10 systemctl is-enabled --quiet tailscaled.service 2>/dev/null; then
+                bounded_root 10 systemctl enable tailscaled.service
             fi
-            if ! run_as_root systemctl is-active --quiet tailscaled.service; then
-                run_as_root systemctl start tailscaled.service
+            if ! bounded_root 10 systemctl is-active --quiet tailscaled.service; then
+                bounded_root 10 systemctl --no-block start tailscaled.service
             fi
-            run_as_root systemctl is-active --quiet tailscaled.service ||
+            bounded_root 10 systemctl is-active --quiet tailscaled.service ||
                 die "tailscaled.service did not become active"
             ;;
         openrc)
             if ! rc-update show default 2>/dev/null |
                 grep -Eq '(^|[[:space:]])tailscale([[:space:]]|$)'; then
-                run_as_root rc-update add tailscale default >/dev/null
+                bounded_root 10 rc-update add tailscale default >/dev/null
             fi
-            if ! run_as_root rc-service tailscale status >/dev/null 2>&1; then
-                run_as_root rc-service tailscale start
+            if ! bounded_root 10 rc-service tailscale status >/dev/null 2>&1; then
+                bounded_root 10 rc-service tailscale start
             fi
-            run_as_root rc-service tailscale status >/dev/null 2>&1 ||
+            bounded_root 10 rc-service tailscale status >/dev/null 2>&1 ||
                 die "the Tailscale OpenRC service did not become active"
             ;;
         runit)
             ensure_runit_link
-            if ! run_as_root sv status tailscaled >/dev/null 2>&1; then
-                run_as_root sv up tailscaled
+            if ! bounded_root 10 sv status tailscaled >/dev/null 2>&1; then
+                bounded_root 10 sv up tailscaled
             fi
-            run_as_root sv status tailscaled >/dev/null 2>&1 ||
+            bounded_root 10 sv status tailscaled >/dev/null 2>&1 ||
                 die "the Tailscale runit service did not become active"
             ;;
         freebsd)
-            enabled=$(run_as_root sysrc -n tailscaled_enable 2>/dev/null || true)
-            [[ $enabled == YES ]] || run_as_root sysrc -q tailscaled_enable=YES
-            if ! run_as_root service tailscaled onestatus >/dev/null 2>&1; then
-                run_as_root service tailscaled start
+            enabled=$(bounded_root 10 sysrc -n tailscaled_enable 2>/dev/null || true)
+            [[ $enabled == YES ]] || bounded_root 10 sysrc -q tailscaled_enable=YES
+            if ! bounded_root 10 service tailscaled onestatus >/dev/null 2>&1; then
+                bounded_root 10 service tailscaled start
             fi
-            run_as_root service tailscaled onestatus >/dev/null 2>&1 ||
+            bounded_root 10 service tailscaled onestatus >/dev/null 2>&1 ||
                 die "the Tailscale FreeBSD service did not become active"
             ;;
         macbrew)
@@ -399,9 +407,9 @@ ensure_tailscale_service() {
 
 run_tailscale_up() {
     if [[ $INIT_SYSTEM == macapp ]]; then
-        tailscale_cli "$@"
+        scriptorium_bounded 15 env TAILSCALE_BE_CLI=1 "$TAILSCALE_BIN" "$@"
     else
-        run_as_root env TAILSCALE_BE_CLI=1 "$TAILSCALE_BIN" "$@"
+        bounded_root 15 env TAILSCALE_BE_CLI=1 "$TAILSCALE_BIN" "$@"
     fi
 }
 
@@ -468,7 +476,16 @@ if [[ -n $connected_ip ]]; then
     exit 0
 fi
 
-up_args=(up "--accept-dns=$ACCEPT_DNS")
+# A remembered identity that is stopped/offline must not be re-enrolled or
+# have its preferences reset just to complete an application installation.
+status=$(tailscale_cli status --json 2>/dev/null || true)
+if ! grep -Eq '"BackendState"[[:space:]]*:[[:space:]]*"NeedsLogin"' <<<"$status" &&
+   [[ -z $AUTH_KEY && -z $AUTH_KEY_FILE ]]; then
+    printf '%s\n' 'Tailscale is currently unavailable; preserving enrollment and deferring connection.'
+    exit 0
+fi
+
+up_args=(up "--accept-dns=$ACCEPT_DNS" --timeout=10s)
 if [[ -n $HOSTNAME_OVERRIDE ]]; then
     up_args+=("--hostname=$HOSTNAME_OVERRIDE")
 fi
@@ -483,19 +500,22 @@ elif [[ -n $AUTH_KEY_FILE ]]; then
         die "cannot read Tailscale auth-key file: $AUTH_KEY_FILE"
     up_args+=("--auth-key=file:$AUTH_KEY_FILE")
 elif [[ $TEST_MODE != 1 && ! -t 0 && ! -t 1 ]]; then
-    die "this machine needs login; rerun interactively or provide TAILSCALE_AUTH_KEY_FILE"
+    printf '%s\n' 'Tailscale login deferred; run tailscale up when connectivity returns.'
+    exit 0
 else
     printf '%s\n' \
         'Tailscale needs to join your tailnet.' \
         'Open the login URL printed below on any device and approve this machine.'
 fi
 
-run_tailscale_up "${up_args[@]}"
-for _attempt in {1..20}; do
-    connected_ip=$(tailscale_ipv4 || true)
-    [[ -z $connected_ip ]] || break
-    sleep 1
-done
-[[ -n $connected_ip ]] || die "Tailscale authentication completed without an active tailnet address"
+if ! run_tailscale_up "${up_args[@]}"; then
+    printf '%s\n' 'Tailscale connection deferred; retry tailscale up when connectivity returns.'
+    exit 0
+fi
+connected_ip=$(tailscale_ipv4 || true)
+if [[ -z $connected_ip ]]; then
+    printf '%s\n' 'Tailscale is configured; connection is pending. Installation can continue.'
+    exit 0
+fi
 printf 'Tailscale connected at %s; SimpleServe remote transport is available.\n' \
     "$connected_ip"

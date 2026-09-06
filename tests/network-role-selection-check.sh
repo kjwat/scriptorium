@@ -12,6 +12,8 @@ printf '%s\n' debian
 EOF
 chmod 755 "$tmp/scriptorium/scripts/detect-platform.sh"
 
+. "$repo/scripts/bounded-command.sh"
+
 # Exercise the actual selection functions without running the rest of install.sh.
 eval "$(awk '
     /^say\(\)/ { copying=1 }

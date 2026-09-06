@@ -90,6 +90,7 @@ SIMPLESUITE_SYSTEM_BIN_DIR=${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}
 SIMPLESERVE_DAEMON_BINARY=${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}
 export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
 . "$ROOT/scripts/simple-programs.sh"
+. "$ROOT/scripts/bounded-command.sh"
 
 declare -a SHELL_RC_FILES=("$HOME/.bashrc")
 ACTIVE_SHELL_RC_NAME=.bashrc
@@ -132,7 +133,7 @@ detect_existing_network_role() {
 
     for cli in "$HOME/.local/bin/simpleserve" "$(command -v simpleserve 2>/dev/null || true)"; do
         [[ -n $cli && -x $cli ]] || continue
-        status=$($cli status 2>/dev/null || true)
+        status=$(scriptorium_bounded 3 "$cli" status 2>/dev/null || true)
         case $status in
             *'Role: client (mount only)'* | *'Roles: client'*)
                 printf '%s\n' client
@@ -858,12 +859,12 @@ for required_command in git curl; do
 done
 
 if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 ]]; then
-    say "Installing and connecting Tailscale"
+    say "Setting up Tailscale"
     if [[ -n $TAILSCALE_AUTH_KEY_VALUE ]]; then
         TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY_VALUE \
-            "$ROOT/scripts/setup-tailscale.sh"
+            "$ROOT/scripts/setup-tailscale.sh" || warn "Tailscale setup deferred; application installation will continue."
     else
-        "$ROOT/scripts/setup-tailscale.sh"
+        "$ROOT/scripts/setup-tailscale.sh" || warn "Tailscale setup deferred; application installation will continue."
     fi
 fi
 unset TAILSCALE_AUTH_KEY_VALUE
@@ -964,7 +965,7 @@ else
 
     github_response="$(mktemp "${TMPDIR:-/tmp}/scriptorium-github.XXXXXX")"
     github_http_code="$(
-        curl -sS -o "$github_response" -w '%{http_code}' \
+        curl --connect-timeout 5 --max-time 10 -sS -o "$github_response" -w '%{http_code}' \
             -H "Authorization: Bearer $github_pat" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/user 2>/dev/null || true
@@ -1147,37 +1148,15 @@ if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
                 "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
                 "$SIMPLESERVE_DAEMON_BINARY" \
                 "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" || {
-                warn "SimpleServe system service is not installed and running"
+                warn "SimpleServe system software or service configuration is incomplete"
                 exit 1
             }
             printf '  %s\n' "$SIMPLESERVE_DAEMON_BINARY"
             ;;
     esac
 fi
-if [[ $SCRIPTORIUM_INSTALL_TAILSCALE -eq 1 &&
-      $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 ]]; then
-    case $simpleserve_service_mode in
-        preserve | skip | no | false | 0) ;;
-        *)
-            tailscale_ready=0
-            for _attempt in {1..10}; do
-                "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" refresh >/dev/null 2>&1 || true
-                simpleserve_status=$("$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" status 2>/dev/null || true)
-                if grep -Eq '^Tailscale: active \(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' \
-                    <<<"$simpleserve_status"; then
-                    tailscale_ready=1
-                    break
-                fi
-                sleep 1
-            done
-            [[ $tailscale_ready -eq 1 ]] || {
-                warn "SimpleServe is running but did not detect the active Tailscale transport"
-                exit 1
-            }
-            printf '  %s\n' 'SimpleServe LAN and Tailscale transports are active'
-            ;;
-    esac
-fi
+# Verification checks installed software. Remote transport availability is
+# runtime state and must not gate a normal installation.
 
 say "Installing SimpleCal reminder backend"
 if ! "$SIMPLESUITE_SYSTEM_BIN_DIR/simplecal" --install-reminders; then

@@ -44,6 +44,8 @@ cp "$SOURCE_ROOT/scripts/install-simplesuite.sh" \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh"
 cp "$SOURCE_ROOT/scripts/resolve-simpleserve-role.sh" \
     "$FAKE_SCRIPTORIUM/scripts/resolve-simpleserve-role.sh"
+cp "$SOURCE_ROOT/scripts/bounded-command.sh" \
+    "$FAKE_SCRIPTORIUM/scripts/bounded-command.sh"
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 chmod 755 "$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 printf '%s\n' '#!/bin/sh' 'printf "%s\n" yes >"$HOME/package-install-ran"' \
@@ -346,6 +348,16 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/reinstall.log"
 [ ! -e "$HOME/simpleserve-system-verified" ]
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
+
+# An unavailable update source must reuse the clean checkout and keep its SHA.
+offline_sha=$(git -C "$HOME/simplesuite" rev-parse HEAD)
+git -C "$HOME/simplesuite" remote set-url origin "$TMP/unavailable-source"
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux SIMPLESUITE_DIR="$HOME/simplesuite" SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/offline.log" 2>&1
+grep -q 'building the existing local checkout' "$TMP/offline.log"
+[ "$(git -C "$HOME/simplesuite" rev-parse HEAD)" = "$offline_sha" ]
+git -C "$HOME/simplesuite" remote set-url origin "$FAKE_REPO"
 
 # Explicit health verification still fails with the verifier's actual reason.
 if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \

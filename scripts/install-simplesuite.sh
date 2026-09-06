@@ -11,6 +11,7 @@ SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 SYSTEM_DAEMON="${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
+. "$SCRIPTORIUM_ROOT/scripts/bounded-command.sh"
 SIMPLESUITE_NETWORK_ROLE=$(scriptorium_resolve_simpleserve_role) || exit $?
 case "$SIMPLESUITE_NETWORK_ROLE" in
     none) SIMPLESUITE_INSTALL_SIMPLESERVE=0 ;;
@@ -188,10 +189,15 @@ mkdir -p "$(dirname "$DEST")"
 
 if [ -e "$DEST/.git" ]; then
     echo "SimpleSuite already cloned at $DEST"
-    if ! git -C "$DEST" pull --ff-only; then
-        echo "Failed to update SimpleSuite at $DEST with git pull --ff-only." >&2
-        echo "Resolve the checkout state, then rerun the Scriptorium installer." >&2
-        exit 1
+    if scriptorium_bounded 10 env GIT_TERMINAL_PROMPT=0 \
+        GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1}" \
+        git -C "$DEST" -c http.lowSpeedLimit=1 -c http.lowSpeedTime=5 fetch; then
+        if ! git -C "$DEST" merge --ff-only '@{upstream}'; then
+            echo "Cannot fast-forward SimpleSuite at $DEST; resolve the checkout state." >&2
+            exit 1
+        fi
+    else
+        echo "SimpleSuite update unavailable; building the existing local checkout."
     fi
 else
     if [ -d "$DEST" ] && directory_has_entries "$DEST"; then
@@ -199,7 +205,12 @@ else
         echo "Move it aside or set SIMPLESUITE_DIR to a different path." >&2
         exit 1
     fi
-    git clone "$REPO_URL" "$DEST"
+    scriptorium_bounded 60 env GIT_TERMINAL_PROMPT=0 \
+        GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1}" \
+        git -c http.lowSpeedLimit=1 -c http.lowSpeedTime=5 clone "$REPO_URL" "$DEST" || {
+        echo "SimpleSuite source is not cached at $DEST; a first clone needs connectivity." >&2
+        exit 1
+    }
 fi
 
 SIMPLESUITE_RESOLVED_SHA=$(git -C "$DEST" rev-parse --verify HEAD^{commit}) || {

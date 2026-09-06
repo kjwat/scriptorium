@@ -135,6 +135,7 @@ EOF
 cat > "$FAKE_BIN/systemctl" <<'EOF'
 #!/bin/bash
 set -euo pipefail
+[[ ${1:-} != --no-block ]] || shift
 printf '%s\n' "$*" >> "$FAKE_SYSTEMCTL_LOG"
 case ${1:-} in
     is-enabled) [[ -f $FAKE_SYSTEMD_STATE/enabled ]] ;;
@@ -266,7 +267,7 @@ grep -q '^update$' "$APT_LOG"
 grep -q '^install -y tailscale$' "$APT_LOG"
 grep -q '/stable/debian/trixie.noarmor.gpg$' "$CURL_LOG"
 grep -q '/stable/debian/trixie.tailscale-keyring.list$' "$CURL_LOG"
-grep -q '^up --accept-dns=false --auth-key=file:' "$UP_LOG"
+grep -q '^up --accept-dns=false --timeout=10s --auth-key=file:' "$UP_LOG"
 if grep -q 'tskey-auth-fixture' "$UP_LOG" "$TEST_ROOT/first.out"; then
     printf 'tailscale-bootstrap-check: auth key leaked into output or argv log\n' >&2
     exit 1
@@ -321,7 +322,7 @@ SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
 SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
     "$SOURCE_ROOT/scripts/setup-tailscale.sh" > "$TEST_ROOT/browser-login.out"
 test "$(wc -l < "$UP_LOG")" -eq "$((up_lines + 1))"
-test "$(tail -n 1 "$UP_LOG")" = 'up --accept-dns=false'
+test "$(tail -n 1 "$UP_LOG")" = 'up --accept-dns=false --timeout=10s'
 grep -q 'Open the login URL printed below' "$TEST_ROOT/browser-login.out"
 grep -q 'Tailscale connected at 100.100.10.20' "$TEST_ROOT/browser-login.out"
 
@@ -371,7 +372,7 @@ run_platform_case() {
     if [[ -n $service_pattern ]]; then
         grep -Eq "$service_pattern" "$case_root/service.log"
     fi
-    grep -q '^up --accept-dns=false --auth-key=file:' "$case_root/up.log"
+    grep -q '^up --accept-dns=false --timeout=10s --auth-key=file:' "$case_root/up.log"
     grep -q 'Tailscale connected at 100.100.10.20' "$case_output"
 }
 
@@ -394,6 +395,31 @@ grep -q '^brew[[:space:]]\+services start tailscale$' \
 
 grep -q 'choose_tailscale_component' "$SOURCE_ROOT/install.sh"
 grep -q 'scripts/setup-tailscale.sh' "$SOURCE_ROOT/install.sh"
-grep -q 'SimpleServe LAN and Tailscale transports are active' "$SOURCE_ROOT/install.sh"
+! grep -q 'SimpleServe LAN and Tailscale transports are active' "$SOURCE_ROOT/install.sh"
+
+# An enrolled node can be offline or its local daemon can stop responding.
+# Neither situation should reset identity/preferences or fail installation.
+cat > "$FAKE_BIN/tailscale" <<'EOF'
+#!/bin/sh
+if [ "$1" = up ]; then
+    printf unexpected-up >>"$FAKE_UP_LOG"
+    exit 1
+fi
+if [ "${FAKE_TAILSCALE_HANG:-0}" = 1 ]; then
+    exec sleep 30
+fi
+printf '%s\n' '{"BackendState":"Stopped"}'
+EOF
+chmod 755 "$FAKE_BIN/tailscale"
+for hanging in 0 1; do
+    before_up=$(wc -l < "$FAKE_UP_LOG")
+    PATH="$FAKE_BIN:/usr/bin:/bin" FAKE_TAILSCALE_HANG=$hanging \
+    SCRIPTORIUM_TAILSCALE_FAMILY=debian SCRIPTORIUM_TAILSCALE_HOST_OS=Linux \
+    SCRIPTORIUM_TAILSCALE_INIT=systemd SCRIPTORIUM_TAILSCALE_TEST_MODE=1 \
+    SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$SYSTEM_ROOT" \
+        "$SOURCE_ROOT/scripts/setup-tailscale.sh" >"$TEST_ROOT/offline-$hanging.out"
+    grep -q 'preserving enrollment and deferring connection' "$TEST_ROOT/offline-$hanging.out"
+    test "$(wc -l < "$FAKE_UP_LOG")" -eq "$before_up"
+done
 
 printf 'OK Tailscale installs, enrolls, and preserves active nodes across every Trident platform\n'
