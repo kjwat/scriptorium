@@ -2,8 +2,8 @@
 set -eu
 
 SUITE=${SIMPLESUITE_DIR:-$HOME/simplesuite}
-BINARY=${SIMPLESERVE_DAEMON_BINARY:-$HOME/.local/bin/simpleserved}
-CLIENT=${SIMPLESERVE_CLIENT_BINARY:-$HOME/.local/bin/simpleserve}
+BINARY=${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}
+CLIENT=${SIMPLESERVE_CLIENT_BINARY:-${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}/simpleserve}
 VERIFY_ONLY=0
 
 case "${1-}" in
@@ -41,10 +41,10 @@ fi
 
 printf 'Changing this machine to Trident client (discover + mount only)...\n'
 if [ "$(id -u)" -eq 0 ]; then
-    SIMPLESUITE_NETWORK_ROLE=client \
+    SIMPLESUITE_NETWORK_ROLE=client SIMPLESERVE_CLIENT_BINARY="$CLIENT" \
         "$SUITE/install-simpleserve-system.sh" "$BINARY"
 elif command -v sudo >/dev/null 2>&1; then
-    sudo env SIMPLESUITE_NETWORK_ROLE=client \
+    sudo env SIMPLESUITE_NETWORK_ROLE=client SIMPLESERVE_CLIENT_BINARY="$CLIENT" \
         "$SUITE/install-simpleserve-system.sh" "$BINARY"
 else
     echo "setup-server: root privileges are required, but sudo is unavailable." >&2

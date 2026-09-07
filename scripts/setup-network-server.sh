@@ -3,7 +3,8 @@ set -eu
 
 ROOT=${SCRIPTORIUM_ROOT:-$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)}
 SUITE=${SIMPLESUITE_DIR:-$HOME/simplesuite}
-BINARY=${SIMPLESERVE_DAEMON_BINARY:-$HOME/.local/bin/simpleserved}
+BINARY=${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}
+CLIENT=${SIMPLESERVE_CLIENT_BINARY:-${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}/simpleserve}
 VERIFY_ONLY=0
 
 case "${1-}" in
@@ -30,7 +31,7 @@ esac
 
 verify_server() {
     SIMPLESUITE_NETWORK_ROLE=server \
-        "$SUITE/verify-simpleserve-system.sh" "$BINARY"
+        "$SUITE/verify-simpleserve-system.sh" "$BINARY" "$CLIENT"
 }
 
 if [ "$VERIFY_ONLY" -eq 1 ]; then
@@ -45,10 +46,10 @@ SIMPLESUITE_NETWORK_ROLE=server SIMPLESUITE_INSTALL_SIMPLESERVE=1 \
     "$ROOT/scripts/install-packages.sh"
 
 if [ "$(id -u)" -eq 0 ]; then
-    SIMPLESUITE_NETWORK_ROLE=server \
+    SIMPLESUITE_NETWORK_ROLE=server SIMPLESERVE_CLIENT_BINARY="$CLIENT" \
         "$SUITE/install-simpleserve-system.sh" "$BINARY"
 elif command -v sudo >/dev/null 2>&1; then
-    sudo env SIMPLESUITE_NETWORK_ROLE=server \
+    sudo env SIMPLESUITE_NETWORK_ROLE=server SIMPLESERVE_CLIENT_BINARY="$CLIENT" \
         "$SUITE/install-simpleserve-system.sh" "$BINARY"
 else
     echo "setup-server: root privileges are required, but sudo is unavailable." >&2

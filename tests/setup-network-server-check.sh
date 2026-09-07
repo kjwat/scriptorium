@@ -8,9 +8,11 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 fixture=$tmp/scriptorium
 suite=$tmp/simplesuite
 fake_bin=$tmp/bin
-daemon=$tmp/home/.local/bin/simpleserved
+daemon=$tmp/system/sbin/simpleserved
+client=$tmp/system/bin/simpleserve
+export SIMPLESUITE_SYSTEM_BIN_DIR=$tmp/system/bin
 log=$tmp/calls.log
-mkdir -p "$fixture/scripts" "$suite/init" "$fake_bin" "$(dirname "$daemon")"
+mkdir -p "$fixture/scripts" "$suite/init" "$fake_bin" "$(dirname "$daemon")" "$(dirname "$client")"
 
 cat >"$fixture/scripts/install-packages.sh" <<'EOF'
 #!/bin/sh
@@ -26,6 +28,7 @@ cat >"$suite/install-simpleserve-system.sh" <<'EOF'
 set -eu
 [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
 [ "$#" -eq 1 ] && [ -x "$1" ]
+[ -x "$SIMPLESERVE_CLIENT_BINARY" ]
 printf 'install\n' >>"$TRIDENT_TEST_LOG"
 EOF
 
@@ -33,7 +36,8 @@ cat >"$suite/verify-simpleserve-system.sh" <<'EOF'
 #!/bin/sh
 set -eu
 [ "${SIMPLESUITE_NETWORK_ROLE:-}" = server ]
-[ "$#" -eq 1 ] && [ -x "$1" ]
+[ "$#" -eq 2 ] && [ -x "$1" ] && [ -x "$2" ]
+[ "$2" = "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
 printf 'verify\n' >>"$TRIDENT_TEST_LOG"
 EOF
 
@@ -43,6 +47,8 @@ exec "$@"
 EOF
 
 printf '%s\n' '#!/bin/sh' 'exit 0' >"$daemon"
+cp "$daemon" "$client"
+chmod 755 "$client"
 printf '%s\n' server >"$suite/init/simpleserve.server.role"
 chmod 755 "$fixture/scripts/install-packages.sh" \
     "$suite/install-simpleserve-system.sh" \
