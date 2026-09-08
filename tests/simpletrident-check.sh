@@ -197,19 +197,23 @@ EOF
 chmod 755 "$FAKE_BIN"/* "$SIMPLESERVE_VERIFY" \
     "$SERVER_ROOT/check_server.sh"
 
-HOME="$HOME_DIR" "$ROOT/scripts/install-simpletrident.sh" \
+mkdir -p "$TEST_ROOT/system-bin"
+HOME="$HOME_DIR" SIMPLESUITE_SYSTEM_BIN_DIR="$TEST_ROOT/system-bin" \
+    "$ROOT/scripts/install-simpletrident.sh" \
     >"$TEST_ROOT/install.out"
-TRIDENT=$HOME_DIR/.local/bin/simpletrident
+TRIDENT=$TEST_ROOT/system-bin/simpletrident
 TRIDENT_ALIAS=$HOME_DIR/.local/bin/trident
 [ -x "$TRIDENT" ]
 [ ! -e "$TRIDENT_ALIAS" ]
+[ ! -e "$HOME_DIR/.local/bin/simpletrident" ]
 grep -q "Installed $TRIDENT" "$TEST_ROOT/install.out"
 
 run_check() {
     scenario=$1
     output=$2
     verifier_command=$SIMPLESERVE_VERIFY
-    system_root=
+    # Installed SimpleOS source/config must not leak into the missing-file cases.
+    system_root=$TEST_ROOT/empty-system
     case "$scenario" in
         client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon)
             printf '%s\n' client >"$ROLE_FILE"

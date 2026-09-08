@@ -6,10 +6,10 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplesuite-uninstall; do
+for program in simplewords simplesuite-uninstall simplecheck simpletrident; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
-for program in simplecheck setup-server; do
+for program in setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/home/.local/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'

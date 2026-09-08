@@ -3,7 +3,9 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE="$ROOT/simpletrident.c"
-DEST="$HOME/.local/bin/simpletrident"
+SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
+DEST="$SYSTEM_BIN_DIR/simpletrident"
+LEGACY_DEST="$HOME/.local/bin/simpletrident"
 ALIAS_DEST="$HOME/.local/bin/trident"
 CC_BIN="${CC:-cc}"
 
@@ -28,11 +30,31 @@ if [ ! -f "$SOURCE" ]; then
     exit 1
 fi
 
-mkdir -p "$HOME/.local/bin"
+# Match the suite installer, including its override for staged/test installs.
+run_install_command() {
+    if [ "$(id -u)" -eq 0 ] || [ -w "$SYSTEM_BIN_DIR" ]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    elif command -v doas >/dev/null 2>&1; then
+        doas "$@"
+    else
+        printf 'Root privileges are required to install SimpleTrident in %s.\n' "$SYSTEM_BIN_DIR" >&2
+        exit 1
+    fi
+}
+
+remove_legacy_commands() {
+    [ "$DEST" = "$LEGACY_DEST" ] || rm -f "$LEGACY_DEST"
+    if [ -L "$ALIAS_DEST" ] && [ "$(readlink "$ALIAS_DEST")" = simpletrident ]; then
+        rm -f "$ALIAS_DEST"
+    fi
+}
+
 if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
     if [ -L "$ALIAS_DEST" ] &&
        [ "$(readlink "$ALIAS_DEST")" = simpletrident ]; then
-        rm -f "$ALIAS_DEST"
+        : # Remove this only after the system command is available.
     else
         printf 'Refusing to replace unrelated trident command: %s\n' \
             "$ALIAS_DEST" >&2
@@ -40,13 +62,16 @@ if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
     fi
 fi
 if [ -x "$DEST" ]; then
+    remove_legacy_commands
     printf 'Reusing existing %s; Bash installs alias trident=%s\n' "$DEST" "$DEST"
     exit 0
 fi
 temporary="$(mktemp "${TMPDIR:-/tmp}/simpletrident.XXXXXX")"
+system_tmp=
 
 cleanup() {
     rm -f "$temporary"
+    [ -z "$system_tmp" ] || run_install_command rm -f "$system_tmp"
 }
 trap cleanup EXIT INT TERM
 
@@ -73,5 +98,10 @@ else
         "$SOURCE" -o "$temporary" -lncurses
 fi
 
-install -m 0755 "$temporary" "$DEST"
+run_install_command mkdir -p "$SYSTEM_BIN_DIR"
+system_tmp=$(run_install_command mktemp "$SYSTEM_BIN_DIR/.simpletrident.XXXXXX")
+run_install_command install -m 0755 "$temporary" "$system_tmp"
+run_install_command mv -f "$system_tmp" "$DEST"
+system_tmp=
+remove_legacy_commands
 printf 'Installed %s (shell alias: trident)\n' "$DEST"

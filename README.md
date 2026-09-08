@@ -304,8 +304,18 @@ those outputs into `/usr/local/bin` (override with `SIMPLESUITE_SYSTEM_BIN_DIR`)
 It removes older copies of those commands from `~/.local/bin`, preserves
 unrelated user commands, and keeps the existing SimpleOS daemon at
 `/usr/local/sbin/simpleserved`. Helper scripts such as `simplesuite-uninstall`
-are also installed in the system bin directory. Shared
-audio assets are installed under:
+are also installed in the system bin directory. SimpleCheck and SimpleTrident
+use that same directory and remove their legacy user-local copies after a
+successful install. `~/.local/bin` remains available for personal utilities.
+
+On SimpleOS, development builds must also replace the corresponding commands
+in `/usr/local/bin`. Standalone SimpleSuite's `make install` defaults to
+`~/.local/bin`; copying development builds there shadows the system suite.
+Keep `simplebrowse` and `simplebrowse-webkitd` together when installing browser
+changes. Build outputs in `~/simplesuite/build` are build artifacts, not another
+directory to add to PATH.
+
+Shared audio assets are installed under:
 
 ```text
 ~/.local/share/simplesuite/simplecal-alarm.mp3
@@ -432,8 +442,8 @@ RPM repository definitions. Scriptorium never writes an auth key into those
 paths.
 
 `~/.bashrc` receives `~/.local/bin` on PATH and these aliases. SimpleSuite
-applications are installed in `/usr/local/bin`; the SimpleCheck and SimpleTrident
-dashboards remain in `~/.local/bin`. On every repeated install Scriptorium
+applications, including the SimpleCheck and SimpleTrident dashboards, are
+installed in `/usr/local/bin`. On every repeated install Scriptorium
 fast-forwards the SimpleSuite checkout, rebuilds the complete platform program
 set, atomically replaces the system commands, preserves `simpleserved`, removes
 its own legacy short-command symlinks, and then reconciles aliases for the
