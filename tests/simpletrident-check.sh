@@ -58,6 +58,9 @@ if [ "$configured_role" = client ]; then
             managed_mounts='  test-server:Library -> /tmp/Library  mounted, remembered, route: LAN, address: 192.0.2.10
   test-server:Archive -> /tmp/Archive  mounted, remembered, route: LAN, address: 192.0.2.10'
             ;;
+        client-tail-unchecked)
+            managed_mounts='  test-server:Library -> /tmp/Library  mounted, remembered, route: LAN, address: 192.0.2.10, Tailscale NFS: not checked (100.70.80.91)'
+            ;;
         *)
             managed_mounts='  test-server:Library -> /tmp/Library  mounted, remembered, route: LAN, address: 192.0.2.10, Tailscale NFS: ready (100.70.80.91)
   test-server:Archive -> /tmp/Archive  mounted, remembered, route: Tailscale, address: 100.70.80.91, Tailscale NFS: ready (100.70.80.91)'
@@ -149,7 +152,7 @@ cat >"$FAKE_BIN/caddy" <<'EOF'
 #!/bin/sh
 [ "${1-}" = validate ] || exit 2
 case "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" in
-    client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon)
+    client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon | client-tail-unchecked)
         echo 'error: a server-only Caddy check ran in client mode' >&2
         exit 1
         ;;
@@ -171,7 +174,7 @@ case "${SIMPLETRIDENT_TEST_SCENARIO:-healthy}" in
         echo 'error: the Caddy-dependent health checker should have been blocked' >&2
         exit 1
         ;;
-    client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon)
+    client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon | client-tail-unchecked)
         echo 'error: the server website health checker ran in client mode' >&2
         exit 1
         ;;
@@ -215,7 +218,7 @@ run_check() {
     # Installed SimpleOS source/config must not leak into the missing-file cases.
     system_root=$TEST_ROOT/empty-system
     case "$scenario" in
-        client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon)
+        client | client-no-caddy | client-unmounted | client-tail-unreachable | client-no-tail-route | client-old-daemon | client-tail-unchecked)
             printf '%s\n' client >"$ROLE_FILE"
             ;;
         unknown-role) rm -f "$ROLE_FILE" ;;
@@ -400,13 +403,23 @@ grep -q '^\[UNKNOWN\] Tailscale / encrypted extranet$' \
 grep -q 'Tailscale NFS readiness is missing for 2 remembered mounts' \
     "$TEST_ROOT/client-old-daemon.out"
 
+run_check client-tail-unchecked "$TEST_ROOT/client-tail-unchecked.out"
+[ "$check_status" -eq 1 ]
+grep -q '^\[UNKNOWN\] Tailscale / encrypted extranet$' \
+    "$TEST_ROOT/client-tail-unchecked.out"
+grep -q 'Tailscale NFS readiness has not been checked for 1 remembered mount' \
+    "$TEST_ROOT/client-tail-unchecked.out"
+! grep -q 'No remembered NFS mount is reachable over Tailscale' \
+    "$TEST_ROOT/client-tail-unchecked.out"
+
 for client_output in \
     "$TEST_ROOT/client.out" \
     "$TEST_ROOT/client-no-caddy.out" \
     "$TEST_ROOT/client-unmounted.out" \
     "$TEST_ROOT/client-tail-unreachable.out" \
     "$TEST_ROOT/client-no-tail-route.out" \
-    "$TEST_ROOT/client-old-daemon.out"
+    "$TEST_ROOT/client-old-daemon.out" \
+    "$TEST_ROOT/client-tail-unchecked.out"
 do
     ! grep -q 'Caddy website / local web origin' "$client_output"
     grep -q '^\[OK *\] OpenSSH / client + daemon$' "$client_output"

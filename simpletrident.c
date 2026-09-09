@@ -74,6 +74,7 @@ typedef struct {
     int tailscale_routes;
     int tailscale_nfs_reported;
     int tailscale_nfs_ready;
+    int tailscale_nfs_unchecked;
 } SimpleServeEvidence;
 
 static Category categories[CATEGORY_COUNT] = {
@@ -322,6 +323,8 @@ static void parse_simpleserve_evidence(const char *status,
                 evidence->tailscale_nfs_reported++;
                 if (strstr(line, "Tailscale NFS: ready"))
                     evidence->tailscale_nfs_ready++;
+                else if (strstr(line, "Tailscale NFS: not checked"))
+                    evidence->tailscale_nfs_unchecked++;
             }
         }
     }
@@ -1538,6 +1541,12 @@ static void check_tailscale(Category *category)
                                      simpleserve_evidence.tailscale_nfs_reported,
                                  simpleserve_evidence.remembered -
                                      simpleserve_evidence.tailscale_nfs_reported == 1 ?
+                                     "" : "s");
+            } else if (simpleserve_evidence.tailscale_nfs_unchecked > 0) {
+                category_unknown(category,
+                                 "Tailscale NFS readiness has not been checked for %d remembered mount%s",
+                                 simpleserve_evidence.tailscale_nfs_unchecked,
+                                 simpleserve_evidence.tailscale_nfs_unchecked == 1 ?
                                      "" : "s");
             } else if (simpleserve_evidence.tailscale_nfs_ready ==
                        simpleserve_evidence.remembered) {
