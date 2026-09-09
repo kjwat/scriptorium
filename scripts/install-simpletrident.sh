@@ -6,7 +6,6 @@ SOURCE="$ROOT/simpletrident.c"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 DEST="$SYSTEM_BIN_DIR/simpletrident"
 LEGACY_DEST="$HOME/.local/bin/simpletrident"
-ALIAS_DEST="$HOME/.local/bin/trident"
 CC_BIN="${CC:-cc}"
 
 prepend_pkgconfig_dir() {
@@ -46,21 +45,21 @@ run_install_command() {
 
 remove_legacy_commands() {
     [ "$DEST" = "$LEGACY_DEST" ] || rm -f "$LEGACY_DEST"
-    if [ -L "$ALIAS_DEST" ] && [ "$(readlink "$ALIAS_DEST")" = simpletrident ]; then
-        rm -f "$ALIAS_DEST"
-    fi
+    for alias_dir in "$HOME/.local/bin" "$SYSTEM_BIN_DIR"; do
+        alias_path=$alias_dir/trident
+        [ -L "$alias_path" ] || continue
+        case $(readlink "$alias_path") in
+            simpletrident|"$alias_dir/simpletrident")
+                if [ "$alias_dir" = "$SYSTEM_BIN_DIR" ]; then
+                    run_install_command rm -f "$alias_path"
+                else
+                    rm -f "$alias_path"
+                fi
+                ;;
+        esac
+    done
 }
 
-if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
-    if [ -L "$ALIAS_DEST" ] &&
-       [ "$(readlink "$ALIAS_DEST")" = simpletrident ]; then
-        : # Remove this only after the system command is available.
-    else
-        printf 'Refusing to replace unrelated trident command: %s\n' \
-            "$ALIAS_DEST" >&2
-        exit 1
-    fi
-fi
 if [ -x "$DEST" ]; then
     remove_legacy_commands
     printf 'Reusing existing %s; Bash installs alias trident=%s\n' "$DEST" "$DEST"

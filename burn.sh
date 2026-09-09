@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 SIMPLESUITE_DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
+SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 FREEBSD_UNMOUNT_HELPER_PATH="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
 SIMPLESERVE_SYSTEM_DAEMON_PATH="${SIMPLESERVE_SYSTEM_DAEMON:-/usr/local/sbin/simpleserved}"
@@ -138,12 +139,17 @@ run_simplesuite_burn() {
         suite_uninstaller=$HOME/.local/bin/simplesuite-uninstall
     elif [ -x "$SIMPLESUITE_DEST/uninstall.sh" ]; then
         suite_uninstaller=$SIMPLESUITE_DEST/uninstall.sh
+    elif [ -x "$SYSTEM_BIN_DIR/simplesuite-uninstall" ]; then
+        suite_uninstaller=$SYSTEM_BIN_DIR/simplesuite-uninstall
     fi
 
     [ -n "$suite_uninstaller" ] || return 0
 
     echo "Burning the installed SimpleSuite payload and data"
     if ! (
+        # Native burn handles this user's data and any legacy user payload.
+        # System commands are removed separately without running user cleanup
+        # with root's HOME or deleting the bundled SimpleOS source snapshot.
         unset BINDIR DATADIR SIMPLESUITE_DATADIR DESTDIR
         PREFIX="$HOME/.local"
         FREEBSD_UNMOUNT_HELPER="$FREEBSD_UNMOUNT_HELPER_PATH"
@@ -151,6 +157,16 @@ run_simplesuite_burn() {
         "$suite_uninstaller" --burn --yes
     ); then
         printf 'SimpleSuite native burn failed; continuing with Scriptorium fallback cleanup.\n' >&2
+    fi
+}
+
+remove_system_command() {
+    command_path=$SYSTEM_BIN_DIR/$1
+    [ -e "$command_path" ] || [ -L "$command_path" ] || return 0
+    if [ -w "$SYSTEM_BIN_DIR" ]; then
+        rm -f -- "$command_path"
+    else
+        run_as_root rm -f -- "$command_path"
     fi
 }
 
@@ -177,8 +193,10 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
+    # setup-server remains a user-local Scriptorium utility.
+    [ "$bin" = setup-server ] || remove_system_command "$bin"
 done
 
 for alias_mapping in \
@@ -190,11 +208,19 @@ for alias_mapping in \
     ver:simplever vis:simplevis words:simplewords; do
     alias_name=${alias_mapping%%:*}
     alias_target=${alias_mapping#*:}
-    alias_path=$HOME/.local/bin/$alias_name
-    if [ -L "$alias_path" ] &&
-       [ "$(readlink "$alias_path" 2>/dev/null || true)" = "$alias_target" ]; then
-        rm -f "$alias_path"
-    fi
+    for alias_dir in "$HOME/.local/bin" "$SYSTEM_BIN_DIR"; do
+        alias_path=$alias_dir/$alias_name
+        [ -L "$alias_path" ] || continue
+        case $(readlink "$alias_path" 2>/dev/null || true) in
+        "$alias_target"|"$alias_dir/$alias_target")
+            if [ "$alias_dir" = "$SYSTEM_BIN_DIR" ]; then
+                remove_system_command "$alias_name"
+            else
+                rm -f "$alias_path"
+            fi
+            ;;
+        esac
+    done
 done
 
 # Remove snapd itself only if Scriptorium installed it.

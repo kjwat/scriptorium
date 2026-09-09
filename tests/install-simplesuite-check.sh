@@ -15,6 +15,9 @@ SIMPLESERVE_DAEMON_BINARY="$TMP/system-sbin/simpleserved"
 export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
 mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN" \
     "$SIMPLESUITE_SYSTEM_BIN_DIR" "${SIMPLESERVE_DAEMON_BINARY%/*}"
+ln -s simplewords "$SIMPLESUITE_SYSTEM_BIN_DIR/words"
+ln -s "$SIMPLESUITE_SYSTEM_BIN_DIR/simplecal" "$SIMPLESUITE_SYSTEM_BIN_DIR/cal"
+printf '%s\n' unrelated-clock >"$SIMPLESUITE_SYSTEM_BIN_DIR/clock"
 printf '%s\n' '#!/bin/sh' '# frozen SimpleOS daemon' 'exit 99' \
     >"$SIMPLESERVE_DAEMON_BINARY"
 chmod 755 "$SIMPLESERVE_DAEMON_BINARY"
@@ -76,6 +79,10 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
 set -eu
 
+[ "$#" -eq 1 ]
+case $1 in BINDIR=*) fixture_bindir=${1#BINDIR=} ;; *) exit 2 ;; esac
+[ "$fixture_bindir" != "$HOME/.local/bin" ]
+printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_REQUIRE_CLEAN:-}" = 1 ]
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
@@ -101,35 +108,40 @@ case "$(uname -s)" in
         ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
+if [ "$(uname -s)" = Darwin ]; then
+    helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
+fi
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
 
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/simplesuite" "$PWD/build" \
+mkdir -p "$fixture_bindir" "$HOME/.local/share/simplesuite" "$PWD/build" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
     "$HOME/.config/simplenews" "$HOME/.config/simplewords"
 for name in $programs $helpers; do
-    printf '%s\n' '#!/bin/sh' 'exit 0' >"$HOME/.local/bin/$name"
-    chmod 755 "$HOME/.local/bin/$name"
+    printf '%s\n' '#!/bin/sh' '# staged build output' 'exit 0' >"$fixture_bindir/$name"
+    chmod 755 "$fixture_bindir/$name"
     case $name in
         simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump) ;;
         *)
-            cp "$HOME/.local/bin/$name" "$PWD/build/$name"
+            cp "$fixture_bindir/$name" "$PWD/build/$name"
             chmod 755 "$PWD/build/$name"
             ;;
     esac
 done
-cat >"$HOME/.local/bin/simplewords" <<SIMPLEWORDS_EOF
+# Simulate failure after install has already written executable payload.
+[ "${FAKE_FAIL_BUILD:-0}" != 1 ] || exit 19
+cat >"$fixture_bindir/simplewords" <<SIMPLEWORDS_EOF
 #!/bin/sh
 if [ "\${1-}" = --version ]; then
     printf '%s\n' 'simplewords ${SIMPLESUITE_SOURCE_SHA:?}'
 fi
 exit 0
 SIMPLEWORDS_EOF
-chmod 755 "$HOME/.local/bin/simplewords"
-cp "$HOME/.local/bin/simplewords" "$PWD/build/simplewords"
+chmod 755 "$fixture_bindir/simplewords"
+cp "$fixture_bindir/simplewords" "$PWD/build/simplewords"
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
-    ln -s "$full" "$HOME/.local/bin/$short"
+    ln -s "$full" "$fixture_bindir/$short"
 done
 printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
     >"$HOME/simpleserve-component-selection"
@@ -235,6 +247,11 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     >"$TMP/install.log"
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ ! -e "$(cat "$HOME/install-stage")" ]
+[ ! -e "$HOME/.local/bin" ]
+[ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/words" ]
+[ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/cal" ]
+[ "$(cat "$SIMPLESUITE_SYSTEM_BIN_DIR/clock")" = unrelated-clock ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenet" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
 [ ! -e "$HOME/.local/bin/simpleserved" ]
@@ -275,6 +292,9 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webkitd" ]
+grep -q "^# staged build output$" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webkitd"
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplefiles-macos-helper" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplevis-macos-capture" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
 [ ! -e "$HOME/.local/bin/simpleserved" ]
 [ ! -e "$HOME/simpleserve-system-verified" ]
@@ -415,4 +435,25 @@ grep -q '^none$' "$HOME/simpleserve-network-role"
 [ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 
-echo 'OK Scriptorium installs system binaries, preserves the daemon, and keeps explicit service verification'
+# Failure during the build must not publish commands into either command path.
+HOME="$TMP/failed-build-home"
+export HOME
+mkdir -p "$HOME/.local/bin"
+printf '%s\n' personal >"$HOME/.local/bin/ytmp3"
+cp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
+if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+   FAKE_UNAME=Linux FAKE_FAIL_BUILD=1 \
+   SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+   SIMPLESUITE_INSTALL_REMINDERS=0 \
+       "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
+       >"$TMP/failed-build.log" 2>&1; then
+    echo 'install-simplesuite-check: failed build was accepted' >&2
+    exit 1
+fi
+[ ! -e "$(cat "$HOME/install-stage")" ]
+[ "$(ls -A "$HOME/.local/bin")" = ytmp3 ]
+[ "$(cat "$HOME/.local/bin/ytmp3")" = personal ]
+cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
+grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
+
+echo 'OK Scriptorium stages binaries privately, installs system commands, and preserves the daemon'

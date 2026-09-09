@@ -40,6 +40,9 @@ program-manifest.sh
 SIMPLESUITE_PROGRAMS=
 SIMPLESUITE_COMMAND_ALIASES=
 SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
+    SIMPLESUITE_SCRIPTS="$SIMPLESUITE_SCRIPTS simplefiles-macos-helper simplevis-macos-capture"
+fi
 
 case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
     0 | 1) ;;
@@ -263,7 +266,12 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             exit 2
         fi
         case $program in
-            simplesuite-uninstall | simplebrowse-webkitd | simplebrowse-jsdump)
+            simplesuite-uninstall | simplebrowse-jsdump)
+                ;;
+            simplebrowse-webkitd)
+                if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
+                    (cd "$DEST" && "$make_cmd" "$program")
+                fi
                 ;;
             simpleserved)
                 echo "Preserving installed simpleserved; it is not updated by Scriptorium."
@@ -275,23 +283,30 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
                 ;;
         esac
     done
-elif [ -x "$DEST/build.sh" ]; then
-    (cd "$DEST" && \
-        SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
-        SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
-        SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
-        SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip \
-        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
-        SIMPLESUITE_REQUIRE_CLEAN=1 \
-        ./build.sh)
-elif [ -f "$DEST/Makefile" ]; then
-    make_cmd=${MAKE:-make}
-    (cd "$DEST" && "$make_cmd" \
-        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
-        SIMPLESUITE_REQUIRE_CLEAN=1 release-simplewords && \
-        "$make_cmd" \
-        SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
-        SIMPLESUITE_REQUIRE_CLEAN=1 install)
+elif [ -x "$DEST/build.sh" ] || [ -f "$DEST/Makefile" ]; then
+    # Build/install into a private bin directory before publishing commands.
+    # A failed build must not leave ~/.local/bin copies shadowing SimpleOS.
+    # Keep shared assets and user configuration at their existing locations.
+    install_stage=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-suite-install.XXXXXX")
+    trap 'rm -rf -- "$install_stage"' EXIT
+    if [ -x "$DEST/build.sh" ]; then
+        (cd "$DEST" && \
+            SIMPLESUITE_INSTALL_PACKAGES="$SIMPLESUITE_BUILD_INSTALL_PACKAGES" \
+            SIMPLESUITE_INSTALL_SIMPLESERVE="$SIMPLESUITE_INSTALL_SIMPLESERVE" \
+            SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
+            SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip \
+            SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+            SIMPLESUITE_REQUIRE_CLEAN=1 \
+            ./build.sh "BINDIR=$install_stage/bin")
+    else
+        make_cmd=${MAKE:-make}
+        (cd "$DEST" && "$make_cmd" \
+            SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+            SIMPLESUITE_REQUIRE_CLEAN=1 release-simplewords && \
+            "$make_cmd" \
+            SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
+            SIMPLESUITE_REQUIRE_CLEAN=1 "BINDIR=$install_stage/bin" install)
+    fi
 else
     echo "No build.sh or Makefile found in $DEST" >&2
     exit 1
@@ -311,11 +326,22 @@ run_as_root() {
 }
 
 simplesuite_program_source() {
+    if [ -n "${install_stage:-}" ]; then
+        printf '%s\n' "$install_stage/bin/$1"
+        return
+    fi
     case $1 in
         simplesuite-uninstall)
             printf '%s\n' "$DEST/uninstall.sh"
             ;;
-        simplebrowse-webkitd | simplebrowse-jsdump)
+        simplebrowse-webkitd)
+            if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
+                printf '%s\n' "$DEST/build/$1"
+            else
+                printf '%s\n' "$DEST/$1"
+            fi
+            ;;
+        simplebrowse-jsdump)
             printf '%s\n' "$DEST/$1"
             ;;
         *)
@@ -395,13 +421,21 @@ echo "Removing legacy SimpleSuite short-command symlinks"
 for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
     short_command=${alias_mapping%%:*}
     full_command=${alias_mapping#*:}
-    alias_path=$HOME/.local/bin/$short_command
-    if [ -L "$alias_path" ] &&
-       [ "$(readlink "$alias_path")" = "$full_command" ]; then
-        rm -f "$alias_path"
-        printf '  removed: %s (shell alias targets %s)\n' \
-            "$short_command" "$full_command"
-    fi
+    for alias_dir in "$HOME/.local/bin" "$SYSTEM_BIN_DIR"; do
+        alias_path=$alias_dir/$short_command
+        [ -L "$alias_path" ] || continue
+        case $(readlink "$alias_path") in
+            "$full_command"|"$alias_dir/$full_command")
+                if [ "$alias_dir" = "$SYSTEM_BIN_DIR" ]; then
+                    run_as_root rm -f "$alias_path"
+                else
+                    rm -f "$alias_path"
+                fi
+                printf '  removed: %s (shell alias targets %s)\n' \
+                    "$alias_path" "$full_command"
+                ;;
+        esac
+    done
 done
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then

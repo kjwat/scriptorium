@@ -6,7 +6,6 @@ SOURCE="$ROOT/simplecheck.c"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 DEST="$SYSTEM_BIN_DIR/simplecheck"
 LEGACY_DEST="$HOME/.local/bin/simplecheck"
-ALIAS_DEST="$HOME/.local/bin/check"
 CC_BIN="${CC:-cc}"
 
 prepend_pkgconfig_dir() {
@@ -46,21 +45,21 @@ run_install_command() {
 
 remove_legacy_commands() {
     [ "$DEST" = "$LEGACY_DEST" ] || rm -f "$LEGACY_DEST"
-    if [ -L "$ALIAS_DEST" ] && [ "$(readlink "$ALIAS_DEST")" = simplecheck ]; then
-        rm -f "$ALIAS_DEST"
-    fi
+    for alias_dir in "$HOME/.local/bin" "$SYSTEM_BIN_DIR"; do
+        alias_path=$alias_dir/check
+        [ -L "$alias_path" ] || continue
+        case $(readlink "$alias_path") in
+            simplecheck|"$alias_dir/simplecheck")
+                if [ "$alias_dir" = "$SYSTEM_BIN_DIR" ]; then
+                    run_install_command rm -f "$alias_path"
+                else
+                    rm -f "$alias_path"
+                fi
+                ;;
+        esac
+    done
 }
 
-if [ -e "$ALIAS_DEST" ] || [ -L "$ALIAS_DEST" ]; then
-    if [ -L "$ALIAS_DEST" ] &&
-       [ "$(readlink "$ALIAS_DEST")" = simplecheck ]; then
-        : # Remove this only after the system command is available.
-    else
-        printf 'Refusing to replace unrelated check command: %s\n' \
-            "$ALIAS_DEST" >&2
-        exit 1
-    fi
-fi
 if [ -x "$DEST" ]; then
     remove_legacy_commands
     printf 'Reusing existing %s; Bash installs alias check=%s\n' "$DEST" "$DEST"

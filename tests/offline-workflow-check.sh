@@ -108,6 +108,16 @@ grep -q 'building the existing local checkout' "$OFFLINE_WORK/install.log"
 grep -q 'preserving enrollment and deferring connection' "$OFFLINE_WORK/install.log"
 grep -q 'Done. The Scriptorium is installed.' "$OFFLINE_WORK/install.log"
 printf '%s\n' 'OK ./install.sh completed with unreachable Git, Tailscale and remote servers'
+. "$SIMPLESUITE_DIR/program-manifest.sh"
+while IFS=: read -r short full; do
+    for directory in "$HOME/.local/bin" "$SIMPLESUITE_SYSTEM_BIN_DIR"; do
+        [ ! -e "$directory/$short" ] && [ ! -L "$directory/$short" ]
+    done
+done < <(simplesuite_program_aliases Linux 1; printf '%s\n' check:simplecheck trident:simpletrident)
+PATH="$SIMPLESUITE_SYSTEM_BIN_DIR:$PATH" \
+    bash --noprofile --rcfile "$HOME/.bashrc" -ic \
+    '[[ $(type -t words) == alias ]]; [[ $(type -P simplewords) == "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]]; words --version'
+printf '%s\n' 'OK shell aliases launch canonical system binaries with no short-name bin entries'
 RUN
 if ! OFFLINE_WORK="$work" unshare --user --map-root-user --mount --net \
         bash "$work/run.sh"; then

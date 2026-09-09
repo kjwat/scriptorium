@@ -20,6 +20,7 @@ for short in check trident; do
     printf '%s\n' legacy >"$legacy_bin/$program"
     chmod 755 "$legacy_bin/$program"
     ln -s "$program" "$legacy_bin/$short"
+    ln -s "$program" "$system_bin/$short"
     printf '%s\n' personal >"$legacy_bin/ytmp3"
 
     # A failed install must leave the old command and its alias usable.
@@ -33,6 +34,7 @@ for short in check trident; do
     [ "$(cat "$legacy_bin/$program")" = legacy ]
     [ "$(readlink "$legacy_bin/$short")" = "$program" ]
     [ ! -e "$system_bin/$program" ]
+    [ "$(readlink "$system_bin/$short")" = "$program" ]
 
     run_installer >"$TMP/$short-first-install.log"
     [ -x "$system_bin/$program" ]
@@ -44,20 +46,20 @@ for short in check trident; do
     # Reusing a system command must also remove copies left by older installers.
     cp "$system_bin/$program" "$legacy_bin/$program"
     ln -s "$program" "$legacy_bin/$short"
+    ln -s "$system_bin/$program" "$system_bin/$short"
     run_installer >"$TMP/$short-second-install.log"
     [ ! -e "$legacy_bin/$program" ]
     [ ! -L "$legacy_bin/$short" ]
+    [ ! -L "$system_bin/$short" ]
     grep -q 'Reusing existing' "$TMP/$short-second-install.log"
 
     # Never silently overwrite an unrelated user command.
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$legacy_bin/$short"
     chmod 755 "$legacy_bin/$short"
-    if run_installer >"$TMP/$short-conflict.log" 2>&1; then
-        echo "$program check: unrelated $short command was overwritten" >&2
-        exit 1
-    fi
-    grep -q "Refusing to replace unrelated $short command" "$TMP/$short-conflict.log"
+    cp "$legacy_bin/$short" "$system_bin/$short"
+    run_installer >"$TMP/$short-conflict.log" 2>&1
     [ -x "$legacy_bin/$short" ]
+    cmp "$legacy_bin/$short" "$system_bin/$short"
 done
 
 echo 'OK dashboards use the system bin directory, migrate legacy copies, and preserve commands on failure'

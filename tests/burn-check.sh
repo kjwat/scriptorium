@@ -9,8 +9,9 @@ export HOME="$TMP/home"
 FAKE_ROOT="$HOME/scriptorium"
 FAKE_SUITE="$HOME/simplesuite"
 FAKE_BIN="$TMP/test-bin"
+SYSTEM_BIN="$TMP/system-bin"
 REAL_BASH_DIR="$(dirname "$(command -v bash)")"
-mkdir -p "$FAKE_ROOT" "$FAKE_SUITE" "$FAKE_BIN" "$HOME/.local/bin"
+mkdir -p "$FAKE_ROOT" "$FAKE_SUITE" "$FAKE_BIN" "$HOME/.local/bin" "$SYSTEM_BIN"
 cp "$SOURCE_ROOT/burn.sh" "$SOURCE_ROOT/burn-writing.sh" "$FAKE_ROOT/"
 
 fail() {
@@ -33,24 +34,33 @@ echo FreeBSD
 EOF
 chmod 755 "$FAKE_BIN/uname"
 
-cat >"$HOME/.local/bin/simplesuite-uninstall" <<'EOF'
+cat >"$SYSTEM_BIN/simplesuite-uninstall" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >"$HOME/native-burn-args"
 exit 0
 EOF
-chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
+chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 
-programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
 aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
+    [ "$program" = setup-server ] || cp "$HOME/.local/bin/$program" "$SYSTEM_BIN/$program"
 done
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
     ln -s "$full" "$HOME/.local/bin/$short"
+    ln -s "$full" "$SYSTEM_BIN/$short"
 done
+rm "$SYSTEM_BIN/cal"
+ln -s "$SYSTEM_BIN/simplecal" "$SYSTEM_BIN/cal"
+printf '%s\n' personal >"$HOME/.local/bin/ytmp3"
+printf '%s\n' unrelated >"$SYSTEM_BIN/unrelated-tool"
+# Even a familiar short name must be preserved if it is not our symlink.
+rm "$SYSTEM_BIN/check"
+printf '%s\n' unrelated-check >"$SYSTEM_BIN/check"
 
 mkdir -p \
     "$HOME/writing" \
@@ -114,6 +124,7 @@ printf '%s\n' BURN | \
     SIMPLESERVE_SYSTEM_UNINSTALLER="$FAKE_SIMPLESERVE_UNINSTALLER" \
     SIMPLESERVE_SYSTEM_TEST_MODE=1 \
     SIMPLESUITE_DIR="$FAKE_SUITE" \
+    SIMPLESUITE_SYSTEM_BIN_DIR="$SYSTEM_BIN" \
     "$FAKE_ROOT/burn.sh" >"$TMP/burn.log"
 
 [[ "$(cat "$HOME/native-burn-args")" == '--burn --yes' ]] ||
@@ -141,10 +152,15 @@ assert_missing "$FAKE_SIMPLESERVE_UNINSTALLER"
 
 for program in $programs simplesuite-uninstall; do
     assert_missing "$HOME/.local/bin/$program"
+    assert_missing "$SYSTEM_BIN/$program"
 done
 for mapping in $aliases; do
     assert_missing "$HOME/.local/bin/${mapping%%:*}"
+    [[ ${mapping%%:*} == check ]] || assert_missing "$SYSTEM_BIN/${mapping%%:*}"
 done
+[[ "$(cat "$HOME/.local/bin/ytmp3")" == personal ]] || fail 'burn removed a personal utility'
+[[ "$(cat "$SYSTEM_BIN/unrelated-tool")" == unrelated ]] || fail 'burn removed an unrelated system command'
+[[ "$(cat "$SYSTEM_BIN/check")" == unrelated-check ]] || fail 'burn removed an unrelated short command'
 
 [[ -f "$HOME/unrelated-file" ]] || fail "burn removed an unrelated file"
 grep -q '^KeepThis yes$' "$HOME/.mbsyncrc" ||

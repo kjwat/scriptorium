@@ -445,13 +445,13 @@ paths.
 applications, including the SimpleCheck and SimpleTrident dashboards, are
 installed in `/usr/local/bin`. On every repeated install Scriptorium
 fast-forwards the SimpleSuite checkout, rebuilds the complete platform program
-set, atomically replaces the system commands, preserves `simpleserved`, removes
-its own legacy short-command symlinks, and then reconciles aliases for the
-installed programs. Every
-short name becomes available after starting a new shell or sourcing
+set, stages executable payload privately, atomically replaces the system
+commands, preserves `simpleserved`, removes its own legacy short-command
+symlinks from both bin directories, and reconciles shell aliases for installed
+programs. Every short name becomes available after starting a new shell or sourcing
 `~/.bashrc`. Platform- or role-specific aliases exist only
-when their target is installed, and installers refuse to overwrite unrelated
-commands. On Linux, `simpleblue` and `blue` are installed without forcing the
+when their target is installed, and installers preserve unrelated commands.
+On Linux, `simpleblue` and its shell alias `blue` are available without forcing the
 optional BlueZ system stack onto machines whose owners do not want Bluetooth;
 `simpleblue --setup-help` shows the opt-in setup for each supported platform.
 SimpleOS images may include BlueZ as an explicit distribution feature. When
