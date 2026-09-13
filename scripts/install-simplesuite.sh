@@ -9,6 +9,7 @@ SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
+SYSTEM_DATA_DIR="${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}"
 SYSTEM_DAEMON="${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 . "$SCRIPTORIUM_ROOT/scripts/bounded-command.sh"
@@ -284,9 +285,9 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
         esac
     done
 elif [ -x "$DEST/build.sh" ] || [ -f "$DEST/Makefile" ]; then
-    # Build/install into a private bin directory before publishing commands.
+    # Stage executables and shared assets before publishing the system install.
     # A failed build must not leave ~/.local/bin copies shadowing SimpleOS.
-    # Keep shared assets and user configuration at their existing locations.
+    # User configuration is still created as the invoking user.
     install_stage=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-suite-install.XXXXXX")
     trap 'rm -rf -- "$install_stage"' EXIT
     if [ -x "$DEST/build.sh" ]; then
@@ -297,7 +298,8 @@ elif [ -x "$DEST/build.sh" ] || [ -f "$DEST/Makefile" ]; then
             SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=skip \
             SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
             SIMPLESUITE_REQUIRE_CLEAN=1 \
-            ./build.sh "BINDIR=$install_stage/bin")
+            ./build.sh "BINDIR=$install_stage/bin" \
+                "SIMPLESUITE_DATADIR=$install_stage/share/simplesuite")
     else
         make_cmd=${MAKE:-make}
         (cd "$DEST" && "$make_cmd" \
@@ -305,7 +307,8 @@ elif [ -x "$DEST/build.sh" ] || [ -f "$DEST/Makefile" ]; then
             SIMPLESUITE_REQUIRE_CLEAN=1 release-simplewords && \
             "$make_cmd" \
             SIMPLESUITE_SOURCE_SHA="$SIMPLESUITE_RESOLVED_SHA" \
-            SIMPLESUITE_REQUIRE_CLEAN=1 "BINDIR=$install_stage/bin" install)
+            SIMPLESUITE_REQUIRE_CLEAN=1 "BINDIR=$install_stage/bin" \
+            "SIMPLESUITE_DATADIR=$install_stage/share/simplesuite" install)
     fi
 else
     echo "No build.sh or Makefile found in $DEST" >&2
@@ -442,13 +445,21 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
     exit 0
 fi
 
-echo "Verifying SimpleSuite shared assets in $HOME/.local/share/simplesuite"
+run_as_root mkdir -p "$SYSTEM_DATA_DIR"
 for asset in $SIMPLESUITE_ASSETS; do
-    if [ -r "$HOME/.local/share/simplesuite/$asset" ]; then
+    source_path=$install_stage/share/simplesuite/$asset
+    target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
+    run_as_root install -m 0644 "$source_path" "$target_tmp"
+    run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
+done
+
+echo "Verifying SimpleSuite shared assets in $SYSTEM_DATA_DIR"
+for asset in $SIMPLESUITE_ASSETS; do
+    if [ -r "$SYSTEM_DATA_DIR/$asset" ]; then
         printf '  ok: %s\n' "$asset"
     else
         printf '  missing: %s\n' \
-            "$HOME/.local/share/simplesuite/$asset" >&2
+            "$SYSTEM_DATA_DIR/$asset" >&2
         missing=1
     fi
 done
@@ -476,7 +487,7 @@ else
     missing=1
 fi
 
-install_manifest=$HOME/.local/share/simplesuite/install-manifest
+install_manifest=$SYSTEM_DATA_DIR/install-manifest
 if grep -qx "simplesuite_source_sha=$SIMPLESUITE_RESOLVED_SHA" \
         "$install_manifest" 2>/dev/null &&
    grep -qx "simplewords_build_revision=$SIMPLESUITE_RESOLVED_SHA" \

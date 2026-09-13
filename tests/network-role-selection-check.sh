@@ -162,14 +162,16 @@ unattended_without_role_case() (
 )
 
 server_promotion_offer_case() (
-    mkdir -p "$tmp/promotion-home/.local/bin"
-    cat >"$tmp/promotion-home/.local/bin/setup-server" <<'EOF'
+    mkdir -p "$tmp/promotion-system/bin"
+    cat >"$tmp/promotion-system/bin/setup-server" <<'EOF'
 #!/bin/sh
 printf '%s\n' called >"$HOME/setup-server-called"
 EOF
-    chmod 755 "$tmp/promotion-home/.local/bin/setup-server"
+    chmod 755 "$tmp/promotion-system/bin/setup-server"
 
     HOME=$tmp/promotion-home
+    mkdir -p "$HOME"
+    SIMPLESUITE_SYSTEM_BIN_DIR=$tmp/promotion-system/bin
     SCRIPTORIUM_NETWORK_ROLE=client
     SIMPLESUITE_NETWORK_ROLE=client
     SCRIPTORIUM_NONINTERACTIVE=0
@@ -186,6 +188,8 @@ EOF
 
 unattended_client_offer_case() (
     HOME=$tmp/promotion-home
+    mkdir -p "$HOME"
+    SIMPLESUITE_SYSTEM_BIN_DIR=$tmp/promotion-system/bin
     rm -f "$HOME/setup-server-called"
     SCRIPTORIUM_NETWORK_ROLE=client
     SIMPLESUITE_NETWORK_ROLE=client

@@ -6,11 +6,8 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplesuite-uninstall simplecheck simpletrident; do
+for program in simplewords simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
-done
-for program in setup-server; do
-    printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/home/.local/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
 #!/bin/sh
@@ -34,7 +31,7 @@ set -eu
 printf '%s\n' verify >>"$TEST_CALL_LOG"
 EOF
 chmod 755 "$tmp/system/bin/"* "$tmp/system/sbin/"* \
-    "$tmp/home/.local/bin/"* "$tmp/suite/verify-simpleserve-system.sh"
+    "$tmp/suite/verify-simpleserve-system.sh"
 
 for verification_mode in preserve require; do
     HOME="$tmp/home" TEST_ROOT="$repo" TEST_CALL_LOG="$tmp/$verification_mode.calls" \
@@ -54,6 +51,7 @@ EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplecal simpleserve simpleserved si
 EXPECTED_SIMPLESUITE_HELPERS=(simplesuite-uninstall)
 say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
+run_as_root() { "$@"; }
 scriptorium_program_aliases() {
     printf '%s\n' words:simplewords cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
@@ -73,6 +71,14 @@ eval "$(awk '
 ' "$ROOT/install.sh")"
 [[ $simpleserve_service_mode == "$TEST_MODE" ]]
 eval "$(awk '/^export PATH=.*SIMPLESUITE_SYSTEM_BIN_DIR/ { print }' "$ROOT/install.sh")"
+printf '%s\n' stale >"$HOME/.local/bin/setup-server"
+eval "$(awk '
+    /^say "Installing website server bootstrap"/ { copying=1 }
+    /^say "Configuring SimpleCal"/ { exit }
+    copying { print }
+' "$ROOT/install.sh")"
+cmp "$ROOT/setup-server.sh" "$SIMPLESUITE_SYSTEM_BIN_DIR/setup-server"
+[[ ! -e $HOME/.local/bin/setup-server ]]
 eval "$(awk '
     /^ensure_simplesuite_aliases_in_file\(\)/ { copying=1 }
     /^remove_legacy_program_symlinks\(\)/ { exit }

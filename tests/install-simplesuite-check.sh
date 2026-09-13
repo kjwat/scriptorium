@@ -11,8 +11,9 @@ FAKE_REPO="$TMP/simple-source"
 FAKE_BIN="$TMP/test-bin"
 REAL_GIT_DIR="$(dirname "$(command -v git)")"
 SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin"
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-share/simplesuite"
 SIMPLESERVE_DAEMON_BINARY="$TMP/system-sbin/simpleserved"
-export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
+export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESUITE_SYSTEM_DATA_DIR SIMPLESERVE_DAEMON_BINARY
 mkdir -p "$HOME" "$FAKE_SCRIPTORIUM/scripts" "$FAKE_REPO" "$FAKE_BIN" \
     "$SIMPLESUITE_SYSTEM_BIN_DIR" "${SIMPLESERVE_DAEMON_BINARY%/*}"
 ln -s simplewords "$SIMPLESUITE_SYSTEM_BIN_DIR/words"
@@ -79,8 +80,9 @@ cat >"$FAKE_REPO/build.sh" <<'EOF'
 #!/bin/sh
 set -eu
 
-[ "$#" -eq 1 ]
+[ "$#" -eq 2 ]
 case $1 in BINDIR=*) fixture_bindir=${1#BINDIR=} ;; *) exit 2 ;; esac
+case $2 in SIMPLESUITE_DATADIR=*) fixture_datadir=${2#SIMPLESUITE_DATADIR=} ;; *) exit 2 ;; esac
 [ "$fixture_bindir" != "$HOME/.local/bin" ]
 printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_REQUIRE_CLEAN:-}" = 1 ]
@@ -113,7 +115,7 @@ if [ "$(uname -s)" = Darwin ]; then
 fi
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
 
-mkdir -p "$fixture_bindir" "$HOME/.local/share/simplesuite" "$PWD/build" \
+mkdir -p "$fixture_bindir" "$fixture_datadir" "$PWD/build" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \
     "$HOME/.config/simplenews" "$HOME/.config/simplewords"
 for name in $programs $helpers; do
@@ -148,11 +150,11 @@ printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
 printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
     >"$HOME/simpleserve-network-role"
 for name in $assets; do
-    printf '%s\n' fixture >"$HOME/.local/share/simplesuite/$name"
+    printf '%s\n' fixture >"$fixture_datadir/$name"
 done
 printf 'simplesuite_source_sha=%s\nsimplewords_build_revision=%s\n' \
     "${SIMPLESUITE_SOURCE_SHA:?}" "${SIMPLESUITE_SOURCE_SHA:?}" \
-    >"$HOME/.local/share/simplesuite/install-manifest"
+    >"$fixture_datadir/install-manifest"
 if [ ! -e "$HOME/.config/simplewords/config" ]; then
     printf '%s\n' 'typewriter_sound=false' 'typewriter_sound_volume=70' \
         >"$HOME/.config/simplewords/config"
@@ -257,11 +259,11 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ ! -e "$HOME/.local/bin/simpleserved" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesuite-uninstall" ]
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
-[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter.wav" ]
-[ -r "$HOME/.local/share/simplesuite/simplewords-typewriter-NOTICE.md" ]
-[ -r "$HOME/.local/share/simplesuite/install-source" ]
-[ -r "$HOME/.local/share/simplesuite/install-manifest" ]
-[ -r "$HOME/.local/share/simplesuite/command-abbreviations" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/simplewords-typewriter.wav" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/simplewords-typewriter-NOTICE.md" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/install-source" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/install-manifest" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/command-abbreviations" ]
 [ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 [ ! -e "$HOME/.local/bin/suite-uninstall" ]
@@ -298,7 +300,7 @@ grep -q "^# staged build output$" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webk
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" ]
 [ ! -e "$HOME/.local/bin/simpleserved" ]
 [ ! -e "$HOME/simpleserve-system-verified" ]
-[ -r "$HOME/.local/share/simplesuite/install-source" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/install-source" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 [ ! -e "$HOME/.local/bin/net" ]
 [ ! -e "$HOME/.local/bin/blue" ]

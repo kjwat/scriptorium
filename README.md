@@ -297,20 +297,20 @@ If the checkout already exists, Scriptorium updates it with `git pull
 --ff-only`. Scriptorium resolves that moving `main` checkout to an exact commit,
 requires a clean tree, and refuses installation unless that commit passes the
 SimpleWords release gate. It verifies the installed `simplewords --version`
-and `~/.local/share/simplesuite/install-manifest` against the resolved commit,
+and `/usr/local/share/simplesuite/install-manifest` against the resolved commit,
 so a captured image retains its source provenance. The SimpleSuite build keeps
 compiled programs in `~/simplesuite/build`, and Scriptorium atomically copies
 those outputs into `/usr/local/bin` (override with `SIMPLESUITE_SYSTEM_BIN_DIR`).
 It removes older copies of those commands from `~/.local/bin`, preserves
 unrelated user commands, and keeps the existing SimpleOS daemon at
 `/usr/local/sbin/simpleserved`. Helper scripts such as `simplesuite-uninstall`
-are also installed in the system bin directory. SimpleCheck and SimpleTrident
+and `setup-server` are also installed in the system bin directory. SimpleCheck and SimpleTrident
 use that same directory and remove their legacy user-local copies after a
 successful install. `~/.local/bin` remains available for personal utilities.
 
 On SimpleOS, development builds must also replace the corresponding commands
-in `/usr/local/bin`. Standalone SimpleSuite's `make install` defaults to
-`~/.local/bin`; copying development builds there shadows the system suite.
+in `/usr/local/bin`. Standalone SimpleSuite's `make install` uses the same
+default, with shared assets in `/usr/local/share/simplesuite`.
 Keep `simplebrowse` and `simplebrowse-webkitd` together when installing browser
 changes. Build outputs in `~/simplesuite/build` are build artifacts, not another
 directory to add to PATH.
@@ -318,12 +318,12 @@ directory to add to PATH.
 Shared audio assets are installed under:
 
 ```text
-~/.local/share/simplesuite/simplecal-alarm.mp3
-~/.local/share/simplesuite/simplewords-typewriter.wav
-~/.local/share/simplesuite/simplewords-typewriter-alt.wav
-~/.local/share/simplesuite/simplewords-typewriter-space.wav
-~/.local/share/simplesuite/simplewords-typewriter-enter.wav
-~/.local/share/simplesuite/simplewords-typewriter-delete.wav
+/usr/local/share/simplesuite/simplecal-alarm.mp3
+/usr/local/share/simplesuite/simplewords-typewriter.wav
+/usr/local/share/simplesuite/simplewords-typewriter-alt.wav
+/usr/local/share/simplesuite/simplewords-typewriter-space.wav
+/usr/local/share/simplesuite/simplewords-typewriter-enter.wav
+/usr/local/share/simplesuite/simplewords-typewriter-delete.wav
 ```
 
 The same directory also carries the sound-provenance notice and the internal
@@ -417,7 +417,7 @@ The installer may create or modify:
 - `~/.config/scriptorium/github-credential-user` when a PAT is stored
 - `~/.config/simplemail/config`
 - `~/.config/simplewords/config` when it does not already exist
-- `~/.local/share/simplesuite/` for alarm/typewriter assets and install metadata
+- `/usr/local/share/simplesuite/` for alarm/typewriter assets and install metadata
 - `~/.mbsyncrc`
 - `~/.msmtprc`
 - `~/.config/isyncrc`

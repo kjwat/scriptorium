@@ -6,7 +6,7 @@ scriptorium_program_aliases() {
         . "$manifest"
         simplesuite_program_aliases "$1" "$2"
     else
-        installed=${SIMPLESUITE_INSTALLED_MANIFEST:-$HOME/.local/share/simplesuite/command-abbreviations}
+        installed=${SIMPLESUITE_INSTALLED_MANIFEST:-${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}/command-abbreviations}
         [ -r "$installed" ] && cat "$installed"
     fi
     printf '%s\n' 'check:simplecheck' 'trident:simpletrident'

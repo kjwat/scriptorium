@@ -308,7 +308,7 @@ offer_server_promotion() {
     IFS= read -r answer || answer=
     case $answer in
         y | Y | yes | YES)
-            "$HOME/.local/bin/setup-server"
+            "$SIMPLESUITE_SYSTEM_BIN_DIR/setup-server"
             SCRIPTORIUM_NETWORK_ROLE=server
             SIMPLESUITE_NETWORK_ROLE=server
             export SCRIPTORIUM_NETWORK_ROLE SIMPLESUITE_NETWORK_ROLE
@@ -1079,7 +1079,10 @@ remove_legacy_program_symlinks
 ensure_simplesuite_aliases
 
 say "Installing website server bootstrap"
-install -m 0755 "$ROOT/setup-server.sh" "$HOME/.local/bin/setup-server"
+setup_server_tmp="$SIMPLESUITE_SYSTEM_BIN_DIR/.setup-server.scriptorium.$$"
+run_as_root install -m 0755 "$ROOT/setup-server.sh" "$setup_server_tmp"
+run_as_root mv -f "$setup_server_tmp" "$SIMPLESUITE_SYSTEM_BIN_DIR/setup-server"
+rm -f "$HOME/.local/bin/setup-server"
 
 say "Configuring SimpleCal"
 mkdir -p "$ROOT/dotfiles/simplecal/data"
