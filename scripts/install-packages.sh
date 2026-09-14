@@ -320,6 +320,10 @@ dependencies_already_present() {
 
     network_dependencies_already_present || return 1
 
+    if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ]; then
+        "$ROOT/scripts/checkdeps.sh" --simplevol >/dev/null 2>&1 || return 1
+    fi
+
     return 0
 }
 
@@ -933,6 +937,19 @@ if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
     esac
 fi
 
+# Native SimpleVol effects and their redistributable LSP LV2 plugins.
+simplevol_packages=
+if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ]; then
+    case "$family" in
+        debian) simplevol_packages="pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        arch) simplevol_packages="pipewire pipewire-audio pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        void) simplevol_packages="pipewire wireplumber lsp-plugins-lv2" ;;
+        alpine) simplevol_packages="pipewire pipewire-tools pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        fedora) simplevol_packages="pipewire pipewire-utils pipewire-pulseaudio wireplumber lsp-plugins-lv2" ;;
+        suse) simplevol_packages="pipewire pipewire-tools pipewire-pulseaudio wireplumber lsp-plugins" ;;
+    esac
+fi
+
 case "$family" in
     debian)
         check_repository_configuration debian
@@ -950,7 +967,7 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron \
+            isync msmtp calcurse links curl ca-certificates rsync cron $simplevol_packages \
             $simpleserve_packages
         ;;
     void)
@@ -960,7 +977,7 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie \
+            isync msmtp calcurse links curl ca-certificates rsync cronie $simplevol_packages \
             $simpleserve_packages
         ;;
     arch)
@@ -988,7 +1005,7 @@ case "$family" in
             git mpv poppler pandoc-cli \
             nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
-            isync msmtp calcurse links ca-certificates rsync cronie \
+            isync msmtp calcurse links ca-certificates rsync cronie $simplevol_packages \
             $simpleserve_packages
         ;;
     alpine)
@@ -998,7 +1015,7 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync dcron \
+            isync msmtp calcurse links curl ca-certificates rsync dcron $simplevol_packages \
             $simpleserve_packages
         ;;
     fedora)
@@ -1007,7 +1024,7 @@ case "$family" in
             git mpv poppler-utils pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie \
+            isync msmtp calcurse links curl ca-certificates rsync cronie $simplevol_packages \
             $simpleserve_packages
         ;;
     suse)
@@ -1016,7 +1033,7 @@ case "$family" in
             git mpv poppler-tools pandoc \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron \
+            isync msmtp calcurse links curl ca-certificates rsync cron $simplevol_packages \
             $simpleserve_packages
         ;;
     freebsd)

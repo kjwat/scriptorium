@@ -527,7 +527,7 @@ ensure_config_key() {
 
 ensure_simplesuite_aliases_in_file() {
     local shell_rc="$1"
-    local alias_line tmp insert_line short full
+    local alias_line tmp insert_line short full marker before
     local aliases=()
 
     while IFS=: read -r short full; do
@@ -542,15 +542,6 @@ ensure_simplesuite_aliases_in_file() {
     mkdir -p "$(dirname "$shell_rc")"
     touch "$shell_rc"
 
-    if ! grep -qxF "# SimpleSuite aliases" "$shell_rc" 2>/dev/null; then
-        {
-            printf '\n# SimpleSuite aliases\n'
-            printf '%s\n' "${aliases[@]}"
-        } >> "$shell_rc"
-        CHANGES_MADE=1
-        return
-    fi
-
     insert_line=
     for alias_line in "${aliases[@]}"; do
         if ! grep -qxF "$alias_line" "$shell_rc" 2>/dev/null; then
@@ -560,11 +551,27 @@ ensure_simplesuite_aliases_in_file() {
 
     [[ -n "$insert_line" ]] || return 0
 
+    before=0
+    if grep -qxF "# END SimpleOS application aliases" "$shell_rc"; then
+        marker="# END SimpleOS application aliases"
+        before=1
+    elif grep -qxF "# SimpleSuite aliases" "$shell_rc"; then
+        marker="# SimpleSuite aliases"
+    else
+        printf '\n# SimpleSuite aliases\n%s' "$insert_line" >> "$shell_rc"
+        CHANGES_MADE=1
+        return
+    fi
+
     tmp="$(mktemp "${shell_rc}.tmp.XXXXXX")"
-    awk -v insert="$insert_line" '
+    awk -v insert="$insert_line" -v marker="$marker" -v before="$before" '
         {
+            if ($0 == marker && before && !inserted) {
+                printf "%s", insert
+                inserted = 1
+            }
             print
-            if ($0 == "# SimpleSuite aliases" && !inserted) {
+            if ($0 == marker && !inserted) {
                 printf "%s", insert
                 inserted = 1
             }
@@ -611,6 +618,9 @@ EXPECTED_SIMPLESUITE_COMMANDS+=(simplecheck simpletrident)
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplesuite-uninstall
 )
+if [[ $HOST_OS == Linux ]]; then
+    EXPECTED_SIMPLESUITE_HELPERS+=(simplevol-audio)
+fi
 track_path() {
     local path="$1"
     local index=${#ROLLBACK_PATHS[@]}

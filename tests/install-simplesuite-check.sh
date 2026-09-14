@@ -34,7 +34,7 @@ simplesuite_program_aliases() {
         news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio \
         stats:simplestats suite-uninstall:simplesuite-uninstall \
         ver:simplever vis:simplevis words:simplewords
-    case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue ;; \
+    case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
         FreeBSD) printf '%s\n' net:simplenet ;; esac
     [ "$2" = 1 ] && printf '%s\n' serve:simpleserve || :
 }
@@ -93,8 +93,8 @@ programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame s
 aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
-        programs="$programs simplenet simpleblue"
-        aliases="$aliases net:simplenet blue:simpleblue"
+        programs="$programs simplenet simpleblue simplevol"
+        aliases="$aliases net:simplenet blue:simpleblue vol:simplevol"
         ;;
     FreeBSD)
         programs="$programs simplenet"
@@ -110,10 +110,12 @@ case "$(uname -s)" in
         ;;
 esac
 helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
+if [ "$(uname -s)" = Linux ]; then helpers="$helpers simplevol-audio"; fi
 if [ "$(uname -s)" = Darwin ]; then
     helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
 fi
 assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
+if [ "$(uname -s)" = Linux ]; then assets="$assets simplevol-meter.so SIMPLEVOL.md"; fi
 
 mkdir -p "$fixture_bindir" "$fixture_datadir" "$PWD/build" \
     "$HOME/.config/simplefiles" "$HOME/.config/simplemail" \

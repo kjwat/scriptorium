@@ -17,6 +17,77 @@ missing_optional=()
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 have_pkgconfig() { pkg-config --exists "$1" >/dev/null 2>&1; }
 
+simplevol_pkg_hint() {
+    case "$family" in
+        debian) echo "python3 pulseaudio-utils pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        arch) echo "python libpulse pipewire pipewire-audio pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        void) echo "python3 pulseaudio-utils pipewire wireplumber lsp-plugins-lv2" ;;
+        alpine) echo "python3 pulseaudio-utils pipewire pipewire-tools pipewire-pulse wireplumber lsp-plugins-lv2" ;;
+        fedora) echo "python3 pulseaudio-utils pipewire pipewire-utils pipewire-pulseaudio wireplumber lsp-plugins-lv2" ;;
+        suse) echo "python3 pulseaudio-utils pipewire pipewire-tools pipewire-pulseaudio wireplumber lsp-plugins" ;;
+        *) echo "Python 3, PipeWire with PulseAudio and LV2 support, WirePlumber, LSP LV2 plugins" ;;
+    esac
+}
+
+check_simplevol() {
+    local level=${1:-optional} dependency
+    for dependency in python3 pactl pipewire pipewire-pulse pw-cli pw-dump wireplumber; do
+        check_cmd "$level" "$dependency" "$dependency"
+    done
+    # Inspect plugin metadata without connecting to or starting an audio server.
+    if have_cmd python3 && python3 - <<'PY' >/dev/null 2>&1
+# SimpleVol LV2 availability
+import ctypes as C
+import ctypes.util
+import os
+from pathlib import Path
+
+bundle = Path(os.environ.get("SIMPLESUITE_DATADIR", os.environ.get(
+    "SIMPLESUITE_SYSTEM_DATA_DIR", "/usr/local/share/simplesuite"))) / "lv2"
+if bundle.is_dir():
+    defaults = str(Path.home() / ".lv2") + ":/usr/local/lib/lv2:/usr/lib/lv2:/usr/lib64/lv2"
+    os.environ["LV2_PATH"] = str(bundle) + ":" + os.environ.get("LV2_PATH", defaults)
+library = C.util.find_library("lilv-0")
+if not library:
+    raise SystemExit(1)
+lib = C.CDLL(library)
+pointer = C.c_void_p
+for name, result, args in (
+    ("world_new", pointer, []), ("world_load_all", None, [pointer]),
+    ("world_get_all_plugins", pointer, [pointer]),
+    ("new_uri", pointer, [pointer, C.c_char_p]),
+    ("new_string", pointer, [pointer, C.c_char_p]),
+    ("plugins_get_by_uri", pointer, [pointer, pointer]),
+    ("plugin_get_port_by_symbol", pointer, [pointer, pointer]),
+    ("node_free", None, [pointer]), ("world_free", None, [pointer]),
+):
+    function = getattr(lib, "lilv_" + name)
+    function.restype, function.argtypes = result, args
+world = lib.lilv_world_new()
+try:
+    lib.lilv_world_load_all(world)
+    plugins = lib.lilv_world_get_all_plugins(world)
+    for name in ("compressor_stereo", "autogain_stereo", "limiter_stereo"):
+        uri = lib.lilv_new_uri(world, ("http://lsp-plug.in/plugins/lv2/" + name).encode())
+        symbol = lib.lilv_new_string(world, b"enabled")
+        try:
+            plugin = lib.lilv_plugins_get_by_uri(plugins, uri)
+            if not plugin or not lib.lilv_plugin_get_port_by_symbol(plugin, symbol):
+                raise SystemExit(1)
+        finally:
+            lib.lilv_node_free(uri)
+            lib.lilv_node_free(symbol)
+finally:
+    lib.lilv_world_free(world)
+PY
+    then
+        printf 'FOUND:   SimpleVol effects (Lilv and LSP compressor, autogain, limiter)\n'
+    else
+        printf 'MISSING: SimpleVol effects (%s; requires LSP enabled controls, tested with 1.2.21)\n' "$(simplevol_pkg_hint)"
+        add_missing "$level" "SimpleVol effects"
+    fi
+}
+
 add_missing() {
     case "$1" in
         required) missing_required+=("$2") ;;
@@ -42,7 +113,8 @@ dep_hint() {
         curl) echo "command-line HTTP client used during setup and maintenance" ;;
         calcurse) echo "standalone calendar covered by the managed calcurse config" ;;
         rsync) echo "used by Scriptorium file synchronization workflows" ;;
-        pactl|parec) echo "used by simplevis audio capture; provided by pulseaudio-utils/libpulse" ;;
+        pactl|parec) echo "used by SimpleVol mixing and SimpleVis capture; provided by pulseaudio-utils/libpulse" ;;
+        pipewire|pipewire-pulse|pw-cli|pw-dump|wireplumber) echo "used by SimpleVol effects; $(simplevol_pkg_hint)" ;;
         zip) echo "used by simplefiles :compress" ;;
         unzip) echo "used by simplefiles :extract" ;;
         tar) echo "used by simplefiles :extract for TAR archives" ;;
@@ -294,6 +366,7 @@ detect_platform() {
 
 pkg_for_dep() {
     case "$family:$1" in
+        *:"SimpleVol effects"|*:pipewire|*:pipewire-pulse|*:pw-cli|*:pw-dump|*:wireplumber) simplevol_pkg_hint ;;
         debian:libnm) echo "libnm-dev" ;;
         void:libnm|suse:libnm) echo "NetworkManager-devel" ;;
         arch:libnm) echo "libnm" ;;
@@ -507,6 +580,14 @@ detect_platform
 configure_homebrew_pkgconfig
 packages_for_family
 
+if [ "${1:-}" = --simplevol ]; then
+    if [ "$os" = Linux ]; then
+        check_simplevol runtime
+    fi
+    [ "${#missing_runtime[@]}" -eq 0 ]
+    exit $?
+fi
+
 echo "Detected distro/platform: $distro"
 echo "Detected family: $family"
 [ "${wsl:-0}" = 1 ] && echo "WSL detected: yes"
@@ -669,6 +750,10 @@ fi
 if [ "$family" != "msys2" ] && [ "$family" != macos ]; then
     check_cmd optional pactl "pactl"
     check_cmd optional parec "parec"
+fi
+
+if [ "$os" = Linux ]; then
+    check_simplevol optional
 fi
 
 if [ "$family" = macos ]; then

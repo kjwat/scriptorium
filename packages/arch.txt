@@ -3,3 +3,4 @@ git mpv poppler pandoc-cli
 nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel nfs-utils avahi cifs-utils openssh samba
 python python-gobject webkit2gtk-4.1
 isync msmtp calcurse links ca-certificates rsync cronie
+pipewire pipewire-audio pipewire-pulse wireplumber lsp-plugins-lv2

@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -47,13 +47,13 @@ SIMPLESUITE_NETWORK_ROLE=client
 SCRIPTORIUM_INSTALL_TAILSCALE=1
 CHANGES_MADE=0
 SHELL_RC_FILES=("$HOME/.bashrc")
-EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplecal simpleserve simpleserved simplecheck)
+EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplevol simplecal simpleserve simpleserved simplecheck)
 EXPECTED_SIMPLESUITE_HELPERS=(simplesuite-uninstall)
 say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -84,8 +84,22 @@ eval "$(awk '
     /^remove_legacy_program_symlinks\(\)/ { exit }
     copying { print }
 ' "$ROOT/install.sh")"
+if [[ $TEST_MODE == preserve ]]; then
+    printf '%s\n' '# BEGIN SimpleOS application aliases' "alias words='simplewords'" \
+        '# END SimpleOS application aliases' >"$HOME/.bashrc"
+else
+    printf '%s\n' "alias words='simplewords'" '# SimpleSuite aliases' >"$HOME/.bashrc"
+fi
 ensure_simplesuite_aliases
-for mapping in words:simplewords cal:simplecal serve:simpleserve check:simplecheck; do
+ensure_simplesuite_aliases
+[[ $(grep -c "^alias vol='simplevol'$" "$HOME/.bashrc") == 1 ]]
+[[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
+if [[ $TEST_MODE == preserve ]]; then
+    sed -n '/^# BEGIN SimpleOS application aliases$/,/^# END SimpleOS application aliases$/p' \
+        "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"
+    ! grep -q '^# SimpleSuite aliases$' "$HOME/.bashrc"
+fi
+for mapping in words:simplewords vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
     grep -qx "alias ${mapping%%:*}='${mapping#*:}'" "$HOME/.bashrc"
 done
 ! grep -q 'alias absent=' "$HOME/.bashrc"
@@ -106,5 +120,15 @@ fi
 [[ ! -e $HOME/.local/bin/simpleserve ]]
 EOF
 done
+
+# The installed manifest uses whitespace; the alias consumer uses colons.
+SIMPLESUITE_MANIFEST_FILE=$tmp/absent-manifest
+SIMPLESUITE_INSTALLED_MANIFEST=$tmp/installed-abbreviations
+printf '%s\n' '# installed commands' 'words simplewords' 'vol simplevol' \
+    >"$SIMPLESUITE_INSTALLED_MANIFEST"
+. "$repo/scripts/simple-programs.sh"
+aliases=$(scriptorium_program_aliases Linux 0)
+[[ $(printf '%s\n' "$aliases" | grep -cx 'vol:simplevol') == 1 ]]
+[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplevol' ]]
 
 echo 'OK installer final checks and aliases use system binaries while preserving the existing daemon'

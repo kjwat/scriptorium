@@ -44,6 +44,10 @@ SIMPLESUITE_HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
 if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
     SIMPLESUITE_SCRIPTS="$SIMPLESUITE_SCRIPTS simplefiles-macos-helper simplevis-macos-capture"
 fi
+if [ "$SIMPLESUITE_HOST_OS" = Linux ]; then
+    SIMPLESUITE_SCRIPTS="$SIMPLESUITE_SCRIPTS simplevol-audio"
+    SIMPLESUITE_ASSETS="$SIMPLESUITE_ASSETS simplevol-meter.so SIMPLEVOL.md"
+fi
 
 case "$SIMPLESUITE_INSTALL_SIMPLESERVE" in
     0 | 1) ;;
@@ -253,6 +257,14 @@ elif [ -x "$DEST/checkdeps.sh" ]; then
 fi
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplevol '*)
+            case " $SIMPLESUITE_PROGRAM_FILTER " in
+                *' simplevol-audio '*) ;;
+                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplevol-audio" ;;
+            esac
+            ;;
+    esac
     make_cmd=${MAKE:-make}
     for program in $SIMPLESUITE_PROGRAM_FILTER; do
         listed=0
@@ -267,7 +279,7 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             exit 2
         fi
         case $program in
-            simplesuite-uninstall | simplebrowse-jsdump)
+            simplesuite-uninstall | simplebrowse-jsdump | simplevol-audio)
                 ;;
             simplebrowse-webkitd)
                 if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
@@ -344,7 +356,7 @@ simplesuite_program_source() {
                 printf '%s\n' "$DEST/$1"
             fi
             ;;
-        simplebrowse-jsdump)
+        simplebrowse-jsdump | simplevol-audio)
             printf '%s\n' "$DEST/$1"
             ;;
         *)
@@ -442,6 +454,20 @@ for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
 done
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplevol '*)
+            run_as_root mkdir -p "$SYSTEM_DATA_DIR"
+            for asset in simplevol-meter.so SIMPLEVOL.md; do
+                case $asset in
+                    *.so) source_path=$DEST/build/$asset ;;
+                    *) source_path=$DEST/$asset ;;
+                esac
+                target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
+                run_as_root install -m 0644 "$source_path" "$target_tmp"
+                run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
+            done
+            ;;
+    esac
     exit 0
 fi
 

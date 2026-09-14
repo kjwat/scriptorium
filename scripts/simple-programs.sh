@@ -7,7 +7,7 @@ scriptorium_program_aliases() {
         simplesuite_program_aliases "$1" "$2"
     else
         installed=${SIMPLESUITE_INSTALLED_MANIFEST:-${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}/command-abbreviations}
-        [ -r "$installed" ] && cat "$installed"
+        [ -r "$installed" ] && awk 'NF == 2 && $1 !~ /^#/ { print $1 ":" $2 }' "$installed"
     fi
     printf '%s\n' 'check:simplecheck' 'trident:simpletrident'
 }

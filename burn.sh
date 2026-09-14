@@ -193,7 +193,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     # setup-server remains a user-local Scriptorium utility.
     [ "$bin" = setup-server ] || remove_system_command "$bin"
@@ -205,7 +205,7 @@ for alias_mapping in \
     mail:simplemail net:simplenet news:simplenews pdf:simplepdf \
     pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
-    ver:simplever vis:simplevis words:simplewords; do
+    ver:simplever vis:simplevis vol:simplevol words:simplewords; do
     alias_name=${alias_mapping%%:*}
     alias_target=${alias_mapping#*:}
     for alias_dir in "$HOME/.local/bin" "$SYSTEM_BIN_DIR"; do
@@ -346,6 +346,7 @@ clean_shell_rc() {
             aliases["radio"] = "simpleradio"
             aliases["pod"] = "simplepod"
             aliases["vis"] = "simplevis"
+            aliases["vol"] = "simplevol"
             aliases["clock"] = "simpleclock"
             aliases["check"] = "simplecheck"
             aliases["trident"] = "simpletrident"

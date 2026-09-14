@@ -59,10 +59,13 @@ PC
         esac
         for runtime_command in less ntfsfix blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm \
-            ssh sshd; do
+            ssh sshd pipewire pipewire-pulse pw-cli pw-dump wireplumber; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
             chmod 755 "$FAKE_BIN/$runtime_command"
         done
+        if [ "${FAKE_APT_OMIT_SIMPLEVOL:-0}" != 1 ]; then
+            : >"$FAKE_BIN/simplevol-plugins-ready"
+        fi
         ;;
     *)
         echo "unexpected apt-get arguments: $*" >&2
@@ -78,6 +81,15 @@ for dependency_command in \
     pactl parec xclip; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$dependency_command"
 done
+
+cat >"$fake_bin/python3" <<'EOF'
+#!/bin/sh
+code=$(cat)
+case "$code" in
+    *'SimpleVol LV2 availability'*) [ -f "$FAKE_BIN/simplevol-plugins-ready" ] ;;
+    *) exit 0 ;;
+esac
+EOF
 
 cat >"$fake_bin/pkg-config" <<'EOF'
 #!/bin/sh
@@ -110,7 +122,7 @@ PATH="$fake_bin" \
 grep -q '^install -y ' "$apt_log"
 for package_name in \
     libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
-    openssh-client openssh-server; do
+    openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$apt_log" || {
         echo "linux-package-bootstrap-check: apt transaction omitted $package_name" >&2
@@ -142,6 +154,26 @@ PATH="$fake_bin" \
     exit 1
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
+
+# Missing effects plugins alone must trigger installation, and a package manager
+# success must not conceal plugins that are still missing afterwards.
+rm "$fake_bin/simplevol-plugins-ready"
+: >"$apt_log"
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" PATH="$fake_bin" \
+    "$fixture/scripts/install-packages.sh" >"$tmp/effects-install.log" 2>&1
+grep -Eq '^install -y .* lsp-plugins-lv2( |$)' "$apt_log"
+[ -f "$fake_bin/simplevol-plugins-ready" ]
+rm "$fake_bin/simplevol-plugins-ready"
+if HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+   FAKE_APT_OMIT_SIMPLEVOL=1 \
+   SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" PATH="$fake_bin" \
+       "$fixture/scripts/install-packages.sh" >"$tmp/effects-missing.log" 2>&1; then
+    echo 'linux-package-bootstrap-check: missing effects plugins were accepted' >&2
+    exit 1
+fi
+grep -q '^MISSING: SimpleVol effects ' "$tmp/effects-missing.log"
+: >"$fake_bin/simplevol-plugins-ready"
 
 # Use real pkg-config metadata so both a missing library and an old version
 # must trigger repair, while the minimum supported version passes unchanged.

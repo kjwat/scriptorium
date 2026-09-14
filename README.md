@@ -219,6 +219,7 @@ SimpleSuite programs:
 - `simplestats`
 - `simplever`
 - `simplevis`
+- `simplevol` (Linux volume/routing and FOSS audio effects)
 
 When selected on FreeBSD, Linux, or macOS, the installer also updates `simpleserve`
 and requires the existing `simpleserved` system daemon.
@@ -468,6 +469,7 @@ alias flac='simpleflac'
 alias radio='simpleradio'
 alias pod='simplepod'
 alias vis='simplevis'
+alias vol='simplevol'
 alias clock='simpleclock'
 alias check='simplecheck'
 alias trident='simpletrident'
