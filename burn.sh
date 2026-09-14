@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 SIMPLESUITE_DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
+SYSTEM_DATA_DIR="${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 FREEBSD_UNMOUNT_HELPER_PATH="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
 SIMPLESERVE_SYSTEM_DAEMON_PATH="${SIMPLESERVE_SYSTEM_DAEMON:-/usr/local/sbin/simpleserved}"
@@ -135,12 +136,12 @@ clean_scriptorium_credentials() {
 run_simplesuite_burn() {
     suite_uninstaller=
 
-    if [ -x "$HOME/.local/bin/simplesuite-uninstall" ]; then
-        suite_uninstaller=$HOME/.local/bin/simplesuite-uninstall
+    if [ -x "$SYSTEM_BIN_DIR/simplesuite-uninstall" ]; then
+        suite_uninstaller=$SYSTEM_BIN_DIR/simplesuite-uninstall
     elif [ -x "$SIMPLESUITE_DEST/uninstall.sh" ]; then
         suite_uninstaller=$SIMPLESUITE_DEST/uninstall.sh
-    elif [ -x "$SYSTEM_BIN_DIR/simplesuite-uninstall" ]; then
-        suite_uninstaller=$SYSTEM_BIN_DIR/simplesuite-uninstall
+    elif [ -x "$HOME/.local/bin/simplesuite-uninstall" ]; then
+        suite_uninstaller=$HOME/.local/bin/simplesuite-uninstall
     fi
 
     [ -n "$suite_uninstaller" ] || return 0
@@ -160,10 +161,10 @@ run_simplesuite_burn() {
     fi
 }
 
-remove_system_command() {
-    command_path=$SYSTEM_BIN_DIR/$1
+remove_system_file() {
+    command_path=$1
     [ -e "$command_path" ] || [ -L "$command_path" ] || return 0
-    if [ -w "$SYSTEM_BIN_DIR" ]; then
+    if [ -w "$(dirname -- "$command_path")" ]; then
         rm -f -- "$command_path"
     else
         run_as_root rm -f -- "$command_path"
@@ -195,8 +196,16 @@ rm -rf "$HOME/.writing-clone-tmp"
 
 for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
-    # setup-server remains a user-local Scriptorium utility.
-    [ "$bin" = setup-server ] || remove_system_command "$bin"
+    remove_system_file "$SYSTEM_BIN_DIR/$bin"
+done
+
+# Remove installed runtime assets, retaining packaged source and unrelated files.
+for asset in simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav \
+    simplewords-typewriter-space.wav simplewords-typewriter-enter.wav \
+    simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md \
+    simplevol-meter.so SIMPLEVOL.md install-source install-manifest \
+    command-abbreviations program-manifest.sh; do
+    remove_system_file "$SYSTEM_DATA_DIR/$asset"
 done
 
 for alias_mapping in \
@@ -214,7 +223,7 @@ for alias_mapping in \
         case $(readlink "$alias_path" 2>/dev/null || true) in
         "$alias_target"|"$alias_dir/$alias_target")
             if [ "$alias_dir" = "$SYSTEM_BIN_DIR" ]; then
-                remove_system_command "$alias_name"
+                remove_system_file "$SYSTEM_BIN_DIR/$alias_name"
             else
                 rm -f "$alias_path"
             fi
@@ -239,7 +248,7 @@ rm -rf "$HOME/.config/calcurse"
 for config_base in "$HOME/.config" "$CONFIG_HOME"; do
     for app_name in \
         simplebrowse simplecal simplefiles simplemail simplenews simplepod \
-        simplewords; do
+        simplevol simplewords; do
         rm -rf "${config_base:?}/$app_name"
     done
 done
@@ -259,6 +268,7 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now \
         simplecal-reminders.timer simplecal-reminders.service \
         simpleclock-reminders.timer simpleclock-reminders.service \
+        simplevol.service \
         >/dev/null 2>&1 || true
     systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
@@ -266,6 +276,7 @@ rm -f "$HOME/.config/systemd/user/simplecal-reminders.service"
 rm -f "$HOME/.config/systemd/user/simplecal-reminders.timer"
 rm -f "$HOME/.config/systemd/user/simpleclock-reminders.service"
 rm -f "$HOME/.config/systemd/user/simpleclock-reminders.timer"
+rm -f "$CONFIG_HOME/systemd/user/simplevol.service"
 if command -v crontab >/dev/null 2>&1; then
     tmp_cron="$(mktemp)"
     crontab -l 2>/dev/null | \

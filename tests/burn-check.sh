@@ -10,6 +10,7 @@ FAKE_ROOT="$HOME/scriptorium"
 FAKE_SUITE="$HOME/simplesuite"
 FAKE_BIN="$TMP/test-bin"
 SYSTEM_BIN="$TMP/system-bin"
+SYSTEM_DATA="$TMP/system-share/simplesuite"
 REAL_BASH_DIR="$(dirname "$(command -v bash)")"
 mkdir -p "$FAKE_ROOT" "$FAKE_SUITE" "$FAKE_BIN" "$HOME/.local/bin" "$SYSTEM_BIN"
 cp "$SOURCE_ROOT/burn.sh" "$SOURCE_ROOT/burn-writing.sh" "$FAKE_ROOT/"
@@ -40,13 +41,15 @@ printf '%s\n' "$*" >"$HOME/native-burn-args"
 exit 0
 EOF
 chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
+printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
+chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
 programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
 aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
-    [ "$program" = setup-server ] || cp "$HOME/.local/bin/$program" "$SYSTEM_BIN/$program"
+    cp "$HOME/.local/bin/$program" "$SYSTEM_BIN/$program"
 done
 for mapping in $aliases; do
     short=${mapping%%:*}
@@ -102,9 +105,14 @@ rm -f "$SIMPLESERVE_SYSTEM_DAEMON" "$SIMPLESERVE_SYSTEM_UNINSTALLER"
 EOF
 chmod 755 "$FAKE_SIMPLESERVE_DAEMON" "$FAKE_SIMPLESERVE_UNINSTALLER"
 
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplewords-typewriter.wav.bak simplewords-typewriter.wav.bak2'
+mkdir -p "$SYSTEM_DATA/source" "$HOME/.config/simplevol" "$HOME/.config/systemd/user"
+printf '%s\n' keep >"$SYSTEM_DATA/source/README.md"
+printf '%s\n' keep >"$SYSTEM_DATA/unrelated-file"
+printf '%s\n' fixture >"$HOME/.config/systemd/user/simplevol.service"
+assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplevol-meter.so SIMPLEVOL.md command-abbreviations program-manifest.sh'
 for asset in $assets; do
     printf '%s\n' keep >"$HOME/.local/share/simplesuite/$asset"
+    printf '%s\n' fixture >"$SYSTEM_DATA/$asset"
 done
 
 cat >"$HOME/.mbsyncrc" <<'EOF'
@@ -125,6 +133,7 @@ printf '%s\n' BURN | \
     SIMPLESERVE_SYSTEM_TEST_MODE=1 \
     SIMPLESUITE_DIR="$FAKE_SUITE" \
     SIMPLESUITE_SYSTEM_BIN_DIR="$SYSTEM_BIN" \
+    SIMPLESUITE_SYSTEM_DATA_DIR="$SYSTEM_DATA" \
     "$FAKE_ROOT/burn.sh" >"$TMP/burn.log"
 
 [[ "$(cat "$HOME/native-burn-args")" == '--burn --yes' ]] ||
@@ -135,6 +144,8 @@ assert_missing "$FAKE_SUITE"
 assert_missing "$HOME/writing"
 assert_missing "$HOME/.writing-clone-tmp"
 assert_missing "$HOME/.config/simplewords"
+assert_missing "$HOME/.config/simplevol"
+assert_missing "$HOME/.config/systemd/user/simplevol.service"
 assert_missing "$HOME/.config/scriptorium"
 assert_missing "$HOME/.config/simplesuite"
 assert_missing "$HOME/.config/isyncrc"
@@ -143,6 +154,11 @@ assert_missing "$HOME/xdg-cache/simplepdf"
 assert_missing "$HOME/.local/state/simplewords"
 assert_missing "$HOME/.local/share/simplemail"
 assert_missing "$HOME/.local/share/simplesuite"
+for asset in $assets; do
+    assert_missing "$SYSTEM_DATA/$asset"
+done
+[[ $(cat "$SYSTEM_DATA/source/README.md") == keep ]]
+[[ $(cat "$SYSTEM_DATA/unrelated-file") == keep ]]
 assert_missing "$HOME/.scriptorium-backups"
 assert_missing "$FAKE_FREEBSD_HELPER"
 assert_missing "$FAKE_SIMPLESERVE_DAEMON"

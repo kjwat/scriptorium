@@ -257,6 +257,11 @@ elif [ -x "$DEST/checkdeps.sh" ]; then
 fi
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    # Partial installs must also teach the installed uninstaller about new apps.
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplesuite-uninstall '*) ;;
+        *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplesuite-uninstall" ;;
+    esac
     case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplevol '*)
             case " $SIMPLESUITE_PROGRAM_FILTER " in
@@ -377,7 +382,8 @@ install_definitive_program() {
     fi
 
     source_path=$(simplesuite_program_source "$program")
-    if [ ! -x "$source_path" ]; then
+    if [ ! -f "$source_path" ] || [ ! -r "$source_path" ] ||
+       { [ "$program" != simplevol-audio ] && [ ! -x "$source_path" ]; }; then
         echo "Missing SimpleSuite build/install source: $source_path" >&2
         exit 1
     fi
@@ -454,20 +460,25 @@ for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
 done
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
+    # Keep command discovery current without claiming a new full-suite build.
+    mkdir -p "$DEST/build"
+    printf '%s\n' "$SIMPLESUITE_COMMAND_ALIASES" | tr ':' ' ' >"$DEST/build/command-abbreviations"
+    filtered_assets='program-manifest.sh command-abbreviations'
     case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplevol '*)
-            run_as_root mkdir -p "$SYSTEM_DATA_DIR"
-            for asset in simplevol-meter.so SIMPLEVOL.md; do
-                case $asset in
-                    *.so) source_path=$DEST/build/$asset ;;
-                    *) source_path=$DEST/$asset ;;
-                esac
-                target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
-                run_as_root install -m 0644 "$source_path" "$target_tmp"
-                run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
-            done
+            filtered_assets="$filtered_assets simplevol-meter.so SIMPLEVOL.md"
             ;;
     esac
+    run_as_root mkdir -p "$SYSTEM_DATA_DIR"
+    for asset in $filtered_assets; do
+        case $asset in
+            *.so | command-abbreviations) source_path=$DEST/build/$asset ;;
+            *) source_path=$DEST/$asset ;;
+        esac
+        target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
+        run_as_root install -m 0644 "$source_path" "$target_tmp"
+        run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
+    done
     exit 0
 fi
 

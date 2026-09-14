@@ -12,6 +12,13 @@ encrypted extranet, OpenSSH client and daemon access, and the `setup-server`
 entry point for the public website. The Trident supports Debian/Ubuntu, Fedora,
 Arch, Alpine, Void, openSUSE Tumbleweed, FreeBSD, and macOS.
 
+Mainline SimpleSuite programs, including SimpleMail, SimpleVol, and its
+`simplevol-audio` helper, belong in `/usr/local/bin`; `~/.local/bin` is for
+personal utilities. Shared SimpleSuite assets belong in
+`/usr/local/share/simplesuite`. Filtered app installs also update the system
+uninstaller and command manifests. `burn.sh` uses that system uninstaller and
+removes the installed runtime assets along with the programs.
+
 ## Keelan's Networking Trident
 
 - **Intranet:** SimpleServe clients discover and mount shares; explicitly

@@ -35,7 +35,7 @@ printf '%s\n' \
     '	printf '\''%s\n'\'' '\''#!/bin/sh'\'' '\''exit 0'\'' > $(BUILD_DIR)/simpleclock' \
     '	chmod 755 $(BUILD_DIR)/simpleclock' > Makefile
 printf '%s\n' '#!/bin/sh' '# effects helper fixture' 'exit 0' >simplevol-audio
-chmod 755 simplevol-audio
+chmod 644 simplevol-audio
 printf '%s\n' 'SimpleVol documentation fixture' >SIMPLEVOL.md
 cat >>Makefile <<'EOF'
 
@@ -56,6 +56,7 @@ SIMPLESUITE_NETWORK_ROLE=none \
 SIMPLESUITE_PROGRAM_FILTER=simpleclock \
 SIMPLESUITE_INSTALL_PACKAGES=0 \
 SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
 PATH="$TMP/test-bin:$PATH" \
     "$ROOT/scripts/install-simplesuite.sh" >"$TMP/install.log"
 
@@ -63,9 +64,14 @@ PATH="$TMP/test-bin:$PATH" \
 [ ! -e "$HOME/.local/bin/simpleclock" ]
 [ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
 [ ! -e "$TMP/system-bin/simplewords" ]
+cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
+cmp "$SOURCE/program-manifest.sh" "$TMP/system-data/program-manifest.sh"
+grep -qx 'vol simplevol' "$TMP/system-data/command-abbreviations"
 grep -q "replaced: $TMP/system-bin/simpleclock" "$TMP/install.log"
 
 if [ "$(uname -s)" = Linux ]; then
+    printf '%s\n' stale >"$HOME/.local/bin/simplevol"
+    printf '%s\n' stale >"$HOME/.local/bin/simplevol-audio"
     SIMPLESUITE_REPO_URL="$ORIGIN" \
     SIMPLESUITE_DIR="$TMP/checkout" \
     SIMPLESUITE_NETWORK_ROLE=none \
@@ -77,6 +83,8 @@ if [ "$(uname -s)" = Linux ]; then
         "$ROOT/scripts/install-simplesuite.sh" >"$TMP/effects-install.log"
     [ -x "$TMP/system-bin/simplevol" ]
     [ -x "$TMP/system-bin/simplevol-audio" ]
+    [ ! -e "$HOME/.local/bin/simplevol" ]
+    [ ! -e "$HOME/.local/bin/simplevol-audio" ]
     cmp "$SOURCE/simplevol-audio" "$TMP/system-bin/simplevol-audio"
     cmp "$SOURCE/SIMPLEVOL.md" "$TMP/system-data/SIMPLEVOL.md"
     cmp "$TMP/checkout/build/simplevol-meter.so" "$TMP/system-data/simplevol-meter.so"
