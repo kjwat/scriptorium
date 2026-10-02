@@ -248,7 +248,10 @@ on platform availability:
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
   SimpleNet Wi-Fi management and adapter diagnostics
-- `pdftotext`/poppler and `pandoc` for SimplePDF
+- `pdftotext`/poppler and `pandoc` for SimplePDF; its MOBI/Kindle converter
+  `simplepdf-mobi` builds with SimpleSuite from bundled libmobi sources,
+  installs through the program manifest and is removed by uninstall/burn.
+  No separate MOBI package or manual tool installation is needed.
 - `zip`, `unzip`, `tar`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for

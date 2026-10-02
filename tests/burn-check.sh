@@ -44,7 +44,7 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
 aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
@@ -87,6 +87,7 @@ printf '%s\n' keep >"$HOME/.writing-clone-tmp/partial"
 printf '%s\n' keep >"$HOME/.scriptorium-backups/old/config"
 printf '%s\n' keep >"$HOME/.config/scriptorium/legacy-marker"
 printf '%s\n' keep >"$HOME/xdg-cache/simplepdf/document.txt"
+printf '%s\n' converted >"$HOME/xdg-cache/simplepdf/document.epub"
 printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
 
 FAKE_FREEBSD_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount"

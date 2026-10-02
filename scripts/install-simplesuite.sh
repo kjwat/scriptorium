@@ -270,6 +270,14 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             esac
             ;;
     esac
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplepdf '*)
+            case " $SIMPLESUITE_PROGRAM_FILTER " in
+                *' simplepdf-mobi '*) ;;
+                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplepdf-mobi" ;;
+            esac
+            ;;
+    esac
     make_cmd=${MAKE:-make}
     for program in $SIMPLESUITE_PROGRAM_FILTER; do
         listed=0

@@ -17,6 +17,9 @@ CONFIRM_DELETE=true
 # File associations
 OPEN_.pdf=evince
 OPEN_.epub=simplepdf
+OPEN_.mobi=simplepdf
+OPEN_.azw=simplepdf
+OPEN_.azw3=simplepdf
 
 OPEN_.flac=simpleflac
 OPEN_.mp3=simpleflac

@@ -40,6 +40,7 @@ simplesuite_program_aliases() {
 }
 simplesuite_programs() {
     simplesuite_program_aliases "$1" "$2" | sed '/simplesuite-uninstall$/d;s/.*://'
+    printf '%s\n' simplepdf-mobi
     [ "$2" = 1 ] && printf '%s\n' simpleserved || :
 }
 EOF
@@ -109,7 +110,7 @@ case "$(uname -s)" in
         fi
         ;;
 esac
-helpers='simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall'
+helpers='simplebrowse-webkitd simplebrowse-jsdump simplepdf-mobi simplesuite-uninstall'
 if [ "$(uname -s)" = Linux ]; then helpers="$helpers simplevol-audio"; fi
 if [ "$(uname -s)" = Darwin ]; then
     helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
@@ -204,6 +205,14 @@ esac
 EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
+cat >"$FAKE_REPO/Makefile" <<'EOF'
+.PHONY: simplepdf simplepdf-mobi
+simplepdf simplepdf-mobi:
+	mkdir -p build
+	printf '%s\n' '#!/bin/sh' '# partial PDF build' 'exit 0' >build/$@
+	chmod 755 build/$@
+EOF
+
 for helper in uninstall.sh simplebrowse-webkitd simplebrowse-jsdump; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_REPO/$helper"
     chmod 755 "$FAKE_REPO/$helper"
@@ -231,7 +240,7 @@ chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
-git -C "$FAKE_REPO" add build.sh program-manifest.sh .gitignore \
+git -C "$FAKE_REPO" add build.sh Makefile program-manifest.sh .gitignore \
     verify-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump
 git -C "$FAKE_REPO" commit -qm fixture
 
@@ -251,6 +260,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     >"$TMP/install.log"
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi" ]
 [ ! -e "$(cat "$HOME/install-stage")" ]
 [ ! -e "$HOME/.local/bin" ]
 [ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/words" ]
@@ -459,5 +469,23 @@ fi
 [ "$(cat "$HOME/.local/bin/ytmp3")" = personal ]
 cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
+
+# A SimplePDF-only update must publish its converter and new uninstaller too.
+HOME="$TMP/pdf-only-home"
+export HOME
+mkdir -p "$HOME/.local/bin"
+printf '%s\n' old >"$HOME/.local/bin/simplepdf-mobi"
+rm -f "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi"
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux SIMPLESUITE_PROGRAM_FILTER=simplepdf \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/pdf-only.log"
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesuite-uninstall" ]
+[ ! -e "$HOME/.local/bin/simplepdf-mobi" ]
+grep -q '^# partial PDF build$' "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi"
+cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
 
 echo 'OK Scriptorium stages binaries privately, installs system commands, and preserves the daemon'
