@@ -588,6 +588,20 @@ IMAP/SMTP settings for `mbsync` and `msmtp`, creates local Maildir folders under
 The Gmail app password is stored in those local mail config files. The files
 are chmodded to `600`, but they are still plaintext local secrets.
 
+For local delivery that permanently removes each saved server copy, run
+`scripts/setup-simplemail-gmail.sh --local-only` after installing the current
+SimpleSuite. This configures `simplemail-fetch`, automatic downloads on launch
+and every 60 seconds while SimpleMail is open, and cleanup after sending.
+Complete MIME messages and attachments are saved durably before removal.
+Existing local mail and folder choices are preserved; the remaining Gmail
+archive, drafts, sent mail, spam and trash are also delivered locally.
+The old `mbsync` channels are disabled in this mode to protect the local mail
+from synchronization and keep it from being uploaded again. Sending still
+uses Gmail SMTP through `msmtp`. Keep backups of the local Maildir, which
+becomes the primary copy of your mail.
+Rerunning Gmail setup preserves local delivery unless `--sync` explicitly
+selects mirroring.
+
 To disconnect the account from GitHub without deleting the four repositories
 or their files, run:
 

@@ -1,6 +1,40 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+storage_mode=${SIMPLEMAIL_STORAGE_MODE:-sync}
+if [ -z "${SIMPLEMAIL_STORAGE_MODE-}" ] && [ -z "${1-}" ] &&
+   [ -f "$HOME/.config/simplemail/config" ] &&
+   awk '/^[[:space:]]*sync_cmd[[:space:]]*=/ && index($0, "simplemail-fetch") && index($0, "--remove-server-copy") { found=1 } END { exit !found }' "$HOME/.config/simplemail/config"; then
+    storage_mode=local-only
+fi
+case "${1-}" in
+    --local-only) storage_mode=local-only ;;
+    --sync) storage_mode=sync ;;
+    '') ;;
+    *) printf 'Usage: %s [--local-only|--sync]\n' "$0" >&2; exit 2 ;;
+esac
+case "$storage_mode" in
+    sync)
+        sync_policy='Sync Full'
+        expunge_policy='Expunge Near'
+        sync_command='mbsync gmail'
+        fetch_on_start=0
+        check_interval=0
+        ;;
+    local-only)
+        sync_policy='Sync None'
+        expunge_policy='Expunge None'
+        sync_command='simplemail-fetch --account gmail --remove-server-copy'
+        fetch_on_start=1
+        check_interval=60
+        if ! command -v simplemail-fetch >/dev/null 2>&1; then
+            printf 'Install the current SimpleSuite (simplemail-fetch is required).\n' >&2
+            exit 1
+        fi
+        ;;
+    *) printf 'SIMPLEMAIL_STORAGE_MODE must be sync or local-only.\n' >&2; exit 2 ;;
+esac
+
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\n!! %s\n' "$*" >&2; }
 
@@ -21,6 +55,9 @@ strip_block() {
 }
 
 say "SimpleMail Gmail setup"
+if [ "$storage_mode" = local-only ]; then
+    printf '%s\n' 'Local delivery: saved messages will be permanently removed from Gmail.'
+fi
 
 printf 'Gmail address: '
 read -r gmail_addr
@@ -85,28 +122,32 @@ Channel gmail-inbox
 Far :gmail-remote:INBOX
 Near :gmail-local:Inbox
 Create Near
-Expunge Near
+$sync_policy
+$expunge_policy
 SyncState *
 
 Channel gmail-sent
 Far :gmail-remote:"[Gmail]/Sent Mail"
 Near :gmail-local:Sent
 Create Near
-Expunge Near
+$sync_policy
+$expunge_policy
 SyncState *
 
 Channel gmail-drafts
 Far :gmail-remote:"[Gmail]/Drafts"
 Near :gmail-local:Drafts
 Create Near
-Expunge Near
+$sync_policy
+$expunge_policy
 SyncState *
 
 Channel gmail-trash
 Far :gmail-remote:"[Gmail]/Trash"
 Near :gmail-local:Trash
 Create Near
-Expunge Near
+$sync_policy
+$expunge_policy
 SyncState *
 
 Group gmail
@@ -136,7 +177,9 @@ EOF
 
 cat > "$HOME/.config/simplemail/config" <<EOF
 maildir=$maildir
-sync_cmd=mbsync gmail
+sync_cmd=$sync_command
+fetch_on_start=$fetch_on_start
+check_interval=$check_interval
 send_cmd=msmtp -a gmail -t
 from=$from_addr
 EOF
@@ -145,6 +188,12 @@ chmod 600 "$HOME/.config/simplemail/config"
 
 say "SimpleMail Gmail config written."
 printf '%s\n' \
-    "Test pull: mbsync gmail" \
+    "Mail delivery command: $sync_command" \
     "Test send: printf 'To: $gmail_addr\nSubject: SimpleMail test\n\nhello\n' | msmtp -a gmail -t" \
-    "In SimpleMail: press p to pull; send uses msmtp account 'gmail'."
+    "In SimpleMail: press p to check mail; send uses msmtp account 'gmail'."
+if [ "$storage_mode" = local-only ]; then
+    printf '%s\n' \
+        'SimpleMail downloads on launch and every 60 seconds while open.' \
+        'Inbox, Sent, Drafts, Archive, Spam and Trash stay in your local Maildir.' \
+        'Legacy mbsync channels are disabled so they cannot upload your local mail.'
+fi
