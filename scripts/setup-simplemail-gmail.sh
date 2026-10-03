@@ -18,6 +18,7 @@ case "$storage_mode" in
         sync_policy='Sync Full'
         expunge_policy='Expunge Near'
         sync_command='mbsync gmail'
+        watch_command=''
         fetch_on_start=0
         check_interval=0
         ;;
@@ -25,6 +26,7 @@ case "$storage_mode" in
         sync_policy='Sync None'
         expunge_policy='Expunge None'
         sync_command='simplemail-fetch --account gmail --remove-server-copy'
+        watch_command='simplemail-fetch --account gmail --remove-server-copy --watch --control-stdin'
         fetch_on_start=1
         check_interval=10
         if ! command -v simplemail-fetch >/dev/null 2>&1; then
@@ -178,6 +180,7 @@ EOF
 cat > "$HOME/.config/simplemail/config" <<EOF
 maildir=$maildir
 sync_cmd=$sync_command
+watch_cmd=$watch_command
 fetch_on_start=$fetch_on_start
 check_interval=$check_interval
 send_cmd=msmtp -a gmail -t
@@ -193,7 +196,8 @@ printf '%s\n' \
     "In SimpleMail: press p to check mail; send uses msmtp account 'gmail'."
 if [ "$storage_mode" = local-only ]; then
     printf '%s\n' \
-        'SimpleMail downloads on launch and every 10 seconds while open.' \
+        'SimpleMail keeps a live connection for immediate Inbox delivery while open.' \
+        'Other folders are checked every 10 seconds without signing in again.' \
         'Inbox, Sent, Drafts, Archive, Spam and Trash stay in your local Maildir.' \
         'Legacy mbsync channels are disabled so they cannot upload your local mail.'
 fi
