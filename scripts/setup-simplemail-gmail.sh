@@ -26,7 +26,7 @@ case "$storage_mode" in
         expunge_policy='Expunge None'
         sync_command='simplemail-fetch --account gmail --remove-server-copy'
         fetch_on_start=1
-        check_interval=60
+        check_interval=10
         if ! command -v simplemail-fetch >/dev/null 2>&1; then
             printf 'Install the current SimpleSuite (simplemail-fetch is required).\n' >&2
             exit 1
@@ -193,7 +193,7 @@ printf '%s\n' \
     "In SimpleMail: press p to check mail; send uses msmtp account 'gmail'."
 if [ "$storage_mode" = local-only ]; then
     printf '%s\n' \
-        'SimpleMail downloads on launch and every 60 seconds while open.' \
+        'SimpleMail downloads on launch and every 10 seconds while open.' \
         'Inbox, Sent, Drafts, Archive, Spam and Trash stay in your local Maildir.' \
         'Legacy mbsync channels are disabled so they cannot upload your local mail.'
 fi
