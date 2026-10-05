@@ -31,7 +31,7 @@ cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
     printf '%s\n' browse:simplebrowse cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
-        news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio \
+        news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio \
         stats:simplestats suite-uninstall:simplesuite-uninstall \
         ver:simplever vis:simplevis words:simplewords
     case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
@@ -90,8 +90,8 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
-programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"
@@ -260,6 +260,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
     >"$TMP/install.log"
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenote" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi" ]
 [ ! -e "$(cat "$HOME/install-stage")" ]
 [ ! -e "$HOME/.local/bin" ]

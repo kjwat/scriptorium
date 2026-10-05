@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -47,13 +47,13 @@ SIMPLESUITE_NETWORK_ROLE=client
 SCRIPTORIUM_INSTALL_TAILSCALE=1
 CHANGES_MADE=0
 SHELL_RC_FILES=("$HOME/.bashrc")
-EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplevol simplecal simpleserve simpleserved simplecheck)
+EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplenote simplevol simplecal simpleserve simpleserved simplecheck)
 EXPECTED_SIMPLESUITE_HELPERS=(simplesuite-uninstall)
 say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -94,12 +94,13 @@ ensure_simplesuite_aliases
 ensure_simplesuite_aliases
 [[ $(grep -c "^alias vol='simplevol'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
+[[ $(grep -c "^alias note='simplenote'$" "$HOME/.bashrc") == 1 ]]
 if [[ $TEST_MODE == preserve ]]; then
     sed -n '/^# BEGIN SimpleOS application aliases$/,/^# END SimpleOS application aliases$/p' \
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"
     ! grep -q '^# SimpleSuite aliases$' "$HOME/.bashrc"
 fi
-for mapping in words:simplewords vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
+for mapping in words:simplewords note:simplenote vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
     grep -qx "alias ${mapping%%:*}='${mapping#*:}'" "$HOME/.bashrc"
 done
 ! grep -q 'alias absent=' "$HOME/.bashrc"

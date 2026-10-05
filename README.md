@@ -212,6 +212,7 @@ SimpleSuite programs:
 
 - `simplebrowse`
 - `simplewords`
+- `simplenote` — blank-page notes, autosave, and a journal browser under `~/writing/notes`
 - `simplefiles`
 - `simplemail`
 - `simplenet`
@@ -472,6 +473,7 @@ shell's native PATH setup:
 
 ```sh
 alias words='simplewords'
+alias note='simplenote'
 alias blue='simpleblue'
 alias files='simplefiles'
 alias browse='simplebrowse'
