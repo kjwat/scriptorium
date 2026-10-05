@@ -415,7 +415,7 @@ static void init_repos(void)
     repos[4].name = "notes";
     for (int i = 0; i < REPO_COUNT; i++) {
         if (i == 4)
-            snprintf(repos[i].path, sizeof(repos[i].path), "%s/writing/notes", home);
+            snprintf(repos[i].path, sizeof(repos[i].path), "%s/notes", home);
         else
             snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home, repos[i].name);
     }
@@ -1062,7 +1062,7 @@ static void draw(void)
     attron(A_BOLD);
     mvaddstr(0, 2, "SimpleCheck");
     attroff(A_BOLD);
-    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite   ~/website   ~/writing/notes");
+    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite   ~/website   ~/notes");
 
     int logical = 0;
     int y = 3;
