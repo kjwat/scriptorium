@@ -38,3 +38,4 @@ else
 fi
 
 "$TMP/check"
+python3 "$ROOT/tests/simplecheck-repository-check.py" "$TMP/check"

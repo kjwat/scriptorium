@@ -413,9 +413,12 @@ static void init_repos(void)
     repos[2].name = "simplesuite";
     repos[3].name = "website";
     repos[4].name = "notes";
-    for (int i = 0; i < REPO_COUNT; i++)
-        snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home,
-                 i == 4 ? "writing/notes" : repos[i].name);
+    for (int i = 0; i < REPO_COUNT; i++) {
+        if (i == 4)
+            snprintf(repos[i].path, sizeof(repos[i].path), "%s/writing/notes", home);
+        else
+            snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home, repos[i].name);
+    }
 }
 
 static const char *skip_porcelain_fields(const char *text, int fields)
@@ -529,7 +532,7 @@ static int refresh_all(void)
     char outputs[REPO_COUNT][MAX_OUTPUT];
     char *status[] = {
         "git", "--no-optional-locks", "status", "--porcelain=v2",
-        "--branch", "--ahead-behind", "--untracked-files=all", "--", ".", NULL
+        "--branch", "--ahead-behind", "--untracked-files=all", NULL
     };
     int all_ok = 1;
     int cancelled;

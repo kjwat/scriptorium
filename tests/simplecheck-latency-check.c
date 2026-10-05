@@ -19,6 +19,8 @@ static int helper_mode(int argc, char **argv)
 {
     if (argc < 2)
         return -1;
+    if (strcmp(argv[1], "--app") == 0)
+        return simplecheck_program_main();
     if (strcmp(argv[1], "--helper-output") == 0) {
         fputs("captured output\n", stdout);
         return 0;
@@ -146,6 +148,8 @@ static void test_folder_scoped_status(void)
         snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", fixture,
                  i == 4 ? "writing/notes" : repos[i].name);
     test_expect(refresh_all() == RUN_OK, "fixture refresh failed");
+    test_expect(repos[0].owner == 0 && repos[4].owner == 0,
+                "nested folder did not share its repository owner");
     test_expect(repos[0].dirty && repos[0].file_count == 2,
                 "writing did not include its own nested changes");
     test_expect(repos[4].dirty && repos[4].file_count == 1 &&
@@ -155,6 +159,11 @@ static void test_folder_scoped_status(void)
     test_expect(refresh_all() == RUN_OK && !repos[4].dirty &&
                 repos[4].file_count == 0 && repos[0].dirty,
                 "outside changes made an unchanged notes folder look dirty");
+    test_expect(capture_job_start(&job, notes, initialize, output,
+                                  sizeof(output), 2000), "could not initialize separate notes repository");
+    (void)wait_capture_jobs(&job, 1, 0);
+    test_expect(job.result == 0 && refresh_all() == RUN_OK && repos[4].owner == 4,
+                "independent nested repository was merged with its parent");
     endwin(); delscreen(screen); fclose(screen_in); fclose(screen_out);
 
     char *cleanup[] = {"rm", "-rf", "--", fixture, NULL};

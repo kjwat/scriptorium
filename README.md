@@ -535,22 +535,25 @@ role is `OK`.
 ## SimpleCheck
 
 Run `simplecheck` or its `check` alias to review branch, ahead/behind, and
-working-tree status for `~/writing`, `~/scriptorium`, `~/simplesuite`, and
-`~/website` in one screen. Startup and normal refreshes are local; network
-access occurs only for an explicit check, pull, or push. Local refreshes use
-one bounded status snapshot per repository and run all four snapshots
-concurrently.
+working-tree status for `~/writing`, `~/scriptorium`, `~/simplesuite`,
+`~/website`, and `~/writing/notes` in one screen. Each file list is restricted
+to its displayed folder. Entries sharing a Git working tree, such as writing
+and notes, share a single commit, push, pull, or remote check and show the same
+result. A notes folder with its own Git repository is handled independently.
+Startup and normal refreshes are local; network access occurs only for an
+explicit check, pull, or push. Local status and working-tree identification
+run concurrently with bounded timeouts.
 
 - `R`: refresh local status.
 - `C`: fetch and prune each repository's remote-tracking refs, then recalculate
-  ahead/behind counts. The four fetches run concurrently, so one slow remote
+  ahead/behind counts. Fetches for distinct working trees run concurrently, so one slow remote
   does not make the other repositories wait in series.
 - `L`: check remotes, then concurrently rebase repositories that are behind
   onto their freshly fetched upstreams using autostash.
 - `P`: check remotes and refuse to continue if any repository is behind. If a
   working tree is dirty, SimpleCheck asks once for a commit message, runs
   `git add -A`, commits each dirty repository with that message, and pushes all
-  four repositories concurrently.
+  available repositories concurrently. Missing directories are skipped.
 - Up/Down or `j`/`k`: scroll; `Q`: quit. During a Git command, `Q`, Esc, or
   Ctrl-C cancels it with a 25 ms input polling ceiling. Local status snapshots
   have a 10-second timeout; network and mutating Git commands have a 45-second
