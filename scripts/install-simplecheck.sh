@@ -4,6 +4,12 @@ set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE="$ROOT/simplecheck.c"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
+case "$SYSTEM_BIN_DIR" in
+    "$HOME/.local"|"$HOME/.local/"*)
+        echo 'Scriptorium programs belong in /usr/local; refusing a user-local installation.' >&2
+        exit 2
+        ;;
+esac
 DEST="$SYSTEM_BIN_DIR/simplecheck"
 LEGACY_DEST="$HOME/.local/bin/simplecheck"
 CC_BIN="${CC:-cc}"

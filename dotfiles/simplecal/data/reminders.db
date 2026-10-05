@@ -29,9 +29,9 @@ FIRED_ON=thetyper
 EVENT_ID=2026-10-05-1900-growler-virtual-open-mic
 OCCURRENCE_ID=2026-10-05-1900-growler-virtual-open-mic
 DUE=2026-10-05T19:00:00
-STATUS=pending
-FIRED_AT=
-FIRED_ON=
+STATUS=fired
+FIRED_AT=2026-10-05T19:00:14
+FIRED_ON=thetyper
 
 EVENT_ID=2026-10-05-2100-monday-night-poetry-lounge
 OCCURRENCE_ID=2026-10-05-2100-monday-night-poetry-lounge

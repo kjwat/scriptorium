@@ -125,11 +125,12 @@ done
 # The installed manifest uses whitespace; the alias consumer uses colons.
 SIMPLESUITE_MANIFEST_FILE=$tmp/absent-manifest
 SIMPLESUITE_INSTALLED_MANIFEST=$tmp/installed-abbreviations
-printf '%s\n' '# installed commands' 'words simplewords' 'vol simplevol' \
+printf '%s\n' '# installed commands' 'words simplewords' 'note simplenote' 'vol simplevol' \
     >"$SIMPLESUITE_INSTALLED_MANIFEST"
 . "$repo/scripts/simple-programs.sh"
 aliases=$(scriptorium_program_aliases Linux 0)
 [[ $(printf '%s\n' "$aliases" | grep -cx 'vol:simplevol') == 1 ]]
-[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplevol' ]]
+[[ $(printf '%s\n' "$aliases" | grep -cx 'note:simplenote') == 1 ]]
+[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplevol' ]]
 
 echo 'OK installer final checks and aliases use system binaries while preserving the existing daemon'

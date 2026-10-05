@@ -194,7 +194,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     remove_system_file "$SYSTEM_BIN_DIR/$bin"
 done
@@ -211,7 +211,7 @@ done
 for alias_mapping in \
     blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck \
     clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
-    mail:simplemail net:simplenet news:simplenews pdf:simplepdf \
+    mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf \
     pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
     ver:simplever vis:simplevis vol:simplevol words:simplewords; do
@@ -351,6 +351,7 @@ clean_shell_rc() {
         BEGIN {
             aliases["blue"] = "simpleblue"
             aliases["words"] = "simplewords"
+            aliases["note"] = "simplenote"
             aliases["files"] = "simplefiles"
             aliases["browse"] = "simplebrowse"
             aliases["flac"] = "simpleflac"

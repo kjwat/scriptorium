@@ -44,8 +44,8 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -89,6 +89,15 @@ printf '%s\n' keep >"$HOME/.config/scriptorium/legacy-marker"
 printf '%s\n' keep >"$HOME/xdg-cache/simplepdf/document.txt"
 printf '%s\n' converted >"$HOME/xdg-cache/simplepdf/document.epub"
 printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
+mkdir -p "$HOME/writing/notes"
+printf '%s\n' 'journal entry' >"$HOME/writing/notes/2026-10-05-001.txt"
+for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    printf '%s\n' '# SimpleSuite aliases' "alias note='simplenote'" \
+        "alias personal='echo keep'" >"$shell_rc"
+done
+mkdir -p "$HOME/.config/fish/conf.d"
+printf '%s\n' "alias note='simplenote'" "alias personal='echo keep'" \
+    >"$HOME/.config/fish/conf.d/scriptorium.fish"
 
 FAKE_FREEBSD_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount"
 mkdir -p "$(dirname "$FAKE_FREEBSD_HELPER")"
@@ -180,6 +189,10 @@ done
 [[ "$(cat "$SYSTEM_BIN/check")" == unrelated-check ]] || fail 'burn removed an unrelated short command'
 
 [[ -f "$HOME/unrelated-file" ]] || fail "burn removed an unrelated file"
+for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.config/fish/conf.d/scriptorium.fish"; do
+    ! grep -q "alias note='simplenote'" "$shell_rc" || fail 'burn left the note alias'
+    grep -qx "alias personal='echo keep'" "$shell_rc" || fail 'burn removed a personal alias'
+done
 grep -q '^KeepThis yes$' "$HOME/.mbsyncrc" ||
     fail "burn removed unrelated mbsync configuration"
 if grep -q 'SCRIPTORIUM SIMPLEMAIL\|Pass "secret"' "$HOME/.mbsyncrc"; then

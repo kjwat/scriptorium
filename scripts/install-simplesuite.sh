@@ -10,6 +10,14 @@ SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
 SYSTEM_BIN_DIR="${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}"
 SYSTEM_DATA_DIR="${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}"
+for destination in "$SYSTEM_BIN_DIR" "$SYSTEM_DATA_DIR"; do
+    case "$destination" in
+        "$HOME/.local"|"$HOME/.local/"*)
+            echo 'SimpleSuite belongs in /usr/local; refusing a user-local installation.' >&2
+            exit 2
+            ;;
+    esac
+done
 SYSTEM_DAEMON="${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}"
 . "$SCRIPTORIUM_ROOT/scripts/resolve-simpleserve-role.sh"
 . "$SCRIPTORIUM_ROOT/scripts/bounded-command.sh"

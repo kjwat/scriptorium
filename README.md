@@ -18,6 +18,9 @@ personal utilities. Shared SimpleSuite assets belong in
 `/usr/local/share/simplesuite`. Filtered app installs also update the system
 uninstaller and command manifests. `burn.sh` uses that system uninstaller and
 removes the installed runtime assets along with the programs.
+The installers reject destinations under `~/.local`; an administrator
+authentication failure stops the system installation without a user-local
+fallback.
 
 ## Keelan's Networking Trident
 
@@ -678,6 +681,11 @@ This repo includes destructive cleanup scripts:
 
 The single `BURN` confirmation authorizes both cleanup layers; there is no
 second SimpleSuite prompt.
+
+SimpleNote is included in binary, short-command symlink, and shell alias
+cleanup. Normal SimpleSuite uninstall and `--purge` preserve `~/writing/notes`;
+confirmed native `--burn` removes the notes directory, and Scriptorium's
+`burn.sh` removes the entire writing checkout.
 
 Do not run either script unless you intend that cleanup.
 

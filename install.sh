@@ -87,6 +87,16 @@ unset TAILSCALE_AUTH_KEY
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 SIMPLESUITE_SYSTEM_BIN_DIR=${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}
+SIMPLESUITE_SYSTEM_DATA_DIR=${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}
+for destination in "$SIMPLESUITE_SYSTEM_BIN_DIR" "$SIMPLESUITE_SYSTEM_DATA_DIR"; do
+    case "$destination" in
+        "$HOME/.local"|"$HOME/.local/"*)
+            printf 'SimpleSuite belongs in /usr/local; refusing a user-local installation.\n' >&2
+            exit 2
+            ;;
+    esac
+done
+export SIMPLESUITE_SYSTEM_DATA_DIR
 SIMPLESERVE_DAEMON_BINARY=${SIMPLESERVE_DAEMON_BINARY:-/usr/local/sbin/simpleserved}
 export SIMPLESUITE_SYSTEM_BIN_DIR SIMPLESERVE_DAEMON_BINARY
 . "$ROOT/scripts/simple-programs.sh"

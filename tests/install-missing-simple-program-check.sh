@@ -12,6 +12,26 @@ mkdir -p "$SOURCE" "$HOME/.local/bin" "$TMP/system-bin" "$TMP/test-bin"
 printf '%s\n' '#!/bin/sh' 'exec "$@"' >"$TMP/test-bin/sudo"
 chmod 755 "$TMP/test-bin/sudo"
 
+# Reject user-local destinations before cloning or building anything.
+for local_destination in bin data; do
+    test_bindir=$TMP/system-bin
+    test_datadir=$TMP/system-data
+    case "$local_destination" in
+        bin) test_bindir=$HOME/.local/bin ;;
+        data) test_datadir=$HOME/.local/share/simplesuite ;;
+    esac
+    if SIMPLESUITE_DIR="$TMP/rejected-checkout" \
+       SIMPLESUITE_SYSTEM_BIN_DIR="$test_bindir" \
+       SIMPLESUITE_SYSTEM_DATA_DIR="$test_datadir" \
+        "$ROOT/scripts/install-simplesuite.sh" \
+        >"$TMP/rejected-$local_destination.log" 2>&1; then
+        echo 'missing-program-check: a user-local destination was accepted' >&2
+        exit 1
+    fi
+    [ ! -e "$TMP/rejected-checkout" ]
+    grep -q 'refusing a user-local installation' "$TMP/rejected-$local_destination.log"
+done
+
 printf '%s\n' preserved >"$HOME/.local/bin/simplecal"
 chmod 755 "$HOME/.local/bin/simplecal"
 
@@ -24,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock vol:simplevol; }
-simplesuite_programs() { printf '%s\n' simpleclock simplevol; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote vol:simplevol; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplevol; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -38,6 +58,11 @@ printf '%s\n' '#!/bin/sh' '# effects helper fixture' 'exit 0' >simplevol-audio
 chmod 644 simplevol-audio
 printf '%s\n' 'SimpleVol documentation fixture' >SIMPLEVOL.md
 cat >>Makefile <<'EOF'
+
+simplenote:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplenote
+	chmod 755 $(BUILD_DIR)/simplenote
 
 simplevol:
 	mkdir -p $(BUILD_DIR)
@@ -68,6 +93,30 @@ cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
 cmp "$SOURCE/program-manifest.sh" "$TMP/system-data/program-manifest.sh"
 grep -qx 'vol simplevol' "$TMP/system-data/command-abbreviations"
 grep -q "replaced: $TMP/system-bin/simpleclock" "$TMP/install.log"
+
+# Adding notes to an existing install also refreshes the uninstall payload and
+# both manifests, and removes an older user binary and short-command symlink.
+printf '%s\n' stale >"$HOME/.local/bin/simplenote"
+ln -s simplenote "$HOME/.local/bin/note"
+ln -s "$TMP/system-bin/simplenote" "$TMP/system-bin/note"
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simplenote \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/note-install.log"
+[ -x "$TMP/system-bin/simplenote" ]
+[ ! -e "$HOME/.local/bin/simplenote" ]
+[ ! -L "$HOME/.local/bin/note" ]
+[ ! -L "$TMP/system-bin/note" ]
+cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
+cmp "$SOURCE/program-manifest.sh" "$TMP/system-data/program-manifest.sh"
+grep -qx 'note simplenote' "$TMP/system-data/command-abbreviations"
+[ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
+[ ! -e "$TMP/system-bin/simplewords" ]
 
 if [ "$(uname -s)" = Linux ]; then
     printf '%s\n' stale >"$HOME/.local/bin/simplevol"
