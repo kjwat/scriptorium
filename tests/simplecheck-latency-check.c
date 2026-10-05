@@ -1,6 +1,7 @@
 #define main simplecheck_program_main
 #include "../simplecheck.c"
 #undef main
+#include <sys/stat.h>
 
 static void test_fail(const char *message)
 {
@@ -82,10 +83,10 @@ static void test_porcelain_parser(void)
 static void test_repo_configuration(void)
 {
     static const char *const expected[] = {
-        "writing", "scriptorium", "simplesuite", "website"
+        "writing", "scriptorium", "simplesuite", "website", "notes"
     };
 
-    test_expect(REPO_COUNT == 4, "SimpleCheck repository count is not four");
+    test_expect(REPO_COUNT == 5, "SimpleCheck repository count is not five");
     init_repos();
     for (int i = 0; i < REPO_COUNT; i++) {
         test_expect(strcmp(repos[i].name, expected[i]) == 0,
@@ -106,6 +107,61 @@ static void test_capture_output(const char *self)
     test_expect(job.result == 0, "output helper failed");
     test_expect(strcmp(output, "captured output\n") == 0,
                 "output helper was not fully captured");
+}
+
+static void test_folder_scoped_status(void)
+{
+    char fixture[] = "/tmp/simplecheck-folder.XXXXXX";
+    char writing[PATH_MAX], journal[PATH_MAX], notes[PATH_MAX];
+    char inside[PATH_MAX], outside[PATH_MAX], output[MAX_OUTPUT];
+    CaptureJob job;
+    test_expect(mkdtemp(fixture) != NULL, "could not create folder fixture");
+    snprintf(writing, sizeof(writing), "%s/writing", fixture);
+    snprintf(journal, sizeof(journal), "%s/writing/journal", fixture);
+    snprintf(notes, sizeof(notes), "%s/writing/notes", fixture);
+    snprintf(inside, sizeof(inside), "%s/writing/notes/inside-note.txt", fixture);
+    snprintf(outside, sizeof(outside), "%s/writing/journal/outside-journal.txt", fixture);
+    test_expect(mkdir(writing, 0700) == 0 && mkdir(journal, 0700) == 0 &&
+                mkdir(notes, 0700) == 0, "could not create fixture folders");
+    FILE *file = fopen(inside, "w");
+    test_expect(file != NULL, "could not create inside fixture");
+    fclose(file);
+    file = fopen(outside, "w");
+    test_expect(file != NULL, "could not create outside fixture");
+    fclose(file);
+    char *initialize[] = {"git", "init", "--quiet", NULL};
+    test_expect(capture_job_start(&job, writing, initialize, output,
+                                  sizeof(output), 2000), "could not initialize fixture repository");
+    (void)wait_capture_jobs(&job, 1, 0);
+    test_expect(job.result == 0, "git init failed in fixture");
+
+    FILE *screen_out = tmpfile(), *screen_in = tmpfile();
+    test_expect(screen_out && screen_in, "could not create test terminal");
+    SCREEN *screen = newterm("xterm-256color", screen_out, screen_in);
+    test_expect(screen != NULL, "could not initialize test terminal");
+    set_term(screen);
+    resizeterm(40, 120);
+    init_repos();
+    for (int i = 0; i < REPO_COUNT; i++)
+        snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", fixture,
+                 i == 4 ? "writing/notes" : repos[i].name);
+    test_expect(refresh_all() == RUN_OK, "fixture refresh failed");
+    test_expect(repos[0].dirty && repos[0].file_count == 2,
+                "writing did not include its own nested changes");
+    test_expect(repos[4].dirty && repos[4].file_count == 1 &&
+                strstr(repos[4].files[0], "inside-note.txt") != NULL,
+                "notes status included files outside its folder");
+    test_expect(unlink(inside) == 0, "could not remove inside fixture");
+    test_expect(refresh_all() == RUN_OK && !repos[4].dirty &&
+                repos[4].file_count == 0 && repos[0].dirty,
+                "outside changes made an unchanged notes folder look dirty");
+    endwin(); delscreen(screen); fclose(screen_in); fclose(screen_out);
+
+    char *cleanup[] = {"rm", "-rf", "--", fixture, NULL};
+    test_expect(capture_job_start(&job, NULL, cleanup, output, sizeof(output), 2000),
+                "could not clean fixture");
+    (void)wait_capture_jobs(&job, 1, 0);
+    test_expect(job.result == 0, "fixture cleanup failed");
 }
 
 static void test_jobs_are_concurrent(const char *self)
@@ -181,7 +237,8 @@ int main(int argc, char **argv)
     test_jobs_are_concurrent(argv[0]);
     test_timeout_is_bounded(argv[0]);
     test_noisy_child_yields(argv[0]);
+    test_folder_scoped_status();
     free(deferred_children);
-    puts("OK SimpleCheck status and subprocess latency regressions");
+    puts("OK SimpleCheck folder-scoped status and subprocess latency regressions");
     return 0;
 }

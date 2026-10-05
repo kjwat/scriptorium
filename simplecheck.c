@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define REPO_COUNT 4
+#define REPO_COUNT 5
 #define MAX_OUTPUT 65536
 #define MAX_FILES 256
 #define MAX_FILE_LINE 512
@@ -412,8 +412,10 @@ static void init_repos(void)
     repos[1].name = "scriptorium";
     repos[2].name = "simplesuite";
     repos[3].name = "website";
+    repos[4].name = "notes";
     for (int i = 0; i < REPO_COUNT; i++)
-        snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home, repos[i].name);
+        snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", home,
+                 i == 4 ? "writing/notes" : repos[i].name);
 }
 
 static const char *skip_porcelain_fields(const char *text, int fields)
@@ -527,7 +529,7 @@ static int refresh_all(void)
     char outputs[REPO_COUNT][MAX_OUTPUT];
     char *status[] = {
         "git", "--no-optional-locks", "status", "--porcelain=v2",
-        "--branch", "--ahead-behind", "--untracked-files=all", NULL
+        "--branch", "--ahead-behind", "--untracked-files=all", "--", ".", NULL
     };
     int all_ok = 1;
     int cancelled;
@@ -1037,7 +1039,7 @@ static void push_all(void)
     int ok = 0;
     for (int i = 0; i < REPO_COUNT; i++) if (repos[i].push_ok) ok++;
     if (ok == REPO_COUNT)
-        show_temporary_footer("All four repositories pushed successfully.");
+        show_temporary_footer("All five repositories pushed successfully.");
     else
         show_temporary_footer("Push finished. Review repository messages above.");
 }
@@ -1057,7 +1059,7 @@ static void draw(void)
     attron(A_BOLD);
     mvaddstr(0, 2, "SimpleCheck");
     attroff(A_BOLD);
-    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite   ~/website");
+    mvaddstr(1, 2, "~/writing   ~/scriptorium   ~/simplesuite   ~/website   ~/writing/notes");
 
     int logical = 0;
     int y = 3;
@@ -1098,7 +1100,7 @@ static void draw(void)
         if (logical++ >= scroll_offset && y < h - 4) y++;
     }
 
-    const char *label = "[ P  PUSH ALL FOUR ]";
+    const char *label = "[ P  PUSH ALL FIVE ]";
     button_w = (int)strlen(label);
     button_y = h - 3;
     button_x = (w - button_w) / 2;
