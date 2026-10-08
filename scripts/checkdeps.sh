@@ -115,7 +115,7 @@ dep_hint() {
         rsync) echo "used by Scriptorium file synchronization workflows" ;;
         pactl|parec) echo "used by SimpleVol mixing and SimpleVis capture; provided by pulseaudio-utils/libpulse" ;;
         pipewire|pipewire-pulse|pw-cli|pw-dump|wireplumber) echo "used by SimpleVol effects; $(simplevol_pkg_hint)" ;;
-        zip) echo "used by simplefiles :compress" ;;
+        zip) echo "used by simplesave and simplefiles :compress" ;;
         unzip) echo "used by simplefiles :extract" ;;
         tar) echo "used by simplefiles :extract for TAR archives" ;;
         findmnt) echo "provided by util-linux; used by simplefiles :unmount validation" ;;

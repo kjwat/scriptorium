@@ -194,7 +194,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     remove_system_file "$SYSTEM_BIN_DIR/$bin"
 done
@@ -212,7 +212,7 @@ for alias_mapping in \
     blue:simpleblue browse:simplebrowse cal:simplecal check:simplecheck \
     clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
     mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf \
-    pod:simplepod radio:simpleradio serve:simpleserve stats:simplestats \
+    pod:simplepod radio:simpleradio save:simplesave serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
     ver:simplever vis:simplevis vol:simplevol words:simplewords; do
     alias_name=${alias_mapping%%:*}
@@ -365,6 +365,7 @@ clean_shell_rc() {
             aliases["cal"] = "simplecal"
             aliases["stats"] = "simplestats"
             aliases["ver"] = "simplever"
+            aliases["save"] = "simplesave"
             aliases["game"] = "simplegame"
             aliases["pdf"] = "simplepdf"
             aliases["news"] = "simplenews"

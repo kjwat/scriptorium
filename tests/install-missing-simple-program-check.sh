@@ -44,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote vol:simplevol; }
-simplesuite_programs() { printf '%s\n' simpleclock simplenote simplevol; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave vol:simplevol; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simplevol; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -63,6 +63,11 @@ simplenote:
 	mkdir -p $(BUILD_DIR)
 	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplenote
 	chmod 755 $(BUILD_DIR)/simplenote
+
+simplesave:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplesave
+	chmod 755 $(BUILD_DIR)/simplesave
 
 simplevol:
 	mkdir -p $(BUILD_DIR)
@@ -117,6 +122,21 @@ cmp "$SOURCE/program-manifest.sh" "$TMP/system-data/program-manifest.sh"
 grep -qx 'note simplenote' "$TMP/system-data/command-abbreviations"
 [ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
 [ ! -e "$TMP/system-bin/simplewords" ]
+
+# A partial SimpleSave installation uses the same manifest and system paths.
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simplesave \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/save-install.log"
+[ -x "$TMP/system-bin/simplesave" ]
+[ ! -e "$HOME/.local/bin/simplesave" ]
+grep -qx 'save simplesave' "$TMP/system-data/command-abbreviations"
+cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
 
 if [ "$(uname -s)" = Linux ]; then
     printf '%s\n' stale >"$HOME/.local/bin/simplevol"

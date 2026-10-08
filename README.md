@@ -229,6 +229,7 @@ SimpleSuite programs:
 - `simplenews`
 - `simplestats`
 - `simplever`
+- `simplesave` — one date-named ZIP of writing, source, and intact Git repositories from writing, scriptorium, simplesuite, and optional website in `~/backups`; excludes build output and caches
 - `simplevis`
 - `simplevol` (Linux volume/routing and FOSS audio effects)
 
@@ -491,6 +492,7 @@ alias trident='simpletrident'
 alias cal='simplecal'
 alias stats='simplestats'
 alias ver='simplever'
+alias save='simplesave'
 alias game='simplegame'
 alias pdf='simplepdf'
 alias news='simplenews'
