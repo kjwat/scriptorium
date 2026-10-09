@@ -2,6 +2,96 @@
 dotfiles/ssh/id_ed25519
 dotfiles/ssh/id_rsa
 
-# Python provisioning/test caches
+# Generated build trees
+build/
+build-*/
+build_*/
+cmake-build-*/
+out/
+dist/
+
+# Compiler outputs, libraries, and native application bundles
+*.o
+*.obj
+*.a
+*.lib
+*.lo
+*.la
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.elf
+*.out
+*.d
+*.pch
+*.gch
+*.pdb
+*.ilk
+*.dSYM/
+*.app/
+
+# Generated build-system metadata
+.deps/
+.libs/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+meson-private/
+meson-logs/
+meson-info/
+
+# Coverage and profiling output
+*.gcda
+*.gcno
+*.gcov
+*.gcov.json.gz
+*.profraw
+*.profdata
+gmon.out
+
+# Legacy in-tree builds of Scriptorium programs and tests
+/simplecheck
+/simpletrident
+/simple*-check
+/simple*-test
+
+# Python provisioning/test caches and local environments
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Editor, autosave, and temporary files
+*~
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*.tmp
+*.tmp.*
+*.temp
+*.autosave
+*.save
+.~lock.*
+
+# Logs and crash output
+*.log
+core
+core.*
+
+# Local OS metadata
+.DS_Store
+Thumbs.db
