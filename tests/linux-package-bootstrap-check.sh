@@ -75,7 +75,7 @@ esac
 EOF
 
 for dependency_command in \
-    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf links \
+    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
     pactl parec xclip; do
@@ -107,7 +107,7 @@ for utility in awk bash cat chmod dirname env grep id mktemp rm tee; do
 done
 chmod 755 "$fake_bin/uname" "$fake_bin/sudo" "$fake_bin/apt-get"
 for dependency_command in \
-    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf links \
+    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
     pactl parec xclip; do

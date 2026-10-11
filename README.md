@@ -229,6 +229,7 @@ SimpleSuite programs:
 - `simplenews`
 - `simplestats`
 - `simplever`
+- `simpleburn` — find an ISO with fzf, choose a drive in ncurses, confirm erasure, and write with dd; included on Linux, FreeBSD, and macOS
 - `simplesave` — one date-named ZIP of writing, source, and intact Git repositories from writing, scriptorium, simplesuite, and optional website in `~/backups`; excludes build output and caches
 - `simplevis`
 - `simplevol` (Linux volume/routing and FOSS audio effects)
@@ -481,6 +482,7 @@ alias note='simplenote'
 alias blue='simpleblue'
 alias files='simplefiles'
 alias browse='simplebrowse'
+alias burn='simpleburn'
 alias flac='simpleflac'
 alias radio='simpleradio'
 alias pod='simplepod'

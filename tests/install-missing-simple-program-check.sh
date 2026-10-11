@@ -44,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave vol:simplevol; }
-simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simplevol; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave burn:simpleburn vol:simplevol; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simpleburn simplevol; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -68,6 +68,11 @@ simplesave:
 	mkdir -p $(BUILD_DIR)
 	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplesave
 	chmod 755 $(BUILD_DIR)/simplesave
+
+simpleburn:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simpleburn
+	chmod 755 $(BUILD_DIR)/simpleburn
 
 simplevol:
 	mkdir -p $(BUILD_DIR)
@@ -136,6 +141,21 @@ PATH="$TMP/test-bin:$PATH" \
 [ -x "$TMP/system-bin/simplesave" ]
 [ ! -e "$HOME/.local/bin/simplesave" ]
 grep -qx 'save simplesave' "$TMP/system-data/command-abbreviations"
+cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
+
+# The same partial-install path installs SimpleBurn and its shared alias map.
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simpleburn \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/burn-install.log"
+[ -x "$TMP/system-bin/simpleburn" ]
+[ ! -e "$HOME/.local/bin/simpleburn" ]
+grep -qx 'burn simpleburn' "$TMP/system-data/command-abbreviations"
 cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
 
 if [ "$(uname -s)" = Linux ]; then

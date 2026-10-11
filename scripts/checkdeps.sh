@@ -127,11 +127,14 @@ dep_hint() {
         exfatfsck) echo "FreeBSD exFAT check and repair utility; provided by exfat-utils" ;;
         ntfsfix) echo "NTFS check and limited repair utility; provided by ntfs-3g/ntfsprogs, ntfs-3g-progs on Alpine, or fusefs-ntfs" ;;
         mount.exfat) echo "FreeBSD exFAT mount helper; provided by fusefs-exfat" ;;
-        umount) echo "provided by util-linux; fallback for simplefiles :unmount" ;;
+        umount) echo "base system/util-linux; used by simpleburn and simplefiles :unmount" ;;
+        lsblk) echo "provided by util-linux; used by simpleburn drive selection on Linux" ;;
+        dd) echo "base system image writer used by simpleburn" ;;
+        sudo) echo "administrator authentication for simpleburn and system installation" ;;
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
-        fzf) echo "used by simplepdf fuzzy file selection" ;;
+        fzf) echo "used by simpleburn ISO selection and simplepdf fuzzy file selection" ;;
         links) echo "default terminal browser used by simplenews; configurable" ;;
         gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
         wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;
@@ -388,6 +391,14 @@ pkg_for_dep() {
         *:rsync) echo "rsync" ;;
         *:xdg-open) echo "xdg-utils" ;;
         *:findmnt) echo "util-linux" ;;
+        *:lsblk) echo "util-linux" ;;
+        *:sudo) echo "sudo" ;;
+        *:dd)
+            case "$family" in
+                macos|freebsd) echo "base system" ;;
+                *) echo "coreutils" ;;
+            esac
+            ;;
         *:udisksctl) echo "udisks2" ;;
         *:bsdisks) echo "bsdisks" ;;
         *:e2fsck) echo "e2fsprogs" ;;
@@ -663,6 +674,15 @@ check_cmd optional tar "tar"
 check_cmd optional file "file"
 check_cmd optional less "less"
 check_cmd optional fzf "fzf"
+case $(uname -s) in
+    Linux|FreeBSD|Darwin)
+        check_cmd optional dd "dd"
+        check_cmd optional sudo "sudo"
+        ;;
+esac
+if [ "$(uname -s)" = Linux ]; then
+    check_cmd optional lsblk "lsblk"
+fi
 check_cmd optional calcurse "calcurse"
 check_cmd optional rsync "rsync"
 

@@ -86,7 +86,7 @@ PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=server \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^update$' "$pkg_log"
-for package_name in devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs; do
+for package_name in devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$pkg_log" || {
         echo "freebsd-package-bootstrap-check: pkg transaction omitted $package_name" >&2

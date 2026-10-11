@@ -29,7 +29,7 @@ EOF
 chmod 755 "$FAKE_BIN/sudo"
 cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
-    printf '%s\n' browse:simplebrowse cal:simplecal clock:simpleclock \
+    printf '%s\n' browse:simplebrowse burn:simpleburn cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
         news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio \
         save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall \
@@ -90,8 +90,8 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
-programs='simplebrowse simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+programs='simplebrowse simpleburn simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse burn:simpleburn cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"
