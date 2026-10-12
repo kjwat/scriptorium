@@ -85,7 +85,7 @@ static void test_porcelain_parser(void)
 static void test_repo_configuration(void)
 {
     static const char *const expected[] = {
-        "writing", "scriptorium", "simplesuite", "website", "notes"
+        "writing", "scriptorium", "simplesuite", "website", "simplewm"
     };
 
     test_expect(REPO_COUNT == 5, "SimpleCheck repository count is not five");
@@ -148,8 +148,6 @@ static void test_folder_scoped_status(void)
         snprintf(repos[i].path, sizeof(repos[i].path), "%s/%s", fixture,
                  i == 4 ? "writing/notes" : repos[i].name);
     test_expect(refresh_all() == RUN_OK, "fixture refresh failed");
-    test_expect(repos[0].owner == 0 && repos[4].owner == 0,
-                "nested folder did not share its repository owner");
     test_expect(repos[0].dirty && repos[0].file_count == 2,
                 "writing did not include its own nested changes");
     test_expect(repos[4].dirty && repos[4].file_count == 1 &&
@@ -162,8 +160,9 @@ static void test_folder_scoped_status(void)
     test_expect(capture_job_start(&job, notes, initialize, output,
                                   sizeof(output), 2000), "could not initialize separate notes repository");
     (void)wait_capture_jobs(&job, 1, 0);
-    test_expect(job.result == 0 && refresh_all() == RUN_OK && repos[4].owner == 4,
-                "independent nested repository was merged with its parent");
+    test_expect(job.result == 0 && refresh_all() == RUN_OK &&
+                repos[4].is_repo && !repos[4].dirty,
+                "independent nested repository did not refresh cleanly");
     endwin(); delscreen(screen); fclose(screen_in); fclose(screen_out);
 
     char *cleanup[] = {"rm", "-rf", "--", fixture, NULL};

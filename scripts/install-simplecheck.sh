@@ -66,7 +66,7 @@ remove_legacy_commands() {
     done
 }
 
-if [ -x "$DEST" ]; then
+if [ -x "$DEST" ] && [ "$DEST" -nt "$SOURCE" ]; then
     remove_legacy_commands
     printf 'Reusing existing %s; Bash installs alias check=%s\n' "$DEST" "$DEST"
     exit 0

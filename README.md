@@ -230,7 +230,7 @@ SimpleSuite programs:
 - `simplestats`
 - `simplever`
 - `simpleburn` — find an ISO with fzf, choose a drive in ncurses, confirm erasure, and write with dd; included on Linux, FreeBSD, and macOS
-- `simplesave` — one date-named ZIP of writing, source, and intact Git repositories from writing, scriptorium, simplesuite, and optional website in `~/backups`; excludes build output and caches
+- `simplesave` — one date-named ZIP of writing, source, and intact Git repositories from writing, scriptorium, simplesuite, and optional website/simplewm in `~/backups`; excludes build output and caches
 - `simplevis`
 - `simplevol` (Linux volume/routing and FOSS audio effects)
 
@@ -238,7 +238,7 @@ When selected on FreeBSD, Linux, or macOS, the installer also updates `simpleser
 and requires the existing `simpleserved` system daemon.
 
 Scriptorium also builds and installs two ncurses dashboards: `simplecheck` for
-the `~/writing`, `~/scriptorium`, `~/simplesuite`, and `~/website` Git
+the `~/writing`, `~/scriptorium`, `~/simplesuite`, `~/website`, and `~/simplewm` Git
 repositories, and `simpletrident` for verifying the installed Trident prongs
 that apply to the machine's role.
 
@@ -543,10 +543,8 @@ role is `OK`.
 
 Run `simplecheck` or its `check` alias to review branch, ahead/behind, and
 working-tree status for `~/writing`, `~/scriptorium`, `~/simplesuite`,
-`~/website`, and `~/writing/notes` in one screen. Each file list is restricted
-to its displayed folder. Entries sharing a Git working tree, such as writing
-and notes, share a single commit, push, pull, or remote check and show the same
-result. A notes folder with its own Git repository is handled independently.
+`~/website`, and `~/simplewm` in one screen. Each file list is restricted
+to its displayed folder.
 Startup and normal refreshes are local; network access occurs only for an
 explicit check, pull, or push. Local status and working-tree identification
 run concurrently with bounded timeouts.
