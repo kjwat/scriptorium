@@ -297,6 +297,12 @@ PulseAudio compatibility package is installed for those native features.
 
 ## SimpleWM Source Checkout
 
+On SimpleOS 0.8, `~/simplewm/config` is the live configuration.
+`~/.config/simplewm` is a link to the same directory, and Super+Shift+R reloads it.
+The installer uses `simplewm-setup` when available; the ISO also bundles Git
+history so Calamares can create the checkout without internet access.
+
+
 On a machine with SimpleWM installed, Scriptorium creates the optional
 `~/simplewm` Git checkout from the installed revision and source snapshot.
 SimpleCheck can commit/push/pull that writable source, and SimpleSave includes

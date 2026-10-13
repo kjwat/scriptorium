@@ -49,6 +49,13 @@ def copy_snapshot(source, destination, relative=Path()):
 
 
 def main():
+    suite_data = Path(os.environ.get("SIMPLESUITE_SYSTEM_DATA_DIR", "/usr/local/share/simplesuite"))
+    data = Path(os.environ.get("SIMPLEWM_SYSTEM_DATA_DIR", str(suite_data.parent / "simplewm")))
+    helper = data.parent.parent / 'bin/simplewm-setup'
+    if helper.is_file() and (data / 'install-manifest').is_file():
+        subprocess.run(['python3', str(helper)], check=True,
+                       env=os.environ | {'SIMPLEWM_SYSTEM_DATA_DIR': str(data)})
+        return
     home = Path(os.environ.get("HOME", ""))
     if not home.is_absolute() or not home.is_dir():
         raise RuntimeError("HOME must be an existing absolute directory")
