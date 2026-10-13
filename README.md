@@ -295,6 +295,22 @@ SimpleNet uses CoreWLAN, SimpleStats uses Mach and IOKit, SimpleVis uses a Core
 Audio process tap, and reminders use per-user launchd agents. No WebKitGTK or
 PulseAudio compatibility package is installed for those native features.
 
+## SimpleWM Source Checkout
+
+On a machine with SimpleWM installed, Scriptorium creates the optional
+`~/simplewm` Git checkout from the installed revision and source snapshot.
+SimpleCheck can commit/push/pull that writable source, and SimpleSave includes
+it and its Git history. Existing checkout changes are preserved on reruns.
+The installed program and system source snapshot remain in `/usr/local`;
+edits in the working checkout take effect after a build and system install.
+Personal session settings remain in `~/.config/simplewm`.
+
+To recover a missing checkout separately, run:
+
+```sh
+python3 ~/scriptorium/scripts/ensure-simplewm-source.py
+```
+
 ## SimpleSuite Checkout
 
 SimpleSuite is cloned to:

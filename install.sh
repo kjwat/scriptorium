@@ -1091,6 +1091,11 @@ SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"
 
+# SimpleWM installs a system source snapshot, not a user Git checkout. Create
+# its optional editable source so SimpleCheck/SimpleSave do not silently skip it.
+python3 "$ROOT/scripts/ensure-simplewm-source.py" ||
+    warn "SimpleWM source checkout setup is incomplete; other applications remain installed."
+
 say "Installing SimpleTrident"
 "$ROOT/scripts/install-simpletrident.sh"
 
