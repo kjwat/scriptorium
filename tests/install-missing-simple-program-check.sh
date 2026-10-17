@@ -44,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave burn:simpleburn vol:simplevol; }
-simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simpleburn simplevol; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave burn:simpleburn vol:simplevol change:simplechange; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simpleburn simplevol simplechange; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -79,6 +79,20 @@ simplevol:
 	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplevol
 	chmod 755 $(BUILD_DIR)/simplevol
 	printf '%s\n' 'meter fixture' > $(BUILD_DIR)/simplevol-meter.so
+EOF
+printf '%s\n' '#!/bin/sh' '# conversion engine fixture' 'exit 0' >simplechange-engine
+chmod 755 simplechange-engine
+printf '%s\n' 'SimpleChange documentation fixture' >SIMPLECHANGE.md
+mkdir -p screenshots
+for image in simplechange.png simplechange-document.png simplechange-ebook.png; do
+    printf '%s\n' 'screenshot fixture' >"screenshots/$image"
+done
+cat >>Makefile <<'EOF'
+
+simplechange:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplechange
+	chmod 755 $(BUILD_DIR)/simplechange
 EOF
 printf '%s\n' /build/ >.gitignore
 git add .
@@ -180,5 +194,32 @@ if [ "$(uname -s)" = Linux ]; then
     [ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
     [ ! -e "$TMP/system-bin/simplewords" ]
 fi
+
+# A converter-only install must include its runtime helper and nested assets.
+printf '%s\n' stale >"$HOME/.local/bin/simplechange"
+printf '%s\n' stale >"$HOME/.local/bin/simplechange-engine"
+ln -s simplechange "$HOME/.local/bin/change"
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simplechange \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/change-install.log"
+[ -x "$TMP/system-bin/simplechange" ]
+[ -x "$TMP/system-bin/simplechange-engine" ]
+[ ! -e "$HOME/.local/bin/simplechange" ]
+[ ! -e "$HOME/.local/bin/simplechange-engine" ]
+[ ! -L "$HOME/.local/bin/change" ]
+cmp "$SOURCE/simplechange-engine" "$TMP/system-bin/simplechange-engine"
+cmp "$SOURCE/SIMPLECHANGE.md" "$TMP/system-data/SIMPLECHANGE.md"
+for image in simplechange.png simplechange-document.png simplechange-ebook.png; do
+    cmp "$SOURCE/screenshots/$image" "$TMP/system-data/screenshots/$image"
+done
+grep -qx 'change simplechange' "$TMP/system-data/command-abbreviations"
+[ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
+[ ! -e "$TMP/system-bin/simplewords" ]
 
 echo 'OK Scriptorium builds and installs only a missing master-list program'

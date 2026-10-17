@@ -44,8 +44,8 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -74,6 +74,7 @@ mkdir -p \
     "$HOME/.config/isyncrc-target" \
     "$HOME/.cache/simplewords" \
     "$HOME/xdg-cache/simplepdf" \
+    "$HOME/xdg-cache/simplechange" \
     "$HOME/.local/state/simplewords" \
     "$HOME/.local/share/simplemail/mail/Inbox/cur" \
     "$HOME/.local/share/simplesuite" \
@@ -92,11 +93,11 @@ printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
 mkdir -p "$HOME/writing/notes"
 printf '%s\n' 'journal entry' >"$HOME/writing/notes/2026-10-05-001.txt"
 for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
-    printf '%s\n' '# SimpleSuite aliases' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" \
+    printf '%s\n' '# SimpleSuite aliases' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" "alias change='simplechange'" \
         "alias personal='echo keep'" >"$shell_rc"
 done
 mkdir -p "$HOME/.config/fish/conf.d"
-printf '%s\n' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" "alias personal='echo keep'" \
+printf '%s\n' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" "alias change='simplechange'" "alias personal='echo keep'" \
     >"$HOME/.config/fish/conf.d/scriptorium.fish"
 
 FAKE_FREEBSD_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount"
@@ -119,8 +120,9 @@ mkdir -p "$SYSTEM_DATA/source" "$HOME/.config/simplevol" "$HOME/.config/systemd/
 printf '%s\n' keep >"$SYSTEM_DATA/source/README.md"
 printf '%s\n' keep >"$SYSTEM_DATA/unrelated-file"
 printf '%s\n' fixture >"$HOME/.config/systemd/user/simplevol.service"
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplevol-meter.so SIMPLEVOL.md command-abbreviations program-manifest.sh'
+assets='SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplevol-meter.so SIMPLEVOL.md command-abbreviations program-manifest.sh'
 for asset in $assets; do
+    mkdir -p "$(dirname "$HOME/.local/share/simplesuite/$asset")" "$(dirname "$SYSTEM_DATA/$asset")"
     printf '%s\n' keep >"$HOME/.local/share/simplesuite/$asset"
     printf '%s\n' fixture >"$SYSTEM_DATA/$asset"
 done
@@ -161,6 +163,7 @@ assert_missing "$HOME/.config/simplesuite"
 assert_missing "$HOME/.config/isyncrc"
 assert_missing "$HOME/.cache/simplewords"
 assert_missing "$HOME/xdg-cache/simplepdf"
+assert_missing "$HOME/xdg-cache/simplechange"
 assert_missing "$HOME/.local/state/simplewords"
 assert_missing "$HOME/.local/share/simplemail"
 assert_missing "$HOME/.local/share/simplesuite"
@@ -193,6 +196,7 @@ for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.config/fish/conf.d/script
     ! grep -q "alias note='simplenote'" "$shell_rc" || fail 'burn left the note alias'
     ! grep -q "alias save='simplesave'" "$shell_rc" || fail 'burn left the save alias'
     ! grep -q "alias burn='simpleburn'" "$shell_rc" || fail 'burn left the simpleburn alias'
+    ! grep -q "alias change='simplechange'" "$shell_rc" || fail 'burn left the simplechange alias'
     grep -qx "alias personal='echo keep'" "$shell_rc" || fail 'burn removed a personal alias'
 done
 grep -q '^KeepThis yes$' "$HOME/.mbsyncrc" ||

@@ -57,7 +57,8 @@ PC
                 fi
                 ;;
         esac
-        for runtime_command in less ntfsfix blkid avahi-daemon avahi-browse \
+        for runtime_command in less ebook-convert calibre-debug soffice pdfinfo pdftohtml pdftoppm \
+            c44 djvm djvused djvutxt ddjvu ntfsfix blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm \
             ssh sshd pipewire pipewire-pulse pw-cli pw-dump wireplumber; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$runtime_command"
@@ -121,7 +122,7 @@ PATH="$fake_bin" \
 
 grep -q '^install -y ' "$apt_log"
 for package_name in \
-    libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
+    calibre libreoffice-writer libreoffice-calc djvulibre-bin libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
     openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$apt_log" || {
@@ -154,6 +155,17 @@ PATH="$fake_bin" \
     exit 1
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
+
+# A missing converter helper must repair its package even when the rest of
+# the desktop and runtime stack is complete.
+rm "$fake_bin/calibre-debug"
+: >"$apt_log"
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" PATH="$fake_bin" \
+    "$fixture/scripts/install-packages.sh" >"$tmp/converter-repair.log" 2>&1
+grep -Eq '^install -y .* calibre( |$)' "$apt_log"
+[ -x "$fake_bin/calibre-debug" ]
+grep -q 'Package dependency installation verified' "$tmp/converter-repair.log"
 
 # Missing effects plugins alone must trigger installation, and a package manager
 # success must not conceal plugins that are still missing afterwards.

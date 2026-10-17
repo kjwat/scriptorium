@@ -194,7 +194,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     remove_system_file "$SYSTEM_BIN_DIR/$bin"
 done
@@ -203,14 +203,15 @@ done
 for asset in simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav \
     simplewords-typewriter-space.wav simplewords-typewriter-enter.wav \
     simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md \
-    simplevol-meter.so SIMPLEVOL.md install-source install-manifest \
+    simplevol-meter.so SIMPLEVOL.md SIMPLECHANGE.md screenshots/simplechange.png \
+    screenshots/simplechange-document.png screenshots/simplechange-ebook.png install-source install-manifest \
     command-abbreviations program-manifest.sh; do
     remove_system_file "$SYSTEM_DATA_DIR/$asset"
 done
 
 for alias_mapping in \
     blue:simpleblue browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck \
-    clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
+    change:simplechange clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
     mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf \
     pod:simplepod radio:simpleradio save:simplesave serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
@@ -310,7 +311,7 @@ rm -f "$HOME/.config/isyncrc"
 rm -rf "$HOME/.links"
 for cache_base in "$HOME/.cache" "$CACHE_HOME"; do
     for app_name in \
-        simplebrowse simplefiles simplemail simplenews simplepdf simplepod \
+        simplebrowse simplechange simplefiles simplemail simplenews simplepdf simplepod \
         simplewords; do
         rm -rf "${cache_base:?}/$app_name"
     done
@@ -355,6 +356,7 @@ clean_shell_rc() {
             aliases["files"] = "simplefiles"
             aliases["browse"] = "simplebrowse"
             aliases["burn"] = "simpleburn"
+            aliases["change"] = "simplechange"
             aliases["flac"] = "simpleflac"
             aliases["radio"] = "simpleradio"
             aliases["pod"] = "simplepod"

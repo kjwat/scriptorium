@@ -29,7 +29,7 @@ EOF
 chmod 755 "$FAKE_BIN/sudo"
 cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
-    printf '%s\n' browse:simplebrowse burn:simpleburn cal:simplecal clock:simpleclock \
+    printf '%s\n' browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
         news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio \
         save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall \
@@ -90,8 +90,8 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
-programs='simplebrowse simpleburn simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse burn:simpleburn cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"
@@ -110,12 +110,12 @@ case "$(uname -s)" in
         fi
         ;;
 esac
-helpers='simplebrowse-webkitd simplebrowse-jsdump simplepdf-mobi simplesuite-uninstall'
+helpers='simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplepdf-mobi simplesuite-uninstall'
 if [ "$(uname -s)" = Linux ]; then helpers="$helpers simplevol-audio"; fi
 if [ "$(uname -s)" = Darwin ]; then
     helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
 fi
-assets='simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
+assets='SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest command-abbreviations program-manifest.sh'
 if [ "$(uname -s)" = Linux ]; then assets="$assets simplevol-meter.so SIMPLEVOL.md"; fi
 
 mkdir -p "$fixture_bindir" "$fixture_datadir" "$PWD/build" \
@@ -153,8 +153,10 @@ printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
 printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
     >"$HOME/simpleserve-network-role"
 for name in $assets; do
+    mkdir -p "$(dirname "$fixture_datadir/$name")"
     printf '%s\n' fixture >"$fixture_datadir/$name"
 done
+printf '%s\n' $aliases | tr ':' ' ' >"$fixture_datadir/command-abbreviations"
 printf 'simplesuite_source_sha=%s\nsimplewords_build_revision=%s\n' \
     "${SIMPLESUITE_SOURCE_SHA:?}" "${SIMPLESUITE_SOURCE_SHA:?}" \
     >"$fixture_datadir/install-manifest"
@@ -263,6 +265,13 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenote" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplechange" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplechange-engine" ]
+[ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/SIMPLECHANGE.md" ]
+for image in simplechange.png simplechange-document.png simplechange-ebook.png; do
+    [ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/screenshots/$image" ]
+done
+grep -qx 'change simplechange' "$SIMPLESUITE_SYSTEM_DATA_DIR/command-abbreviations"
 [ ! -e "$(cat "$HOME/install-stage")" ]
 [ ! -e "$HOME/.local/bin" ]
 [ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/words" ]

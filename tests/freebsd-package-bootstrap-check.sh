@@ -68,7 +68,8 @@ cat >"$fake_bin/python3" <<'EOF'
 EOF
 
 for command_name in \
-    cc git mpv pdftotext pandoc zip unzip tar file less fzf links mbsync \
+    cc git mpv ebook-convert calibre-debug soffice pdfinfo pdftohtml pdftoppm \
+    c44 djvm djvused djvutxt ddjvu pdftotext pandoc zip unzip tar file less fzf links mbsync \
     msmtp calcurse curl rsync nano crontab xdg-open gio umount bsdisks \
     e2fsck exfatfsck mount.exfat ntfsfix ifconfig route wpa_cli xclip pactl \
     parec avahi-daemon avahi-browse avahi-publish-service mount_nfs blkid nfsd \
@@ -86,7 +87,7 @@ PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=server \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^update$' "$pkg_log"
-for package_name in devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf; do
+for package_name in calibre libreoffice djvulibre devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$pkg_log" || {
         echo "freebsd-package-bootstrap-check: pkg transaction omitted $package_name" >&2

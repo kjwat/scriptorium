@@ -247,6 +247,15 @@ SIMPLESUITE_PROGRAMS=$(simplesuite_programs "$SIMPLESUITE_HOST_OS" \
     "$SIMPLESUITE_INSTALL_SIMPLESERVE")
 SIMPLESUITE_COMMAND_ALIASES=$(simplesuite_program_aliases \
     "$SIMPLESUITE_HOST_OS" "$SIMPLESUITE_INSTALL_SIMPLESERVE")
+for suite_program in $SIMPLESUITE_PROGRAMS; do
+    if [ "$suite_program" = simplechange ]; then
+        case " $SIMPLESUITE_SCRIPTS " in
+            *' simplechange-engine '*) ;;
+            *) SIMPLESUITE_SCRIPTS="$SIMPLESUITE_SCRIPTS simplechange-engine" ;;
+        esac
+        SIMPLESUITE_ASSETS="$SIMPLESUITE_ASSETS SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png"
+    fi
+done
 export SIMPLESUITE_RESOLVED_SHA
 
 configure_homebrew_build_environment
@@ -279,6 +288,14 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             ;;
     esac
     case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplechange '*)
+            case " $SIMPLESUITE_PROGRAM_FILTER " in
+                *' simplechange-engine '*) ;;
+                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplechange-engine" ;;
+            esac
+            ;;
+    esac
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplepdf '*)
             case " $SIMPLESUITE_PROGRAM_FILTER " in
                 *' simplepdf-mobi '*) ;;
@@ -300,7 +317,7 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             exit 2
         fi
         case $program in
-            simplesuite-uninstall | simplebrowse-jsdump | simplevol-audio)
+            simplesuite-uninstall | simplebrowse-jsdump | simplevol-audio | simplechange-engine)
                 ;;
             simplebrowse-webkitd)
                 if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
@@ -377,7 +394,7 @@ simplesuite_program_source() {
                 printf '%s\n' "$DEST/$1"
             fi
             ;;
-        simplebrowse-jsdump | simplevol-audio)
+        simplebrowse-jsdump | simplevol-audio | simplechange-engine)
             printf '%s\n' "$DEST/$1"
             ;;
         *)
@@ -419,6 +436,16 @@ install_definitive_program() {
     # Remove that second copy so the systemwide install is definitive.
     rm -f "$HOME/.local/bin/$program"
     printf '  replaced: %s\n' "$target_path"
+}
+
+install_shared_asset() {
+    source_path=$1
+    target_path=$SYSTEM_DATA_DIR/$2
+    asset_dir=${target_path%/*}
+    target_tmp=$asset_dir/.${target_path##*/}.scriptorium.$$
+    run_as_root mkdir -p "$asset_dir"
+    run_as_root install -m 0644 "$source_path" "$target_tmp"
+    run_as_root mv -f "$target_tmp" "$target_path"
 }
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
@@ -481,6 +508,11 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
     printf '%s\n' "$SIMPLESUITE_COMMAND_ALIASES" | tr ':' ' ' >"$DEST/build/command-abbreviations"
     filtered_assets='program-manifest.sh command-abbreviations'
     case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplechange '*)
+            filtered_assets="$filtered_assets SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png"
+            ;;
+    esac
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplevol '*)
             filtered_assets="$filtered_assets simplevol-meter.so SIMPLEVOL.md"
             ;;
@@ -491,9 +523,7 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             *.so | command-abbreviations) source_path=$DEST/build/$asset ;;
             *) source_path=$DEST/$asset ;;
         esac
-        target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
-        run_as_root install -m 0644 "$source_path" "$target_tmp"
-        run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
+        install_shared_asset "$source_path" "$asset"
     done
     exit 0
 fi
@@ -501,9 +531,7 @@ fi
 run_as_root mkdir -p "$SYSTEM_DATA_DIR"
 for asset in $SIMPLESUITE_ASSETS; do
     source_path=$install_stage/share/simplesuite/$asset
-    target_tmp=$SYSTEM_DATA_DIR/.$asset.scriptorium.$$
-    run_as_root install -m 0644 "$source_path" "$target_tmp"
-    run_as_root mv -f "$target_tmp" "$SYSTEM_DATA_DIR/$asset"
+    install_shared_asset "$source_path" "$asset"
 done
 
 echo "Verifying SimpleSuite shared assets in $SYSTEM_DATA_DIR"

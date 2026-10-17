@@ -224,6 +224,7 @@ SimpleSuite programs:
 - `simpleflac`
 - `simplegame`
 - `simplepdf`
+- `simplechange` — local document and ebook conversion with a batch queue and searchable format picker
 - `simplepod`
 - `simpleradio`
 - `simplenews`
@@ -258,6 +259,11 @@ on platform availability:
   `simplepdf-mobi` builds with SimpleSuite from bundled libmobi sources,
   installs through the program manifest and is removed by uninstall/burn.
   No separate MOBI package or manual tool installation is needed.
+- Python 3, Calibre, LibreOffice Writer/Calc, Pandoc, Poppler and DjVuLibre
+  for SimpleChange. Its `simplechange-engine` helper, documentation and
+  screenshots install with the app, including during a partial install.
+  macOS uses the Calibre and LibreOffice Homebrew casks. No pip packages are
+  needed; the helper carries the PDF rendering and memory settings.
 - `zip`, `unzip`, `tar`, `file`, `less`, `curl`, `ca-certificates`, `rsync`
 - `util-linux`, UDisks/GVfs, and native ext/FAT/exFAT/NTFS checkers for
   SimpleFiles drive discovery and mount recovery, plus cron tooling for
@@ -519,6 +525,7 @@ alias ver='simplever'
 alias save='simplesave'
 alias game='simplegame'
 alias pdf='simplepdf'
+alias change='simplechange'
 alias news='simplenews'
 alias mail='simplemail'
 alias net='simplenet'

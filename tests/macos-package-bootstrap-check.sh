@@ -62,8 +62,15 @@ case "${1-}" in
     install)
         shift
         printf '%s\n' "$*" >>"$FAKE_BREW_LOG"
-        printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/mpv"
-        chmod 755 "$FAKE_BIN/mpv"
+        case " $* " in
+            *' --cask calibre '*) commands='ebook-convert calibre-debug' ;;
+            *' --cask libreoffice '*) commands=soffice ;;
+            *) commands='mpv python3 pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu' ;;
+        esac
+        for command_name in $commands; do
+            printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$command_name"
+            chmod 755 "$FAKE_BIN/$command_name"
+        done
         ;;
     *)
         echo "unexpected brew arguments: $*" >&2
@@ -92,8 +99,10 @@ SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
-grep -q '^pkgconf ncurses curl make openssl@3 glib git mpv poppler pandoc nano zip unzip libmagic less fzf isync msmtp calcurse links rsync$' \
+grep -q '^pkgconf ncurses curl make openssl@3 glib git mpv poppler pandoc python djvulibre nano zip unzip libmagic less fzf isync msmtp calcurse links rsync$' \
     "$brew_log"
+grep -qx -- '--cask calibre' "$brew_log"
+grep -qx -- '--cask libreoffice' "$brew_log"
 if grep -q 'pulseaudio' "$brew_log"; then
     echo 'macos-package-bootstrap-check: native macOS path installed PulseAudio' >&2
     exit 1

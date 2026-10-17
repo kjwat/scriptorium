@@ -17,6 +17,29 @@ missing_optional=()
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 have_pkgconfig() { pkg-config --exists "$1" >/dev/null 2>&1; }
 
+check_conversion_engines() {
+    local calibre_dir calibre_found=0
+    if have_cmd ebook-convert && have_cmd calibre-debug; then calibre_found=1; fi
+    for calibre_dir in /opt/calibre /Applications/calibre.app/Contents/MacOS; do
+        if [[ -x $calibre_dir/ebook-convert && -x $calibre_dir/calibre-debug ]]; then
+            calibre_found=1
+        fi
+    done
+    if [[ $calibre_found == 1 ]]; then
+        echo 'FOUND:   Calibre (ebook-convert and calibre-debug; SimpleChange ebooks/PDF)'
+    else
+        echo 'MISSING: Calibre (ebook-convert and calibre-debug; SimpleChange ebooks/PDF)'
+        add_missing runtime Calibre
+    fi
+    if have_cmd soffice || have_cmd libreoffice ||
+       [[ -x /Applications/LibreOffice.app/Contents/MacOS/soffice ]]; then
+        echo 'FOUND:   LibreOffice (Writer and Calc; SimpleChange documents/spreadsheets)'
+    else
+        echo 'MISSING: LibreOffice (Writer and Calc; SimpleChange documents/spreadsheets)'
+        add_missing runtime LibreOffice
+    fi
+}
+
 simplevol_pkg_hint() {
     case "$family" in
         debian) echo "python3 pulseaudio-utils pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2" ;;
@@ -100,12 +123,13 @@ dep_hint() {
     case "$1" in
         cc) echo "provided by gcc or clang" ;;
         make) echo "provided by make/build tools" ;;
-        python3) echo "used by simplebrowse JavaScript mode helper" ;;
+        python3) echo "used by SimpleChange and SimpleBrowse helpers" ;;
         pkg-config) echo "provided by pkg-config or pkgconf" ;;
         xdg-open) echo "Linux desktop helper; provided by xdg-utils; used by simplefiles external-open" ;;
         open) echo "macOS built-in external-open helper" ;;
-        pdftotext) echo "provided by poppler/poppler-utils; used by simplepdf" ;;
-        pandoc) echo "provided by pandoc; used by simplepdf EPUB support" ;;
+        pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimplePDF and SimpleChange" ;;
+        pandoc) echo "used by SimplePDF EPUB support and SimpleChange documents/ebooks" ;;
+        c44|djvm|djvused|djvutxt|ddjvu) echo "provided by DjVuLibre; used by SimpleChange DjVu conversions" ;;
         mpv) echo "used by audio apps and reminder playback" ;;
         git) echo "used by simplever" ;;
         mbsync) echo "provided by isync; used by simplemail synchronization" ;;
@@ -579,6 +603,13 @@ packages_for_family() {
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 python3-gobject WebKit2GTK-4.1"
             ;;
     esac
+    case "$family" in
+        debian) PKG_RUNTIME="$PKG_RUNTIME python3 calibre libreoffice-writer libreoffice-calc djvulibre-bin" ;;
+        arch) PKG_RUNTIME="$PKG_RUNTIME python calibre libreoffice-fresh djvulibre" ;;
+        void|alpine|fedora|suse) PKG_RUNTIME="$PKG_RUNTIME python3 calibre libreoffice-writer libreoffice-calc djvulibre" ;;
+        freebsd) PKG_RUNTIME="$PKG_RUNTIME python3 calibre libreoffice djvulibre" ;;
+        macos) PKG_RUNTIME="$PKG_RUNTIME python djvulibre" ;;
+    esac
     if [ "$os" = Linux ] && [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
         PKG_REQUIRED="$PKG_REQUIRED $(pkg_for_dep libnm)"
     fi
@@ -626,6 +657,11 @@ check_cmd runtime git "git"
 check_cmd runtime mpv "mpv"
 check_cmd runtime pdftotext "pdftotext"
 check_cmd runtime pandoc "pandoc"
+check_cmd runtime python3 "python3"
+for conversion_tool in pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu; do
+    check_cmd runtime "$conversion_tool" "$conversion_tool"
+done
+check_conversion_engines
 check_cmd runtime mbsync "mbsync"
 check_cmd runtime msmtp "msmtp"
 check_cmd runtime curl "curl"
@@ -836,6 +872,9 @@ fi
 
 echo "One-shot install for this platform:"
 echo "  $INSTALL $PKG_REQUIRED $PKG_RUNTIME $PKG_OPTIONAL"
+if [[ $family == macos ]]; then
+    echo '  brew install --cask calibre libreoffice'
+fi
 
 [ "${#missing_required[@]}" -gt 0 ] && exit 2
 [ "${#missing_runtime[@]}" -gt 0 ] && exit 1
