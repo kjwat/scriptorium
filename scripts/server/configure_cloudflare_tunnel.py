@@ -11,7 +11,7 @@ import re
 import urllib.error
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlencode, urlsplit
@@ -29,6 +29,13 @@ class CloudflareConfigurationError(RuntimeError):
 class TunnelIdentity:
     account_id: str
     tunnel_id: str
+
+
+@dataclass(frozen=True)
+class DNSZone:
+    name: str
+    api_token: str = field(repr=False)
+    hostnames: list[str]
 
 
 @dataclass(frozen=True)
@@ -328,8 +335,8 @@ def _zone_id_from_response(
     if not matching_zones:
         raise CloudflareConfigurationError(
             f"Cloudflare zone {zone_name} is not visible to the API token; "
-            "replace the protected token with one that has Zone / Zone / Read "
-            "and Zone / DNS / Edit for that zone"
+            "provide the dedicated token for that zone with Zone / Zone / Read "
+            "and Zone / DNS / Edit; keep other domains' credentials unchanged"
         )
 
     account_zones = []
@@ -611,6 +618,7 @@ def reconcile_from_connector_token(
     *,
     zone_name: str,
     expected_tunnel_id: str | None = None,
+    additional_zones: list[DNSZone] | None = None,
     transport: Transport = cloudflare_request,
 ) -> ReconcileResult:
     identity = decode_connector_token(connector_token)
@@ -625,20 +633,35 @@ def reconcile_from_connector_token(
             raise CloudflareConfigurationError(
                 f"connector token is for tunnel {identity.tunnel_id}, expected {expected}"
             )
+    zones = [DNSZone(zone_name, api_token, hostnames), *(additional_zones or [])]
+    ingress_hostnames: list[str] = []
+    for zone in zones:
+        validate_api_token(zone.api_token)
+        name = validate_hostname(zone.name)
+        for hostname in zone.hostnames:
+            hostname = validate_hostname(hostname)
+            if hostname != name and not hostname.endswith(f".{name}"):
+                raise CloudflareConfigurationError(
+                    f"public hostnames must belong to Cloudflare zone {name}"
+                )
+            ingress_hostnames.append(hostname)
     ingress_result = reconcile_public_ingress(
         identity,
         api_token,
-        hostnames,
+        ingress_hostnames,
         service,
         transport=transport,
     )
-    dns_changed = reconcile_public_hostname_dns(
-        identity,
-        api_token,
-        zone_name,
-        hostnames,
-        transport=transport,
-    )
+    dns_changed = False
+    for zone in zones:
+        changed = reconcile_public_hostname_dns(
+            identity,
+            zone.api_token,
+            zone.name,
+            zone.hostnames,
+            transport=transport,
+        )
+        dns_changed = dns_changed or changed
     return ReconcileResult(
         changed=ingress_result.changed or dns_changed,
         identity=identity,
@@ -661,10 +684,22 @@ def main() -> None:
     parser.add_argument("--expected-tunnel-id")
     parser.add_argument("--zone-name", required=True)
     parser.add_argument("--hostname", action="append", required=True)
+    parser.add_argument(
+        "--additional-dns-zone", action="append", nargs="+", default=[],
+        metavar="ZONE_TOKEN_HOSTS",
+        help="Additional zone: ZONE API_TOKEN_FILE HOSTNAME [HOSTNAME ...]. "
+             "Its token is used only for that zone's DNS; tunnel edits use --api-token-file.",
+    )
     parser.add_argument("--service", required=True)
     args = parser.parse_args()
+    if any(len(zone) < 3 for zone in args.additional_dns_zone):
+        parser.error("--additional-dns-zone needs a zone, token file, and hostname(s)")
 
     try:
+        additional_zones = [
+            DNSZone(zone[0], _read_secret(Path(zone[1]), "zone API token"), zone[2:])
+            for zone in args.additional_dns_zone
+        ]
         result = reconcile_from_connector_token(
             _read_secret(args.connector_token_file, "Cloudflare connector token"),
             _read_secret(args.api_token_file, "Cloudflare API token"),
@@ -672,14 +707,18 @@ def main() -> None:
             args.service,
             zone_name=args.zone_name,
             expected_tunnel_id=args.expected_tunnel_id,
+            additional_zones=additional_zones,
         )
     except CloudflareConfigurationError as error:
         parser.exit(1, f"configure-cloudflare-tunnel: {error}\n")
 
     action = "configured" if result.changed else "already configured"
+    hostnames = args.hostname + [
+        hostname for zone in additional_zones for hostname in zone.hostnames
+    ]
     print(
         f"Cloudflare tunnel ingress and public DNS {action}: "
-        f"{', '.join(args.hostname)} -> {validate_local_service(args.service)} "
+        f"{', '.join(hostnames)} -> {validate_local_service(args.service)} "
         f"via {result.identity.tunnel_id}"
     )
 

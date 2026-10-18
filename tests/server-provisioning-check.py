@@ -27,6 +27,7 @@ from backup_server_state import backup_state  # noqa: E402
 from configure_cloudflare_tunnel import (  # noqa: E402
     API_ROOT,
     CloudflareConfigurationError,
+    DNSZone,
     decode_connector_token,
     merge_public_ingress,
     reconcile_from_connector_token,
@@ -500,6 +501,107 @@ class ServerProvisioningTests(unittest.TestCase):
                 zone_name="keelanwatlington.com",
                 expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
                 transport=lambda *_args: self.fail("wrong tunnel reached the API"),
+            )
+
+    def test_two_websites_use_separate_dns_tokens_and_preserve_the_old_site(self) -> None:
+        literary = "keelanwatlington.com"
+        editing = "watlingtonediting.com"
+        zone_ids = {literary: "b" * 32, editing: "c" * 32}
+        tokens = {literary: "literary-token", editing: "editing-token"}
+        target = f"{self.CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com"
+        records = {
+            literary: [
+                {"id": str(index) * 32, "type": "CNAME", "name": hostname,
+                 "content": target, "proxied": True, "comment": "Keep me"}
+                for index, hostname in enumerate([literary, "www." + literary], 1)
+            ] + [{"id": "3" * 32, "type": "MX", "name": "mail." + literary,
+                  "content": "mail.example.net", "priority": 10}],
+            editing: [],
+        }
+        original_records = copy.deepcopy(records[literary])
+        configuration = {"originRequest": {"connectTimeout": 30}, "ingress": [
+            {"hostname": hostname, "service": "http://localhost:8080"}
+            for hostname in [literary, "www." + literary]
+        ] + [{"hostname": "private.example.net", "service": "ssh://localhost:22"},
+             {"service": "http_status:404"}]}
+        original_rules = copy.deepcopy(configuration["ingress"])
+        calls = []
+
+        def transport(method, url, api_token, payload):
+            calls.append((method, url))
+            parsed = urlsplit(url)
+            if parsed.path.endswith("/configurations"):
+                self.assertEqual(api_token, tokens[literary])
+                if method == "PUT":
+                    configuration.clear()
+                    configuration.update(copy.deepcopy(payload["config"]))
+                else:
+                    self.assertEqual(method, "GET")
+                return {"success": True, "result": {
+                    "account_id": self.CLOUDFLARE_ACCOUNT_ID,
+                    "tunnel_id": self.CLOUDFLARE_TUNNEL_ID,
+                    "config": copy.deepcopy(configuration),
+                }}
+            if parsed.path == "/client/v4/zones":
+                self.assertEqual(method, "GET")
+                name = parse_qs(parsed.query)["name"][0]
+                self.assertEqual(api_token, tokens[name])
+                return {"success": True, "result": [{
+                    "id": zone_ids[name], "name": name, "status": "active",
+                    "account": {"id": self.CLOUDFLARE_ACCOUNT_ID},
+                }]}
+            for name, zone_id in zone_ids.items():
+                if parsed.path != f"/client/v4/zones/{zone_id}/dns_records":
+                    continue
+                self.assertEqual(api_token, tokens[name])
+                if method == "GET":
+                    hostname = parse_qs(parsed.query)["name.exact"][0]
+                    return {"success": True, "result": [
+                        copy.deepcopy(record) for record in records[name]
+                        if record["name"] == hostname
+                    ]}
+                self.assertEqual(name, editing, "literary DNS must not be written")
+                self.assertEqual(method, "POST")
+                record = {"id": str(len(records[name]) + 4) * 32, **payload}
+                records[name].append(record)
+                return {"success": True, "result": copy.deepcopy(record)}
+            self.fail(f"unexpected Cloudflare call: {method} {url}")
+
+        def reconcile():
+            return reconcile_from_connector_token(
+                self.cloudflare_connector_token(), tokens[literary],
+                [literary, "www." + literary], "http://localhost:8080",
+                zone_name=literary, expected_tunnel_id=self.CLOUDFLARE_TUNNEL_ID,
+                additional_zones=[DNSZone(editing, tokens[editing],
+                                          [editing, "www." + editing])],
+                transport=transport,
+            )
+
+        first = reconcile()
+        self.assertTrue(first.ingress_changed)
+        self.assertTrue(first.dns_changed)
+        self.assertEqual(records[literary], original_records)
+        for rule in original_rules:
+            self.assertIn(rule, configuration["ingress"])
+        self.assertEqual(configuration["ingress"][-1], {"service": "http_status:404"})
+        self.assertEqual(configuration["originRequest"], {"connectTimeout": 30})
+        self.assertEqual({record["name"] for record in records[editing]},
+                         {editing, "www." + editing})
+        self.assertTrue(all(record["content"] == target and record["proxied"]
+                            for record in records[editing]))
+        calls.clear()
+        self.assertFalse(reconcile().changed)
+        self.assertTrue(all(method == "GET" for method, _url in calls))
+
+    def test_additional_zone_rejects_cross_domain_hosts_before_api_calls(self) -> None:
+        with self.assertRaisesRegex(CloudflareConfigurationError, "must belong"):
+            reconcile_from_connector_token(
+                self.cloudflare_connector_token(), "literary-token",
+                ["keelanwatlington.com"], "http://localhost:8080",
+                zone_name="keelanwatlington.com",
+                additional_zones=[DNSZone("watlingtonediting.com", "editing-token",
+                                          ["mail.keelanwatlington.com"])],
+                transport=lambda *_args: self.fail("invalid hostnames reached the API"),
             )
 
     def test_state_backup_is_private_and_sqlite_consistent(self) -> None:

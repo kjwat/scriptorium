@@ -54,6 +54,7 @@ mkdir -p "$state_backup/cloudflared"
 printf '%s\n' store >"$state_backup/store.env"
 printf '%s\n' token >"$state_backup/cloudflared/token"
 printf '%s\n' api-token >"$state_backup/cloudflared/api-token"
+printf '%s\n' editing-api-token >"$state_backup/cloudflared/editing-api-token"
 (
     STATE_BACKUP_DIR=$state_backup
     STORE_ENV_IMPORT=
@@ -62,10 +63,12 @@ printf '%s\n' api-token >"$state_backup/cloudflared/api-token"
     CLOUDFLARE_CREDENTIALS_IMPORT=
     CLOUDFLARE_TOKEN_INPUT=
     CLOUDFLARE_API_TOKEN_INPUT=
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=
     resolve_state_backup
     [[ $STORE_ENV_IMPORT == "$state_backup/store.env" ]]
     [[ $CLOUDFLARE_TOKEN_INPUT == "$state_backup/cloudflared/token" ]]
     [[ $CLOUDFLARE_API_TOKEN_INPUT == "$state_backup/cloudflared/api-token" ]]
+    [[ $CLOUDFLARE_EDITING_API_TOKEN_INPUT == "$state_backup/cloudflared/editing-api-token" ]]
     [[ -z $CLOUDFLARE_CONFIG_IMPORT ]]
 )
 printf '%s\n' config >"$state_backup/cloudflared/config.yml"
@@ -78,11 +81,96 @@ printf '%s\n' credentials >"$state_backup/cloudflared/credentials.json"
     CLOUDFLARE_CREDENTIALS_IMPORT=
     CLOUDFLARE_TOKEN_INPUT=
     CLOUDFLARE_API_TOKEN_INPUT=
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=
     resolve_state_backup
     [[ $CLOUDFLARE_CONFIG_IMPORT == "$state_backup/cloudflared/config.yml" ]]
     [[ $CLOUDFLARE_CREDENTIALS_IMPORT == "$state_backup/cloudflared/credentials.json" ]]
     [[ -z $CLOUDFLARE_TOKEN_INPUT ]]
     [[ $CLOUDFLARE_API_TOKEN_INPUT == "$state_backup/cloudflared/api-token" ]]
+    [[ $CLOUDFLARE_EDITING_API_TOKEN_INPUT == "$state_backup/cloudflared/editing-api-token" ]]
+)
+rm "$state_backup/cloudflared/editing-api-token"
+(
+    STATE_BACKUP_DIR=$state_backup
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=
+    resolve_state_backup
+    [[ -z $CLOUDFLARE_EDITING_API_TOKEN_INPUT ]]
+)
+
+# Reuse the saved credentials and install/restore a missing business token
+# without ever writing the literary site's credential.
+(
+    for function_name in prepare_cloudflare_api_token validate_cloudflare_api_token; do
+        eval "$(sed -n "/^${function_name}() {$/,/^}$/p" \
+            "$REPOSITORY_ROOT/scripts/setup-website-server.sh")"
+    done
+    die() { printf '%s\n' "$*" >&2; exit 1; }
+    sudo() { "$@"; }
+    ensure_root_directory() { :; }
+    install_root_file_if_changed() {
+        [[ $2 != "$CLOUDFLARE_API_TOKEN_TARGET" ]] || die 'literary token was rewritten'
+        install -m "$3" "$1" "$2"
+        printf -v "$4" '%s' 1
+    }
+    WORK_DIR=$TEST_ROOT/token-check
+    mkdir -m 700 "$WORK_DIR"
+    SITE_USER=$(id -un)
+    SITE_GROUP=$(id -gn)
+    NON_INTERACTIVE=1
+    CLOUDFLARE_API_TOKEN_TARGET=$WORK_DIR/literary.token
+    CLOUDFLARE_EDITING_API_TOKEN_TARGET=$WORK_DIR/editing.token
+    CLOUDFLARE_API_TOKEN_INPUT=
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=
+    CLOUDFLARE_API_TOKEN_ENV=
+    CLOUDFLARE_EDITING_API_TOKEN_ENV=
+    printf '%s\n' literary-fixture >"$CLOUDFLARE_API_TOKEN_TARGET"
+    printf '%s\n' editing-fixture >"$CLOUDFLARE_EDITING_API_TOKEN_TARGET"
+    chmod 600 "$CLOUDFLARE_API_TOKEN_TARGET" "$CLOUDFLARE_EDITING_API_TOKEN_TARGET"
+    prepare_cloudflare_api_token >"$WORK_DIR/output"
+    prepare_cloudflare_api_token editing >>"$WORK_DIR/output"
+    cmp "$CLOUDFLARE_API_TOKEN_TARGET" "$WORK_DIR/cloudflare-management-api.token"
+    cmp "$CLOUDFLARE_EDITING_API_TOKEN_TARGET" "$WORK_DIR/cloudflare-editing-api.token"
+    ! grep -q 'literary-fixture\|editing-fixture' "$WORK_DIR/output"
+    rm "$CLOUDFLARE_EDITING_API_TOKEN_TARGET"
+    CLOUDFLARE_EDITING_API_TOKEN_ENV=
+    if (prepare_cloudflare_api_token editing) >"$WORK_DIR/missing.out" 2>&1; then
+        die 'missing business credential silently reused the literary token'
+    fi
+    grep -q -- '--editing-api-token-file' "$WORK_DIR/missing.out"
+    printf '%s\n' restored-editing-fixture >"$WORK_DIR/restore.token"
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=$WORK_DIR/restore.token
+    prepare_cloudflare_api_token editing >>"$WORK_DIR/output"
+    cmp "$WORK_DIR/restore.token" "$CLOUDFLARE_EDITING_API_TOKEN_TARGET"
+    [[ $(cat "$CLOUDFLARE_API_TOKEN_TARGET") == literary-fixture ]]
+)
+
+# Public verification must fail when either business address is unavailable.
+(
+    eval "$(sed -n '/^check_public_site() {$/,/^}$/p' \
+        "$REPOSITORY_ROOT/scripts/setup-website-server.sh")"
+    die() { printf '%s\n' "$*" >&2; exit 1; }
+    sleep() { :; }
+    curl() {
+        local url=${!#}
+        printf '%s\n' "$url" >>"$TEST_ROOT/public-check.urls"
+        case $url in
+            */_store/health) printf '%s' '{"status":"ok"}' ;;
+            https://www.watlingtonediting.com/) printf '%s' "$FIXTURE_EDITING_WWW_STATUS" ;;
+            *) printf '%s' 200 ;;
+        esac
+    }
+    PUBLIC_ORIGIN=https://keelanwatlington.com
+    SITE_ADDRESS=:8080
+    CLOUDFLARE_EDITING_APEX_HOSTNAME=watlingtonediting.com
+    CLOUDFLARE_EDITING_WWW_HOSTNAME=www.watlingtonediting.com
+    FIXTURE_EDITING_WWW_STATUS=200
+    check_public_site >"$TEST_ROOT/public-check.out"
+    grep -qx 'https://watlingtonediting.com/' "$TEST_ROOT/public-check.urls"
+    grep -qx 'https://www.watlingtonediting.com/' "$TEST_ROOT/public-check.urls"
+    FIXTURE_EDITING_WWW_STATUS=503
+    if (check_public_site) >"$TEST_ROOT/public-check-failure.out" 2>&1; then
+        die 'public verification accepted a broken business hostname'
+    fi
 )
 
 platform_script=$REPOSITORY_ROOT/scripts/server/platform.sh

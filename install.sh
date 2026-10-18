@@ -314,6 +314,7 @@ offer_server_promotion() {
     fi
 
     printf '\nClient mode is ready for LAN and Tailscale NFS mounts.\n'
+    printf 'Website setup hosts keelanwatlington.com and watlingtonediting.com, including www.\n'
     printf 'Promote this machine to the full Trident server now (NFS/SMB publishing, website, store mail, and tunnel)? [y/N] '
     IFS= read -r answer || answer=
     case $answer in

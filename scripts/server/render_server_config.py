@@ -60,7 +60,7 @@ PORTABLE_SERVICES = (
         "keelanwatlington-cloudflared",
         "keelanwatlington_cloudflared",
         "com.keelanwatlington.cloudflared",
-        "Cloudflare Tunnel for keelanwatlington.com",
+        "Cloudflare Tunnel for Keelan's literary and editing websites",
         False,
     ),
 )

@@ -21,11 +21,14 @@ SITE_ADDRESS=:8080
 PUBLIC_ORIGIN=${WEBSITE_PUBLIC_ORIGIN:-https://keelanwatlington.com}
 CLOUDFLARE_TOKEN_TARGET=/etc/cloudflared/keelanwatlington.token
 CLOUDFLARE_API_TOKEN_TARGET=/etc/cloudflared/keelanwatlington-api.token
+CLOUDFLARE_EDITING_API_TOKEN_TARGET=/etc/cloudflared/watlingtonediting-api.token
 CLOUDFLARE_CONFIG_TARGET=/etc/cloudflared/config.yml
 CLOUDFLARE_CREDENTIALS_TARGET=/etc/cloudflared/keelanwatlington-credentials.json
 CLOUDFLARE_TUNNEL_ID=beb29759-dac7-43c9-a66d-36153e9b90fd
 CLOUDFLARE_APEX_HOSTNAME=keelanwatlington.com
 CLOUDFLARE_WWW_HOSTNAME=www.keelanwatlington.com
+CLOUDFLARE_EDITING_APEX_HOSTNAME=watlingtonediting.com
+CLOUDFLARE_EDITING_WWW_HOSTNAME=www.watlingtonediting.com
 CLOUDFLARE_KEY_URL=https://pkg.cloudflare.com/cloudflare-main.gpg
 CLOUDFLARE_KEY_TARGET=/usr/share/keyrings/cloudflare-main.gpg
 CLOUDFLARE_APT_SOURCE=/etc/apt/sources.list.d/cloudflared.list
@@ -40,12 +43,14 @@ STORE_ENV_IMPORT=${WEBSITE_STORE_ENV_BACKUP:-}
 ORDERS_DB_IMPORT=${WEBSITE_ORDERS_DB_BACKUP:-}
 CLOUDFLARE_TOKEN_INPUT=${WEBSITE_CLOUDFLARE_TOKEN_FILE:-}
 CLOUDFLARE_API_TOKEN_INPUT=${WEBSITE_CLOUDFLARE_API_TOKEN_FILE:-}
+CLOUDFLARE_EDITING_API_TOKEN_INPUT=${WEBSITE_EDITING_API_TOKEN_FILE:-}
 CLOUDFLARE_CONFIG_IMPORT=${WEBSITE_CLOUDFLARE_CONFIG_BACKUP:-}
 CLOUDFLARE_CREDENTIALS_IMPORT=${WEBSITE_CLOUDFLARE_CREDENTIALS_BACKUP:-}
 CLOUDFLARE_TOKEN_ENV=${CLOUDFLARED_TUNNEL_TOKEN:-}
 CLOUDFLARE_API_TOKEN_ENV=${CLOUDFLARE_API_TOKEN:-}
+CLOUDFLARE_EDITING_API_TOKEN_ENV=${WATLINGTONEDITING_API_TOKEN:-}
 STATE_BACKUP_DIR=${WEBSITE_STATE_BACKUP:-}
-unset CLOUDFLARED_TUNNEL_TOKEN CLOUDFLARE_API_TOKEN
+unset CLOUDFLARED_TUNNEL_TOKEN CLOUDFLARE_API_TOKEN WATLINGTONEDITING_API_TOKEN
 
 # shellcheck source=server/platform.sh
 . "$SERVER_ROOT/platform.sh"
@@ -59,18 +64,21 @@ families are Debian/Ubuntu, Fedora, Arch, Alpine, Void, openSUSE Tumbleweed,
 FreeBSD, and macOS. Run as the login user; sudo is used only for packages and
 system configuration.
 
+Hosts keelanwatlington.com and watlingtonediting.com, including both www names.
+
 Options:
   --skip-packages                 Require dependencies instead of installing them
   --no-blog-timer                 Disable automatic Substack checks
   --no-cloudflare                 Configure only the local Caddy origin
   --no-public-check               Skip the final HTTPS check through Cloudflare
   --non-interactive               Fail rather than prompt for missing secrets
-  --state-backup DIRECTORY        Restore Stripe, orders, and tunnel snapshot
+  --state-backup DIRECTORY        Restore Stripe, orders, tunnel, and both API tokens
   --store-env FILE                Restore an existing store.env before setup
   --orders-db FILE                Restore an existing orders.sqlite3 database
   --cloudflare-token-file FILE    Read a Cloudflare tunnel token from FILE
   --cloudflare-api-token-file FILE
                                   Read a Tunnel/DNS management API token from FILE
+  --editing-api-token-file FILE    Read the dedicated watlingtonediting.com token
   --cloudflare-config FILE        Restore a locally managed tunnel config
   --cloudflare-credentials FILE   Restore that tunnel's credentials JSON
   --site-address ADDRESS          Local Caddy listener (default: :8080)
@@ -81,6 +89,10 @@ For unattended setup, STRIPE_WEBHOOK_SECRETS, CLOUDFLARED_TUNNEL_TOKEN, and
 CLOUDFLARE_API_TOKEN may be supplied in the environment. The API token needs
 Account / Cloudflare Tunnel / Edit plus Zone / Zone / Read and Zone / DNS /
 Edit for keelanwatlington.com. Existing protected configuration is reused.
+The separate watlingtonediting.com token needs only Zone / Zone / Read and
+Zone / DNS / Edit for that domain. Supply it at the hidden prompt, with
+--editing-api-token-file, or as WATLINGTONEDITING_API_TOKEN. It is saved separately
+and never replaces the keelanwatlington.com token.
 
 Before wiping an old server, run:
   ~/scriptorium/scripts/backup-server-state.sh /path/to/private-backup
@@ -88,7 +100,8 @@ Then restore with:
   setup-server --state-backup /path/to/private-backup
 Without that bundle, setup can ask for the Stripe webhook secret, a new tunnel
 connector token, and a Tunnel/DNS management API token, but it cannot
-reconstruct old paid-order history.
+reconstruct old paid-order history. The editing domain also needs its separate
+DNS API token when it is not already saved or backed up.
 EOF
 }
 
@@ -136,6 +149,11 @@ while (($#)); do
       require_argument --cloudflare-api-token-file "$@"
       CLOUDFLARE_API_TOKEN_INPUT=$1
       ;;
+    --editing-api-token-file)
+      shift
+      require_argument --editing-api-token-file "$@"
+      CLOUDFLARE_EDITING_API_TOKEN_INPUT=$1
+      ;;
     --cloudflare-config)
       shift
       require_argument --cloudflare-config "$@"
@@ -168,7 +186,8 @@ for provision_asset in platform.sh configure_store.py render_server_config.py \
   [[ -f $SERVER_ROOT/$provision_asset ]] ||
     die "Scriptorium server asset is missing: $SERVER_ROOT/$provision_asset"
 done
-for payload_file in index.html tools/store_fulfillment.py tools/run_store.py \
+for payload_file in index.html business/index.html business/styles.css \
+                    business/script.js tools/store_fulfillment.py tools/run_store.py \
                     tools/sync_blog.sh; do
   [[ -f $SITE_ROOT/$payload_file ]] ||
     die "website payload is missing: $SITE_ROOT/$payload_file"
@@ -204,27 +223,36 @@ resolve_state_backup() {
   fi
   [[ ! -f $STATE_BACKUP_DIR/cloudflared/api-token ]] ||
     CLOUDFLARE_API_TOKEN_INPUT=$STATE_BACKUP_DIR/cloudflared/api-token
+  [[ ! -f $STATE_BACKUP_DIR/cloudflared/editing-api-token ]] ||
+    CLOUDFLARE_EDITING_API_TOKEN_INPUT=$STATE_BACKUP_DIR/cloudflared/editing-api-token
 }
 
 resolve_state_backup
 
 check_public_site() {
-  local attempt health home_status www_status
+  local attempt health home_status www_status editing_status editing_www_status
 
   for attempt in {1..12}; do
     home_status=$(curl --silent --show-error --max-time 10 --output /dev/null \
       --write-out '%{http_code}' "$PUBLIC_ORIGIN/" 2>/dev/null || true)
     www_status=$(curl --silent --show-error --max-time 10 --output /dev/null \
       --write-out '%{http_code}' "https://www.keelanwatlington.com/" 2>/dev/null || true)
+    editing_status=$(curl --silent --show-error --max-time 10 --output /dev/null \
+      --write-out '%{http_code}' "https://${CLOUDFLARE_EDITING_APEX_HOSTNAME}/" 2>/dev/null || true)
+    editing_www_status=$(curl --silent --show-error --max-time 10 --output /dev/null \
+      --write-out '%{http_code}' "https://${CLOUDFLARE_EDITING_WWW_HOSTNAME}/" 2>/dev/null || true)
     health=$(curl --silent --show-error --max-time 10 \
       "$PUBLIC_ORIGIN/_store/health" 2>/dev/null || true)
-    if [[ $home_status == 200 && $www_status == 200 && $health == *'"status":"ok"'* ]]; then
-      printf 'public site verified: %s and www are live through Cloudflare\n' "$PUBLIC_ORIGIN"
+    if [[ $home_status == 200 && $www_status == 200 &&
+          $editing_status == 200 && $editing_www_status == 200 &&
+          $health == *'"status":"ok"'* ]]; then
+      printf 'public sites verified: %s and https://%s, including both www names\n' \
+        "$PUBLIC_ORIGIN" "$CLOUDFLARE_EDITING_APEX_HOSTNAME"
       return 0
     fi
     ((attempt == 12)) || sleep 2
   done
-  die "public site check failed; confirm both Cloudflare hostnames route to http://localhost${SITE_ADDRESS}"
+  die "public site check failed; confirm all four Cloudflare hostnames route to http://localhost${SITE_ADDRESS}"
 }
 
 verify_installed_stack() {
@@ -260,7 +288,8 @@ Then rerun here with:
   setup-server --state-backup /path/to/private-backup
 Without that bundle, setup can accept the Stripe webhook secret, a new tunnel
 connector token, and a Tunnel/DNS management API token, but old paid-order
-history cannot be reconstructed.
+history cannot be reconstructed. The editing domain also needs its separate
+DNS API token when it is not already saved or backed up.
 
 EOF
 fi
@@ -788,32 +817,48 @@ validate_cloudflare_api_token() {
 }
 
 prepare_cloudflare_api_token() {
-  local token=$CLOUDFLARE_API_TOKEN_ENV api_token_changed=0
-  local api_token_copy=$WORK_DIR/cloudflare-management-api.token
+  local purpose=${1:-tunnel} api_token_changed=0
+  local token input target api_token_copy label permissions
 
-  if [[ -n $CLOUDFLARE_API_TOKEN_INPUT ]]; then
-    [[ -r $CLOUDFLARE_API_TOKEN_INPUT ]] ||
-      die "cannot read Cloudflare API token file: $CLOUDFLARE_API_TOKEN_INPUT"
-    token=$(tr -d '\r\n' < "$CLOUDFLARE_API_TOKEN_INPUT")
+  case $purpose in
+    tunnel)
+      token=$CLOUDFLARE_API_TOKEN_ENV
+      input=$CLOUDFLARE_API_TOKEN_INPUT
+      target=$CLOUDFLARE_API_TOKEN_TARGET
+      api_token_copy=$WORK_DIR/cloudflare-management-api.token
+      label='keelanwatlington.com Tunnel/DNS'
+      permissions='Account / Cloudflare Tunnel / Edit, Zone / Zone / Read, and Zone / DNS / Edit'
+      ;;
+    editing)
+      token=$CLOUDFLARE_EDITING_API_TOKEN_ENV
+      input=$CLOUDFLARE_EDITING_API_TOKEN_INPUT
+      target=$CLOUDFLARE_EDITING_API_TOKEN_TARGET
+      api_token_copy=$WORK_DIR/cloudflare-editing-api.token
+      label='watlingtonediting.com DNS'
+      permissions='Zone / Zone / Read and Zone / DNS / Edit'
+      ;;
+    *) die "unknown Cloudflare credential purpose: $purpose" ;;
+  esac
+
+  if [[ -n $input ]]; then
+    [[ -r $input ]] || die "cannot read $label API token file: $input"
+    token=$(tr -d '\r\n' < "$input")
   fi
-  if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
+  if [[ -z $token ]] && ! sudo test -s "$target"; then
     if ((NON_INTERACTIVE)); then
-      die "remotely managed tunnel routing is not verifiable; provide" \
-        "CLOUDFLARE_API_TOKEN or --cloudflare-api-token-file with Account /" \
-        "Cloudflare Tunnel / Edit, Zone / Zone / Read, and Zone / DNS / Edit permissions"
+      if [[ $purpose == editing ]]; then
+        die "provide WATLINGTONEDITING_API_TOKEN or --editing-api-token-file with $permissions for watlingtonediting.com"
+      fi
+      die "provide CLOUDFLARE_API_TOKEN or --cloudflare-api-token-file with $permissions for keelanwatlington.com"
     fi
     [[ -r /dev/tty ]] || die "a terminal is required to enter the Cloudflare API token"
-    cat >&2 <<'EOF'
-Cloudflare requires a separate management API token to provision and verify
-the remotely managed tunnel's public ingress and hostname DNS associations.
-Create a token scoped to this account and keelanwatlington.com with Account /
-Cloudflare Tunnel / Edit, Zone / Zone / Read, and Zone / DNS / Edit.
-EOF
-    IFS= read -r -s -p "Cloudflare Tunnel/DNS API token: " token < /dev/tty
+    printf 'Provide the dedicated %s API token with %s.\n' "$label" "$permissions" >&2
+    printf 'Existing credentials for the other domain will be kept. Input is hidden.\n' >&2
+    IFS= read -r -s -p "Cloudflare $label API token: " token < /dev/tty
     printf '\n' > /dev/tty
   fi
-  if [[ -z $token ]] && ! sudo test -s "$CLOUDFLARE_API_TOKEN_TARGET"; then
-    die "Cloudflare API token was not provided"
+  if [[ -z $token ]] && ! sudo test -s "$target"; then
+    die "$label API token was not provided"
   fi
 
   if [[ -n $token ]]; then
@@ -821,27 +866,33 @@ EOF
     printf '%s\n' "$token" > "$api_token_copy"
     chmod 0600 "$api_token_copy"
     ensure_root_directory /etc/cloudflared 755
-    install_root_file_if_changed "$api_token_copy" \
-      "$CLOUDFLARE_API_TOKEN_TARGET" 600 api_token_changed
+    install_root_file_if_changed "$api_token_copy" "$target" 600 api_token_changed
     if ((api_token_changed)); then
-      printf 'Installed protected Cloudflare Tunnel API token.\n'
+      printf 'Installed protected %s API token.\n' "$label"
     else
-      printf 'Reusing protected Cloudflare Tunnel API token.\n'
+      printf 'Reusing protected %s API token.\n' "$label"
     fi
   else
-    printf 'Reusing protected Cloudflare Tunnel API token.\n'
+    printf 'Reusing protected %s API token.\n' "$label"
   fi
-  unset token CLOUDFLARE_API_TOKEN_ENV
+  unset token
+  if [[ $purpose == editing ]]; then
+    unset CLOUDFLARE_EDITING_API_TOKEN_ENV
+  else
+    unset CLOUDFLARE_API_TOKEN_ENV
+  fi
 
   sudo install -m 0600 -o "$SITE_USER" -g "$SITE_GROUP" \
-    "$CLOUDFLARE_API_TOKEN_TARGET" "$api_token_copy"
+    "$target" "$api_token_copy"
 }
 
 reconcile_cloudflare_public_routing() {
   local connector_token_copy=$WORK_DIR/cloudflare-connector.token
   local api_token_copy=$WORK_DIR/cloudflare-management-api.token
+  local editing_api_token_copy=$WORK_DIR/cloudflare-editing-api.token
 
   prepare_cloudflare_api_token
+  prepare_cloudflare_api_token editing
   sudo install -m 0600 -o "$SITE_USER" -g "$SITE_GROUP" \
     "$CLOUDFLARE_TOKEN_TARGET" "$connector_token_copy"
   PYTHONDONTWRITEBYTECODE=1 "$PYTHON_BIN" \
@@ -852,8 +903,11 @@ reconcile_cloudflare_public_routing() {
     --zone-name "$CLOUDFLARE_APEX_HOSTNAME" \
     --hostname "$CLOUDFLARE_APEX_HOSTNAME" \
     --hostname "$CLOUDFLARE_WWW_HOSTNAME" \
+    --additional-dns-zone "$CLOUDFLARE_EDITING_APEX_HOSTNAME" \
+      "$editing_api_token_copy" "$CLOUDFLARE_EDITING_APEX_HOSTNAME" \
+      "$CLOUDFLARE_EDITING_WWW_HOSTNAME" \
     --service "http://localhost${SITE_ADDRESS}"
-  rm -f -- "$connector_token_copy" "$api_token_copy"
+  rm -f -- "$connector_token_copy" "$api_token_copy" "$editing_api_token_copy"
 }
 
 configure_cloudflared() {
@@ -861,7 +915,7 @@ configure_cloudflared() {
 
   ((ENABLE_CLOUDFLARE)) || {
     CLOUDFLARE_MODE=disabled
-    unset CLOUDFLARE_API_TOKEN_ENV
+    unset CLOUDFLARE_API_TOKEN_ENV CLOUDFLARE_EDITING_API_TOKEN_ENV
     return 0
   }
   if [[ -n $CLOUDFLARE_TOKEN_INPUT ]]; then
@@ -974,7 +1028,7 @@ PY
   if [[ $CLOUDFLARE_MODE == token ]]; then
     reconcile_cloudflare_public_routing
   fi
-  unset CLOUDFLARE_TOKEN_ENV CLOUDFLARE_API_TOKEN_ENV
+  unset CLOUDFLARE_TOKEN_ENV CLOUDFLARE_API_TOKEN_ENV CLOUDFLARE_EDITING_API_TOKEN_ENV
 }
 
 [[ -z $STORE_ENV_IMPORT || -r $STORE_ENV_IMPORT ]] || die "cannot read store environment backup: $STORE_ENV_IMPORT"

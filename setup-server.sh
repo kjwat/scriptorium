@@ -35,6 +35,7 @@ Cloudflare tunnel.
   -h, --help     show this help before touching either checkout
 
 Running setup-server interactively on an existing server offers --client first.
+Website setup hosts keelanwatlington.com and watlingtonediting.com, including www.
 Other options are handled by Scriptorium's website-server provisioner.
 EOF
 }

@@ -78,6 +78,14 @@ The management token already created for Scriptorium is a durable credential.
 Scriptorium should preserve it in protected state and in the server-state
 backup.
 
+watlingtonediting.com uses a SEPARATE management token at:
+
+    /etc/cloudflared/watlingtonediting-api.token
+
+Keep the existing keelanwatlington.com credential unchanged. Setup reuses both
+saved tokens. If the editing token is missing, it asks for that token at a hidden
+prompt; it never substitutes the literary site's token for it.
+
 5. IF REPLACING AN OLD SERVER, RESTORE ITS STATE BACKUP
 -------------------------------------------------------
 If you have a Scriptorium server-state backup from the previous server, use
@@ -105,14 +113,19 @@ setup-server is supposed to reconcile the existing infrastructure so that:
 
     keelanwatlington.com
     www.keelanwatlington.com
+    watlingtonediting.com
+    www.watlingtonediting.com
 
-both reach:
+all reach:
 
     existing Watnet Server tunnel
         -> cloudflared on this machine
         -> http://localhost:8080
         -> Caddy
         -> website
+
+Caddy serves the literary domain from ~/website and the editing domain from
+~/website/business. Both domains use the same existing tunnel.
 
 7. VERIFY
 ---------
@@ -121,10 +134,13 @@ Run:
     curl -I http://localhost:8080
     curl -I https://keelanwatlington.com
     curl -I https://www.keelanwatlington.com
+    curl -I https://watlingtonediting.com
+    curl -I https://www.watlingtonediting.com
 
 Then load:
 
     https://keelanwatlington.com
+    https://watlingtonediting.com
 
 in a browser.
 
@@ -142,6 +158,8 @@ After reboot:
     curl -I http://localhost:8080
     curl -I https://keelanwatlington.com
     curl -I https://www.keelanwatlington.com
+    curl -I https://watlingtonediting.com
+    curl -I https://www.watlingtonediting.com
 
 Also verify Tailscale and the SimpleServe/NFS/SMB functions you use.
 
@@ -228,9 +246,28 @@ Give it to setup-server when requested.
 After that, Scriptorium should store it as protected state. Do not recreate it
 for every server install.
 
-C. RUN THE NORMAL SETUP
+C. CREATE THE EDITING DOMAIN TOKEN — ONCE
+------------------------------------------
+Create a separate token only if its saved copy and backup are missing.
+In the same Cloudflare account as Watnet Server, give it:
+
+    Zone -> Zone -> Read
+    Zone -> DNS  -> Edit
+
+Scope its Zone Resources specifically to watlingtonediting.com. It does not
+need Cloudflare Tunnel Edit. Do not replace or change the literary-site token.
+
+Copy the new secret immediately. Paste it only at setup-server's hidden
+watlingtonediting.com prompt, or supply a private file with:
+
+    setup-server --editing-api-token-file /private/path/to/token
+
+Setup saves it separately with root-only mode 0600 and backs it up as
+cloudflared/editing-api-token in future server-state bundles.
+
+D. RUN THE NORMAL SETUP
 -----------------------
-Once the tunnel connector token and management token exist:
+Once the tunnel connector token and both management tokens exist:
 
     cd ~/scriptorium
     ./install.sh
@@ -241,17 +278,19 @@ Then:
 
     setup-server
 
-Supply the connector token and management API token when requested.
+Supply the connector token and the two separate API tokens when requested.
 
 Let Scriptorium configure/reconcile the website, tunnel ingress, and DNS.
 
-D. VERIFY EVERYTHING
+E. VERIFY EVERYTHING
 --------------------
 Run:
 
     curl -I http://localhost:8080
     curl -I https://keelanwatlington.com
     curl -I https://www.keelanwatlington.com
+    curl -I https://watlingtonediting.com
+    curl -I https://www.watlingtonediting.com
 
 Load the website in a browser.
 
@@ -261,7 +300,7 @@ Then:
 
 After reboot, run the same checks again.
 
-E. MAKE A SERVER-STATE BACKUP
+F. MAKE A SERVER-STATE BACKUP
 -----------------------------
 Once the reconstructed server is known-good, create Scriptorium's protected
 server-state backup using the current Scriptorium backup command.

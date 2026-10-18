@@ -125,3 +125,19 @@ fi
 
 printf 'server verified: %s is live via %s; private editions are blocked; store is healthy\n' \
   "$SITE_ROOT" "$SERVICE_MANAGER"
+
+for hostname in watlingtonediting.com www.watlingtonediting.com; do
+  curl --fail --silent --show-error --max-time 10 --header "Host: $hostname" \
+    "$ORIGIN/" | cmp -s "$SITE_ROOT/business/index.html" - || {
+    echo "error: $hostname does not serve the business website" >&2
+    exit 1
+  }
+  business_private_status=$(curl --silent --show-error --max-time 10 \
+    --header "Host: $hostname" --output /dev/null --write-out '%{http_code}' \
+    "$ORIGIN/README.md")
+  [ "$business_private_status" = 404 ] || {
+    echo "error: $hostname exposes its business README" >&2
+    exit 1
+  }
+done
+printf 'business website verified: watlingtonediting.com and www serve %s/business\n' "$SITE_ROOT"
