@@ -130,7 +130,7 @@ dep_hint() {
         pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimplePDF and SimpleChange" ;;
         pandoc) echo "used by SimplePDF EPUB support and SimpleChange documents/ebooks" ;;
         c44|djvm|djvused|djvutxt|ddjvu) echo "provided by DjVuLibre; used by SimpleChange DjVu conversions" ;;
-        mpv) echo "used by audio apps and reminder playback" ;;
+        simpleplay-core) echo "built by the SimplePlay installer; audio apps and alarms" ;;
         git) echo "used by simplever" ;;
         mbsync) echo "provided by isync; used by simplemail synchronization" ;;
         msmtp) echo "used by simplemail sending" ;;
@@ -538,19 +538,19 @@ packages_for_family() {
         void)
             INSTALL="sudo xbps-install -Sy"
             PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
             PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -S --needed"
             PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
-            PKG_RUNTIME="git mpv poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
             arch_audio="libpulse"
 
             if ! pacman -Qq pipewire-jack >/dev/null 2>&1 &&
@@ -563,43 +563,43 @@ packages_for_family() {
         fedora)
             INSTALL="sudo dnf install -y"
             PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
             PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
-            PKG_RUNTIME="git mpv poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
-            PKG_RUNTIME="git mpv poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
+            PKG_RUNTIME="git poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
             PKG_REQUIRED="pkgconf ncurses curl make openssl@3 glib"
-            PKG_RUNTIME="git mpv poppler pandoc isync msmtp calcurse links rsync"
+            PKG_RUNTIME="git poppler pandoc isync msmtp calcurse links rsync"
             PKG_OPTIONAL="nano zip unzip libmagic less fzf"
             ;;
         freebsd)
             INSTALL="sudo pkg install"
             PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
-            PKG_RUNTIME="git mpv poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
+            PKG_RUNTIME="git poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3 devel/py-pygobject webkit2-gtk_41"
             ;;
         msys2)
             INSTALL="pacman -S --needed"
             PKG_REQUIRED="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-ncurses mingw-w64-x86_64-curl"
-            PKG_RUNTIME="git mingw-w64-x86_64-mpv mingw-w64-x86_64-poppler pandoc"
+            PKG_RUNTIME="git mingw-w64-x86_64-poppler pandoc"
             PKG_OPTIONAL="nano zip unzip file less fzf"
             ;;
         *)
             INSTALL="# install manually:"
             PKG_REQUIRED="gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel"
-            PKG_RUNTIME="git mpv poppler-utils pandoc"
+            PKG_RUNTIME="git poppler-utils pandoc"
             PKG_OPTIONAL="nano zip unzip xdg-utils file less fzf pulseaudio-utils glib wl-clipboard xclip xsel links python3 python3-gobject WebKit2GTK-4.1"
             ;;
     esac
@@ -643,6 +643,19 @@ check_pc  required ncursesw "ncursesw"
 check_pc  required gio-2.0 "GIO"
 check_pc  required libcurl "libcurl"
 check_pc  required openssl "OpenSSL"
+case "$os" in
+    Linux | FreeBSD | Darwin)
+        check_cmd required c++ "C++ compiler"
+        check_cmd required glib-compile-resources "GLib resource compiler"
+        check_pc required gtk+-3.0 "GTK 3" 'gtk+-3.0 >= 3.24'
+        check_pc required vte-2.91 "VTE" 'vte-2.91 >= 0.60'
+        check_pc required libpcre2-8 "PCRE2"
+        for media_library in cairo libavformat libavcodec libavutil libavfilter \
+            libswscale libswresample sdl2 libass fluidsynth libsidplayfp json-glib-1.0; do
+            check_pc required "$media_library" "$media_library"
+        done
+        ;;
+esac
 if [ "$os" = Linux ] && [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
     check_pc required libnm "NetworkManager client" 'libnm >= 1.24'
 fi
@@ -654,7 +667,7 @@ fi
 echo
 echo "=== Runtime dependencies ==="
 check_cmd runtime git "git"
-check_cmd runtime mpv "mpv"
+check_cmd runtime simpleplay-core "SimplePlay engine"
 check_cmd runtime pdftotext "pdftotext"
 check_cmd runtime pandoc "pandoc"
 check_cmd runtime python3 "python3"

@@ -1,6 +1,7 @@
 base-devel pkgconf ncurses curl openssl libnm
-sudo git mpv poppler pandoc-cli calibre libreoffice-fresh djvulibre
+sudo git poppler pandoc-cli calibre libreoffice-fresh djvulibre
 nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel nfs-utils avahi cifs-utils openssh samba
 python python-gobject webkit2gtk-4.1
 isync msmtp calcurse links ca-certificates rsync cronie
 pipewire pipewire-audio pipewire-pulse wireplumber lsp-plugins-lv2
+gtk3 vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid

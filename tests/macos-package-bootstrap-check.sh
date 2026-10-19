@@ -65,7 +65,7 @@ case "${1-}" in
         case " $* " in
             *' --cask calibre '*) commands='ebook-convert calibre-debug' ;;
             *' --cask libreoffice '*) commands=soffice ;;
-            *) commands='mpv python3 pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu' ;;
+            *) commands='python3 pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu' ;;
         esac
         for command_name in $commands; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$command_name"
@@ -80,7 +80,7 @@ esac
 EOF
 
 for command_name in \
-    cc git pdftotext pandoc zip unzip tar file less fzf links mbsync msmtp \
+    cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database git pdftotext pandoc zip unzip tar file less fzf links mbsync msmtp \
     calcurse curl rsync nano open launchctl dns-sd mount_nfs nfsd sharing \
     ssh sshd; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$command_name"
@@ -99,7 +99,7 @@ SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
-grep -q '^pkgconf ncurses curl make openssl@3 glib git mpv poppler pandoc python djvulibre nano zip unzip libmagic less fzf isync msmtp calcurse links rsync$' \
+grep -q '^pkgconf ncurses curl make openssl@3 glib git poppler pandoc python djvulibre nano zip unzip libmagic less fzf isync msmtp calcurse links rsync gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib$' \
     "$brew_log"
 grep -qx -- '--cask calibre' "$brew_log"
 grep -qx -- '--cask libreoffice' "$brew_log"
@@ -124,7 +124,7 @@ if grep -Eq 'pactl|parec|pulseaudio' "$tmp/checkdeps.log"; then
 fi
 
 install_count=$(wc -l <"$brew_log" | tr -d ' ')
-rm -f "$fake_bin/mpv"
+rm -f "$fake_bin/pdftohtml"
 set +e
 HOME="$home" \
 FAKE_BIN="$fake_bin" \

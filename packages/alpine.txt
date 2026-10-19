@@ -1,6 +1,8 @@
 build-base bash pkgconf ncurses-dev curl-dev openssl-dev networkmanager-dev
-sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre
+sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre
 nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel avahi-dev nfs-utils nfs-utils-openrc avahi avahi-openrc avahi-tools cifs-utils openssh samba samba-server-openrc
 python3 py3-gobject3 webkit2gtk-4.1
 isync msmtp calcurse links curl ca-certificates rsync dcron
 pipewire pipewire-tools pipewire-pulse wireplumber lsp-plugins-lv2
+gtk+3.0-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm
+# Provision libsidplayfp separately; it is not in Alpine's stable repositories.

@@ -76,7 +76,7 @@ esac
 EOF
 
 for dependency_command in \
-    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
+    cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
     pactl parec xclip; do
@@ -108,7 +108,7 @@ for utility in awk bash cat chmod dirname env grep id mktemp rm tee; do
 done
 chmod 755 "$fake_bin/uname" "$fake_bin/sudo" "$fake_bin/apt-get"
 for dependency_command in \
-    cc pkg-config git mpv pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
+    cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
     pactl parec xclip; do
@@ -123,13 +123,20 @@ PATH="$fake_bin" \
 grep -q '^install -y ' "$apt_log"
 for package_name in \
     calibre libreoffice-writer libreoffice-calc djvulibre-bin libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
-    openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2; do
+    openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2 \
+    libgtk-3-dev libvte-2.91-dev libpcre2-dev libavformat-dev libavcodec-dev \
+    libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev \
+    libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$apt_log" || {
         echo "linux-package-bootstrap-check: apt transaction omitted $package_name" >&2
         exit 1
     }
 done
+if grep -Eq '(^|[[:space:]])mpv([[:space:]]|$)' "$apt_log"; then
+    echo 'linux-package-bootstrap-check: package transaction still installs mpv' >&2
+    exit 1
+fi
 if grep -Eq '(^|[[:space:]])(nfs-kernel-server|samba)([[:space:]]|$)' \
     "$apt_log"; then
     echo 'linux-package-bootstrap-check: fresh client installed publishing packages' >&2

@@ -68,7 +68,7 @@ cat >"$fake_bin/python3" <<'EOF'
 EOF
 
 for command_name in \
-    cc git mpv ebook-convert calibre-debug soffice pdfinfo pdftohtml pdftoppm \
+    cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database git ebook-convert calibre-debug soffice pdfinfo pdftohtml pdftoppm \
     c44 djvm djvused djvutxt ddjvu pdftotext pandoc zip unzip tar file less fzf links mbsync \
     msmtp calcurse curl rsync nano crontab xdg-open gio umount bsdisks \
     e2fsck exfatfsck mount.exfat ntfsfix ifconfig route wpa_cli xclip pactl \
@@ -87,7 +87,8 @@ PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=server \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^update$' "$pkg_log"
-for package_name in calibre libreoffice djvulibre devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf; do
+for package_name in calibre libreoffice djvulibre devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf \
+    gtk3 vte3 pcre2 ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$pkg_log" || {
         echo "freebsd-package-bootstrap-check: pkg transaction omitted $package_name" >&2

@@ -1,6 +1,7 @@
 build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev libnm-dev
-sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre-bin
+sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre-bin
 nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel libavahi-client-dev nfs-kernel-server nfs-common avahi-daemon avahi-utils cifs-utils openssh-client openssh-server samba
 python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
 isync msmtp calcurse links curl ca-certificates rsync cron
 pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2
+libgtk-3-dev libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont

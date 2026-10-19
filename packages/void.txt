@@ -1,6 +1,7 @@
 base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel NetworkManager-devel
-sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre
+sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre
 nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel avahi-libs-devel nfs-utils avahi avahi-utils cifs-utils openssh samba
 python3 python3-gobject libwebkit2gtk41
 isync msmtp calcurse links curl ca-certificates rsync cronie
 pipewire wireplumber lsp-plugins-lv2
+gtk+3-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid

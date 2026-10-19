@@ -12,6 +12,13 @@ encrypted extranet, OpenSSH client and daemon access, and the `setup-server`
 entry point for the public website. The Trident supports Debian/Ubuntu, Fedora,
 Arch, Alpine, Void, openSUSE Tumbleweed, FreeBSD, and macOS.
 
+The same installation builds and installs SimplePlay, its `simpleplay-core`
+audio engine, and SimpleTerm through their standalone installers, including
+desktop launchers and assets. SimpleFLAC, SimpleRadio, SimplePod, SimpleCal and
+SimpleClock use the headless engine. On macOS the player installation is
+headless; SimpleTerm includes its native app launcher. The package step supplies
+their GTK/VTE, FFmpeg, SDL, subtitle and synthesizer dependencies.
+
 Mainline SimpleSuite programs, including SimpleMail, SimpleVol, and its
 `simplevol-audio` helper, belong in `/usr/local/bin`; `~/.local/bin` is for
 personal utilities. Shared SimpleSuite assets belong in
@@ -267,7 +274,9 @@ on platform availability:
   (`libnm-dev` on Debian/Ubuntu)
 - Python GI, GTK 3 introspection, and WebKit2GTK 4.1 for SimpleBrowse v4
   JavaScript mode on supported Linux and BSD families; macOS uses WKWebView
-- `git`, `mpv`, `links`, `fzf`, `calcurse`
+- `git`, `links`, `fzf`, `calcurse`
+- GTK 3, VTE, PCRE2, FFmpeg, SDL 2, libass, FluidSynth, libsidplayfp and
+  JSON-GLib for SimpleTerm and SimplePlay; Linux/BSD include a MIDI SoundFont
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
   SimpleNet Wi-Fi management and adapter diagnostics

@@ -626,9 +626,16 @@ declare -a CREATED_DIRS=()
 mapfile -t EXPECTED_SIMPLESUITE_COMMANDS \
     < <(scriptorium_suite_programs "$HOST_OS" 0)
 EXPECTED_SIMPLESUITE_COMMANDS+=(simplecheck simpletrident)
+case "$HOST_OS" in
+    Linux | FreeBSD) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleplay simpleterm) ;;
+    Darwin) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleterm) ;;
+esac
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplesuite-uninstall
 )
+case "$HOST_OS" in
+    Linux | FreeBSD | Darwin) EXPECTED_SIMPLESUITE_HELPERS+=(simpleplay-core) ;;
+esac
 if [[ $HOST_OS == Linux ]]; then
     EXPECTED_SIMPLESUITE_HELPERS+=(simplevol-audio)
 fi
@@ -1088,6 +1095,32 @@ SIMPLESUITE_INSTALL_PACKAGES=0 SIMPLESUITE_INSTALL_REMINDERS=0 \
     SIMPLESUITE_INSTALL_FREEBSD_HELPER="$simplesuite_helper_mode" \
     SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="$simpleserve_service_mode" \
         "$ROOT/scripts/install-simplesuite.sh"
+
+say "Installing SimplePlay and SimpleTerm"
+suite_source=${SIMPLESUITE_DIR:-$HOME/simplesuite}
+desktop_programs=(simpleterm)
+case "$HOST_OS" in
+    Linux | FreeBSD)
+        SIMPLEPLAY_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \
+            SIMPLEPLAY_HEADLESS_ONLY=0 \
+            "$suite_source/install-simpleplay.sh" --no-deps
+        desktop_programs+=(simpleplay simpleplay-core)
+        ;;
+    Darwin)
+        SIMPLEPLAY_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \
+            "$suite_source/install-simpleplay.sh" --no-deps --headless-only
+        desktop_programs+=(simpleplay-core)
+        ;;
+esac
+SIMPLETERM_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \
+    "$suite_source/install-simpleterm.sh" --no-deps
+for program in "${desktop_programs[@]}"; do
+    [[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/$program" ]] || {
+        warn "Missing installed program: $SIMPLESUITE_SYSTEM_BIN_DIR/$program"
+        exit 1
+    }
+    rm -f "$HOME/.local/bin/$program"
+done
 
 say "Installing SimpleCheck"
 "$ROOT/scripts/install-simplecheck.sh"

@@ -235,7 +235,7 @@ configure_homebrew_pkgconfig() {
     [ "$family" = macos ] || return 0
     have_cmd brew || return 0
 
-    for formula in ncurses glib curl openssl@3; do
+    for formula in ncurses glib curl openssl@3 gtk+3 vte3 pcre2 fontconfig cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib; do
         formula_prefix=$(brew --prefix "$formula" 2>/dev/null) || continue
         for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
                              "$formula_prefix/share/pkgconfig"; do
@@ -262,7 +262,7 @@ PY
 
 dependencies_already_present() {
     for dependency_command in \
-        cc pkg-config git mpv python3 pdftotext pdfinfo pdftohtml pdftoppm pandoc \
+        cc pkg-config git python3 pdftotext pdfinfo pdftohtml pdftoppm pandoc \
         c44 djvm djvused djvutxt ddjvu \
         zip unzip tar file less fzf links \
         mbsync msmtp calcurse curl rsync; do
@@ -293,6 +293,22 @@ dependencies_already_present() {
     have_pkgconfig libcurl || return 1
     have_pkgconfig openssl || return 1
     have_pkgconfig gio-2.0 || return 1
+    have_cmd glib-compile-resources || return 1
+    have_cmd fc-match || return 1
+    have_pkgconfig 'gtk+-3.0 >= 3.24' || return 1
+    have_pkgconfig 'vte-2.91 >= 0.60' || return 1
+    have_pkgconfig libpcre2-8 || return 1
+    case "$(uname -s 2>/dev/null || true)" in
+        Linux | FreeBSD | Darwin)
+            have_cmd c++ || return 1
+            if [ "$family" != macos ]; then have_cmd update-desktop-database || return 1; fi
+            for media_library in 'glib-2.0 >= 2.66' 'libavcodec >= 59' \
+                'libavformat >= 59' libavutil libavfilter libswscale libswresample \
+                sdl2 cairo libass fluidsynth libsidplayfp json-glib-1.0; do
+                have_pkgconfig "$media_library" || return 1
+            done
+            ;;
+    esac
     if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
        [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
         have_pkgconfig 'libnm >= 1.24' || return 1
@@ -963,6 +979,37 @@ if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
     esac
 fi
 
+# Shared player and terminal build/runtime dependencies.
+desktop_packages=
+case "$family" in
+    debian)
+        desktop_packages='libgtk-3-dev libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont'
+        ;;
+    arch)
+        desktop_packages='gtk3 vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid'
+        ;;
+    void)
+        desktop_packages='gtk+3-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid'
+        ;;
+    alpine)
+        # Alpine does not package libsidplayfp; provision it before installing
+        # SimplePlay. Do not request a nonexistent package or enable testing.
+        desktop_packages='gtk+3.0-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm'
+        ;;
+    fedora)
+        desktop_packages='gcc-c++ gtk3-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        ;;
+    suse)
+        desktop_packages='gcc-c++ gtk3-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel libSDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        ;;
+    freebsd)
+        desktop_packages='gtk3 vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
+        ;;
+    macos)
+        desktop_packages='gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib'
+        ;;
+esac
+
 # Native SimpleVol effects and their redistributable LSP LV2 plugins.
 simplevol_packages=
 if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ]; then
@@ -990,20 +1037,20 @@ case "$family" in
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get update
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y \
             build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev $simplenet_packages \
-            sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre-bin \
+            sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre-bin \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron $simplevol_packages \
+            isync msmtp calcurse links curl ca-certificates rsync cron $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     void)
         check_repository_configuration void
         run_package_command void as_root env LC_ALL=C xbps-install -Sy \
             base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel $simplenet_packages \
-            sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
+            sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \
             python3 python3-gobject libwebkit2gtk41 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie $simplevol_packages \
+            isync msmtp calcurse links curl ca-certificates rsync cronie $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     arch)
@@ -1028,55 +1075,55 @@ case "$family" in
         run_package_command arch as_root env LC_ALL=C pacman -Syu --needed \
             $pacman_confirmation \
             base-devel pkgconf ncurses curl openssl $simplenet_packages \
-            sudo git mpv poppler pandoc-cli calibre libreoffice-fresh djvulibre \
+            sudo git poppler pandoc-cli calibre libreoffice-fresh djvulibre \
             nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
-            isync msmtp calcurse links ca-certificates rsync cronie $simplevol_packages \
+            isync msmtp calcurse links ca-certificates rsync cronie $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     alpine)
         check_repository_configuration alpine
         run_package_command alpine as_root env LC_ALL=C apk add \
             build-base bash pkgconf ncurses-dev curl-dev openssl-dev $simplenet_packages \
-            sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
+            sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync dcron $simplevol_packages \
+            isync msmtp calcurse links curl ca-certificates rsync dcron $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     fedora)
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
             gcc make pkgconf-pkg-config ncurses-devel libcurl-devel openssl-devel $simplenet_packages \
-            sudo git mpv poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
+            sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject webkit2gtk4.1 \
-            isync msmtp calcurse links curl ca-certificates rsync cronie $simplevol_packages \
+            isync msmtp calcurse links curl ca-certificates rsync cronie $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     suse)
         run_package_command suse as_root env LC_ALL=C zypper install -y \
             gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel $simplenet_packages \
-            sudo git mpv poppler-tools pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
+            sudo git poppler-tools pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \
-            isync msmtp calcurse links curl ca-certificates rsync cron $simplevol_packages \
+            isync msmtp calcurse links curl ca-certificates rsync cron $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     freebsd)
         run_package_command freebsd as_root env LC_ALL=C pkg update
         run_package_command freebsd as_root env LC_ALL=C pkg install -y \
             bash gmake pkgconf ncurses glib curl openssl \
-            sudo git mpv poppler-utils hs-pandoc calibre libreoffice djvulibre \
+            sudo git poppler-utils hs-pandoc calibre libreoffice djvulibre \
             nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad \
             python3 devel/py-pygobject webkit2-gtk_41 \
-            isync msmtp calcurse links ca_root_nss rsync $simpleserve_packages
+            isync msmtp calcurse links ca_root_nss rsync $desktop_packages $simpleserve_packages
         ;;
     macos)
         run_package_command macos env LC_ALL=C brew install \
             pkgconf ncurses curl make openssl@3 glib \
-            git mpv poppler pandoc python djvulibre \
+            git poppler pandoc python djvulibre \
             nano zip unzip libmagic less fzf \
-            isync msmtp calcurse links rsync
+            isync msmtp calcurse links rsync $desktop_packages
         if ! have_calibre; then
             run_package_command macos env LC_ALL=C brew install --cask calibre
         fi
