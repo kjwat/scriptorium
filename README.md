@@ -230,6 +230,7 @@ SimpleSuite programs:
 
 - `simplebrowse`
 - `simplewords`
+- `simplesearch` — live phrase search inside `~/writing`, with highlighted excerpts; Enter opens SimpleWords at the selected match
 - `simplenote` — blank-page notes, autosave, and a journal browser under `~/writing/notes`
 - `simplefiles`
 - `simplemail`
@@ -538,6 +539,7 @@ alias cal='simplecal'
 alias stats='simplestats'
 alias ver='simplever'
 alias save='simplesave'
+alias search='simplesearch'
 alias game='simplegame'
 alias pdf='simplepdf'
 alias change='simplechange'

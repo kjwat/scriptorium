@@ -32,7 +32,7 @@ simplesuite_program_aliases() {
     printf '%s\n' browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
         news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio \
-        save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall \
+        save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall \
         ver:simplever vis:simplevis words:simplewords
     case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
         FreeBSD) printf '%s\n' net:simplenet ;; esac
@@ -90,8 +90,8 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
-programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplepdf simplepod simpleradio simplenews simplesave simplesearch simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"
@@ -263,6 +263,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesearch" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenote" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplepdf-mobi" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplechange" ]
@@ -271,6 +272,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 for image in simplechange.png simplechange-document.png simplechange-ebook.png; do
     [ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/screenshots/$image" ]
 done
+grep -qx 'search simplesearch' "$SIMPLESUITE_SYSTEM_DATA_DIR/command-abbreviations"
 grep -qx 'change simplechange' "$SIMPLESUITE_SYSTEM_DATA_DIR/command-abbreviations"
 [ ! -e "$(cat "$HOME/install-stage")" ]
 [ ! -e "$HOME/.local/bin" ]
@@ -317,6 +319,7 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesearch" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webkitd" ]
 grep -q "^# staged build output$" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebrowse-webkitd"
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplefiles-macos-helper" ]
@@ -351,6 +354,7 @@ FAKE_SERVICE_FAILURE=1 \
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesearch" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
 [ ! -L "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
 cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" "$HOME/simplesuite/build/simpleblue"
@@ -452,6 +456,7 @@ SIMPLESUITE_INSTALL_SIMPLESERVE=0 \
 
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesearch" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleblue" ]
 grep -q '^preserved-client$' "$HOME/.local/bin/simpleserve"
 [ ! -e "$HOME/.local/bin/simpleserved" ]

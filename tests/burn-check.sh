@@ -44,8 +44,8 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplepdf-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -93,11 +93,11 @@ printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
 mkdir -p "$HOME/writing/notes"
 printf '%s\n' 'journal entry' >"$HOME/writing/notes/2026-10-05-001.txt"
 for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
-    printf '%s\n' '# SimpleSuite aliases' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" "alias change='simplechange'" \
+    printf '%s\n' '# SimpleSuite aliases' "alias note='simplenote'" "alias save='simplesave'" "alias search='simplesearch'" "alias burn='simpleburn'" "alias change='simplechange'" \
         "alias personal='echo keep'" >"$shell_rc"
 done
 mkdir -p "$HOME/.config/fish/conf.d"
-printf '%s\n' "alias note='simplenote'" "alias save='simplesave'" "alias burn='simpleburn'" "alias change='simplechange'" "alias personal='echo keep'" \
+printf '%s\n' "alias note='simplenote'" "alias save='simplesave'" "alias search='simplesearch'" "alias burn='simpleburn'" "alias change='simplechange'" "alias personal='echo keep'" \
     >"$HOME/.config/fish/conf.d/scriptorium.fish"
 
 FAKE_FREEBSD_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount"
@@ -195,6 +195,7 @@ done
 for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.config/fish/conf.d/scriptorium.fish"; do
     ! grep -q "alias note='simplenote'" "$shell_rc" || fail 'burn left the note alias'
     ! grep -q "alias save='simplesave'" "$shell_rc" || fail 'burn left the save alias'
+    ! grep -q "alias search='simplesearch'" "$shell_rc" || fail 'burn left the search alias'
     ! grep -q "alias burn='simpleburn'" "$shell_rc" || fail 'burn left the simpleburn alias'
     ! grep -q "alias change='simplechange'" "$shell_rc" || fail 'burn left the simplechange alias'
     grep -qx "alias personal='echo keep'" "$shell_rc" || fail 'burn removed a personal alias'

@@ -44,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave burn:simpleburn vol:simplevol change:simplechange; }
-simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simpleburn simplevol simplechange; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol change:simplechange; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simplesearch simpleburn simplevol simplechange; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -68,6 +68,11 @@ simplesave:
 	mkdir -p $(BUILD_DIR)
 	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplesave
 	chmod 755 $(BUILD_DIR)/simplesave
+
+simplesearch:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplesearch
+	chmod 755 $(BUILD_DIR)/simplesearch
 
 simpleburn:
 	mkdir -p $(BUILD_DIR)
@@ -156,6 +161,30 @@ PATH="$TMP/test-bin:$PATH" \
 [ ! -e "$HOME/.local/bin/simplesave" ]
 grep -qx 'save simplesave' "$TMP/system-data/command-abbreviations"
 cmp "$SOURCE/uninstall.sh" "$TMP/system-bin/simplesuite-uninstall"
+
+# SimpleSearch installs through the manifest, cleans owned legacy commands,
+# and leaves unrelated tools and the writing corpus untouched.
+printf '%s\n' stale >"$HOME/.local/bin/simplesearch"
+ln -s simplesearch "$HOME/.local/bin/search"
+ln -s simplesearch "$TMP/system-bin/search"
+mkdir -p "$HOME/writing"
+printf '%s\n' 'untouched writing' >"$HOME/writing/document.txt"
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simplesearch \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/search-install.log"
+[ -x "$TMP/system-bin/simplesearch" ]
+[ ! -e "$HOME/.local/bin/simplesearch" ]
+[ ! -L "$HOME/.local/bin/search" ]
+[ ! -L "$TMP/system-bin/search" ]
+grep -qx 'search simplesearch' "$TMP/system-data/command-abbreviations"
+[ "$(cat "$HOME/writing/document.txt")" = 'untouched writing' ]
+[ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
 
 # The same partial-install path installs SimpleBurn and its shared alias map.
 SIMPLESUITE_REPO_URL="$ORIGIN" \

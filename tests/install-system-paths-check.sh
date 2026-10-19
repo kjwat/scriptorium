@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplenote simplesave simpleburn simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplesave simplesearch simpleburn simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -47,13 +47,13 @@ SIMPLESUITE_NETWORK_ROLE=client
 SCRIPTORIUM_INSTALL_TAILSCALE=1
 CHANGES_MADE=0
 SHELL_RC_FILES=("$HOME/.bashrc")
-EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplenote simplesave simpleburn simplevol simplecal simpleserve simpleserved simplecheck)
+EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplenote simplesave simplesearch simpleburn simplevol simplecal simpleserve simpleserved simplecheck)
 EXPECTED_SIMPLESUITE_HELPERS=(simplesuite-uninstall)
 say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -96,6 +96,9 @@ ensure_simplesuite_aliases
 [[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias note='simplenote'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias save='simplesave'$" "$HOME/.bashrc") == 1 ]]
+[[ $(grep -c "^alias search='simplesearch'$" "$HOME/.bashrc") == 1 ]]
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias search; search' >"$HOME/search-check" 2>/dev/null
+grep -qx "alias search='simplesearch'" "$HOME/search-check"
 bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias save; save' >"$HOME/save-check" 2>/dev/null
 grep -qx "alias save='simplesave'" "$HOME/save-check"
 [[ $(grep -c "^alias burn='simpleburn'$" "$HOME/.bashrc") == 1 ]]
@@ -106,7 +109,7 @@ if [[ $TEST_MODE == preserve ]]; then
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"
     ! grep -q '^# SimpleSuite aliases$' "$HOME/.bashrc"
 fi
-for mapping in words:simplewords note:simplenote save:simplesave burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
+for mapping in words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
     grep -qx "alias ${mapping%%:*}='${mapping#*:}'" "$HOME/.bashrc"
 done
 ! grep -q 'alias absent=' "$HOME/.bashrc"
@@ -131,14 +134,15 @@ done
 # The installed manifest uses whitespace; the alias consumer uses colons.
 SIMPLESUITE_MANIFEST_FILE=$tmp/absent-manifest
 SIMPLESUITE_INSTALLED_MANIFEST=$tmp/installed-abbreviations
-printf '%s\n' '# installed commands' 'words simplewords' 'note simplenote' 'save simplesave' 'burn simpleburn' 'vol simplevol' \
+printf '%s\n' '# installed commands' 'words simplewords' 'note simplenote' 'save simplesave' 'search simplesearch' 'burn simpleburn' 'vol simplevol' \
     >"$SIMPLESUITE_INSTALLED_MANIFEST"
 . "$repo/scripts/simple-programs.sh"
 aliases=$(scriptorium_program_aliases Linux 0)
 [[ $(printf '%s\n' "$aliases" | grep -cx 'vol:simplevol') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'note:simplenote') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'save:simplesave') == 1 ]]
+[[ $(printf '%s\n' "$aliases" | grep -cx 'search:simplesearch') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'burn:simpleburn') == 1 ]]
-[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimpleburn\nsimplevol' ]]
+[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimplesearch\nsimpleburn\nsimplevol' ]]
 
 echo 'OK installer final checks and aliases use system binaries while preserving the existing daemon'
