@@ -35,8 +35,9 @@ OPEN_.m3u=simpleradio
 OPEN_.m3u8=simpleradio
 OPEN_.pls=simpleradio
 
-OPEN_.mp4=vlc
-OPEN_.mkv=vlc
-OPEN_.avi=vlc
-OPEN_.mpeg=vlc
-OPEN_.web3=vlc
+OPEN_.mp4=simpleplay
+OPEN_.mkv=simpleplay
+OPEN_.avi=simpleplay
+OPEN_.mpeg=simpleplay
+OPEN_.web3=simpleplay
+OPEN_.webm=simpleplay
