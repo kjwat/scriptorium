@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplenote simplesave simplesearch simpleburn simplevol simplevol-audio simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplesave simplesearch simpleburn simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -53,7 +53,7 @@ say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -109,9 +109,12 @@ if [[ $TEST_MODE == preserve ]]; then
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"
     ! grep -q '^# SimpleSuite aliases$' "$HOME/.bashrc"
 fi
-for mapping in words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol cal:simplecal serve:simpleserve check:simplecheck; do
+for mapping in words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck; do
     grep -qx "alias ${mapping%%:*}='${mapping#*:}'" "$HOME/.bashrc"
 done
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias play; play; alias term; term' >"$HOME/desktop-check" 2>/dev/null
+grep -qx "alias play='simpleplay'" "$HOME/desktop-check"
+grep -qx "alias term='simpleterm'" "$HOME/desktop-check"
 ! grep -q 'alias absent=' "$HOME/.bashrc"
 eval "$(awk '
     /^say "Verifying commands"/ { copying=1 }
@@ -143,6 +146,10 @@ aliases=$(scriptorium_program_aliases Linux 0)
 [[ $(printf '%s\n' "$aliases" | grep -cx 'save:simplesave') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'search:simplesearch') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'burn:simpleburn') == 1 ]]
+[[ $(printf '%s\n' "$aliases" | grep -cx 'term:simpleterm') == 1 ]]
+[[ $(printf '%s\n' "$aliases" | grep -cx 'play:simpleplay') == 1 ]]
+[[ $(scriptorium_program_aliases FreeBSD 0 | grep -cx 'play:simpleplay') == 1 ]]
+! scriptorium_program_aliases Darwin 0 | grep -q '^play:'
 [[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimplesearch\nsimpleburn\nsimplevol' ]]
 
 echo 'OK installer final checks and aliases use system binaries while preserving the existing daemon'
