@@ -246,7 +246,7 @@ SimpleSuite programs:
 - `simpleclock`
 - `simpleflac`
 - `simplegame`
-- `simpleread`
+- `simplebook`
 - `simplechange` — local document and ebook conversion with a batch queue and searchable format picker
 - `simplepod`
 - `simpleradio`
@@ -280,8 +280,8 @@ on platform availability:
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
   SimpleNet Wi-Fi management and adapter diagnostics
-- `pdftotext`/poppler and `pandoc` for SimpleRead; its MOBI/Kindle converter
-  `simpleread-mobi` builds with SimpleSuite from bundled libmobi sources,
+- `pdftotext`/poppler and `pandoc` for SimpleBook; its MOBI/Kindle converter
+  `simplebook-mobi` builds with SimpleSuite from bundled libmobi sources,
   installs through the program manifest and is removed by uninstall/burn.
   No separate MOBI package or manual tool installation is needed.
 - Python 3, Calibre, LibreOffice Writer/Calc, Pandoc, Poppler and DjVuLibre
@@ -550,7 +550,7 @@ alias ver='simplever'
 alias save='simplesave'
 alias search='simplesearch'
 alias game='simplegame'
-alias read='simpleread'
+alias simplebook='simplebook'
 alias change='simplechange'
 alias news='simplenews'
 alias mail='simplemail'
@@ -752,7 +752,7 @@ store GitHub and Gmail credentials locally if you choose those setup paths.
 The managed SimpleCal dotfiles may include local calendar/reminder data, so
 treat this checkout as private unless that data has been removed.
 
-SimpleRead is the terminal PDF/EPUB/Kindle reader (`read`); SimplePDF is the native
+SimpleBook is the terminal PDF/EPUB/Kindle reader (`simplebook`); SimplePDF is the native
 GTK PDF reader (`pdf`). Full installation invokes SimpleSuite's
 `install-simplepdf.sh` alongside the Simpleterm and Simpleplay installers on
 Linux/FreeBSD. You can run that script separately for installation or removal.

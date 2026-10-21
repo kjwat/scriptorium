@@ -31,7 +31,7 @@ cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
     printf '%s\n' browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
-        news:simplenews note:simplenote read:simpleread pod:simplepod radio:simpleradio \
+        news:simplenews note:simplenote simplebook:simplebook pod:simplepod radio:simpleradio \
         save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall \
         ver:simplever vis:simplevis words:simplewords
     case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
@@ -40,7 +40,7 @@ simplesuite_program_aliases() {
 }
 simplesuite_programs() {
     simplesuite_program_aliases "$1" "$2" | sed '/simplesuite-uninstall$/d;s/.*://'
-    printf '%s\n' simpleread-mobi
+    printf '%s\n' simplebook-mobi
     [ "$2" = 1 ] && printf '%s\n' simpleserved || :
 }
 EOF
@@ -90,8 +90,8 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_SOURCE_SHA:-}" = "$(git rev-parse --verify HEAD^{commit})" ]
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
-programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simpleread simplepod simpleradio simplenews simplesave simplesearch simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote read:simpleread pod:simplepod radio:simpleradio save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplebook simplepod simpleradio simplenews simplesave simplesearch simplestats simplever simplevis simplewords'
+aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote simplebook:simplebook pod:simplepod radio:simpleradio save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"
@@ -110,7 +110,7 @@ case "$(uname -s)" in
         fi
         ;;
 esac
-helpers='simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simpleread-mobi simplesuite-uninstall'
+helpers='simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplebook-mobi simplesuite-uninstall'
 if [ "$(uname -s)" = Linux ]; then helpers="$helpers simplevol-audio"; fi
 if [ "$(uname -s)" = Darwin ]; then
     helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
@@ -146,7 +146,7 @@ cp "$fixture_bindir/simplewords" "$PWD/build/simplewords"
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
-    ln -s "$full" "$fixture_bindir/$short"
+    [ "$short" = "$full" ] || ln -s "$full" "$fixture_bindir/$short"
 done
 printf '%s\n' "${SIMPLESUITE_INSTALL_SIMPLESERVE:-unset}" \
     >"$HOME/simpleserve-component-selection"
@@ -208,8 +208,8 @@ EOF
 chmod 755 "$FAKE_REPO/build.sh"
 
 cat >"$FAKE_REPO/Makefile" <<'EOF'
-.PHONY: simpleread simpleread-mobi
-simpleread simpleread-mobi:
+.PHONY: simplebook simplebook-mobi
+simplebook simplebook-mobi:
 	mkdir -p build
 	printf '%s\n' '#!/bin/sh' '# partial PDF build' 'exit 0' >build/$@
 	chmod 755 build/$@
@@ -265,7 +265,7 @@ FREEBSD_UNMOUNT_HELPER="$HOME/system-libexec/simplefiles-freebsd-unmount" \
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesave" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesearch" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplenote" ]
-[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleread-mobi" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebook-mobi" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplechange" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplechange-engine" ]
 [ -r "$SIMPLESUITE_SYSTEM_DATA_DIR/SIMPLECHANGE.md" ]
@@ -489,22 +489,22 @@ fi
 cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 
-# A SimpleRead-only update must publish its converter and new uninstaller too.
+# A SimpleBook-only update must publish its converter and new uninstaller too.
 HOME="$TMP/pdf-only-home"
 export HOME
 mkdir -p "$HOME/.local/bin"
-printf '%s\n' old >"$HOME/.local/bin/simpleread-mobi"
-rm -f "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleread-mobi"
+printf '%s\n' old >"$HOME/.local/bin/simplebook-mobi"
+rm -f "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebook-mobi"
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
-FAKE_UNAME=Linux SIMPLESUITE_PROGRAM_FILTER=simpleread \
+FAKE_UNAME=Linux SIMPLESUITE_PROGRAM_FILTER=simplebook \
 SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
 SIMPLESUITE_INSTALL_REMINDERS=0 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/pdf-only.log"
-[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleread" ]
-[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleread-mobi" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebook" ]
+[ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebook-mobi" ]
 [ -x "$SIMPLESUITE_SYSTEM_BIN_DIR/simplesuite-uninstall" ]
-[ ! -e "$HOME/.local/bin/simpleread-mobi" ]
-grep -q '^# partial PDF build$' "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleread-mobi"
+[ ! -e "$HOME/.local/bin/simplebook-mobi" ]
+grep -q '^# partial PDF build$' "$SIMPLESUITE_SYSTEM_BIN_DIR/simplebook-mobi"
 cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
 
 echo 'OK Scriptorium stages binaries privately, installs system commands, and preserves the daemon'

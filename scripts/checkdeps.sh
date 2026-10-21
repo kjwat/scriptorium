@@ -127,8 +127,8 @@ dep_hint() {
         pkg-config) echo "provided by pkg-config or pkgconf" ;;
         xdg-open) echo "Linux desktop helper; provided by xdg-utils; used by simplefiles external-open" ;;
         open) echo "macOS built-in external-open helper" ;;
-        pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimpleRead and SimpleChange" ;;
-        pandoc) echo "used by SimpleRead EPUB support and SimpleChange documents/ebooks" ;;
+        pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimpleBook and SimpleChange" ;;
+        pandoc) echo "used by SimpleBook EPUB support and SimpleChange documents/ebooks" ;;
         c44|djvm|djvused|djvutxt|ddjvu) echo "provided by DjVuLibre; used by SimpleChange DjVu conversions" ;;
         simpleplay-core) echo "built by the SimplePlay installer; audio apps and alarms" ;;
         git) echo "used by simplever" ;;
@@ -158,7 +158,7 @@ dep_hint() {
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
-        fzf) echo "used by simpleburn ISO selection and simpleread fuzzy file selection" ;;
+        fzf) echo "used by simpleburn ISO selection and simplebook fuzzy file selection" ;;
         links) echo "default terminal browser used by simplenews; configurable" ;;
         gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
         wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;

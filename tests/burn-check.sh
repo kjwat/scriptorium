@@ -44,8 +44,8 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleread simpleread-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote read:simpleread pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote simplebook:simplebook pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -54,6 +54,7 @@ done
 for mapping in $aliases; do
     short=${mapping%%:*}
     full=${mapping#*:}
+    [ "$short" != "$full" ] || continue
     ln -s "$full" "$HOME/.local/bin/$short"
     ln -s "$full" "$SYSTEM_BIN/$short"
 done
@@ -73,7 +74,7 @@ mkdir -p \
     "$HOME/.config/simplesuite" \
     "$HOME/.config/isyncrc-target" \
     "$HOME/.cache/simplewords" \
-    "$HOME/xdg-cache/simpleread" \
+    "$HOME/xdg-cache/simplebook" \
     "$HOME/xdg-cache/simplechange" \
     "$HOME/.local/state/simplewords" \
     "$HOME/.local/share/simplemail/mail/Inbox/cur" \
@@ -87,8 +88,8 @@ printf '%s\n' keep >"$HOME/unrelated-file"
 printf '%s\n' keep >"$HOME/.writing-clone-tmp/partial"
 printf '%s\n' keep >"$HOME/.scriptorium-backups/old/config"
 printf '%s\n' keep >"$HOME/.config/scriptorium/legacy-marker"
-printf '%s\n' keep >"$HOME/xdg-cache/simpleread/document.txt"
-printf '%s\n' converted >"$HOME/xdg-cache/simpleread/document.epub"
+printf '%s\n' keep >"$HOME/xdg-cache/simplebook/document.txt"
+printf '%s\n' converted >"$HOME/xdg-cache/simplebook/document.epub"
 printf '%s\n' keep >"$FAKE_SUITE/simplewords.c"
 mkdir -p "$HOME/writing/notes"
 printf '%s\n' 'journal entry' >"$HOME/writing/notes/2026-10-05-001.txt"
@@ -162,7 +163,7 @@ assert_missing "$HOME/.config/scriptorium"
 assert_missing "$HOME/.config/simplesuite"
 assert_missing "$HOME/.config/isyncrc"
 assert_missing "$HOME/.cache/simplewords"
-assert_missing "$HOME/xdg-cache/simpleread"
+assert_missing "$HOME/xdg-cache/simplebook"
 assert_missing "$HOME/xdg-cache/simplechange"
 assert_missing "$HOME/.local/state/simplewords"
 assert_missing "$HOME/.local/share/simplemail"

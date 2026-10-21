@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplenote simplesave simplesearch simpleburn simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplesave simplesearch simpleburn simplebook simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -53,7 +53,7 @@ say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn simplebook:simplebook vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -90,8 +90,13 @@ if [[ $TEST_MODE == preserve ]]; then
 else
     printf '%s\n' "alias words='simplewords'" '# SimpleSuite aliases' >"$HOME/.bashrc"
 fi
+printf '%s\n' "alias read='simpleread'" 'alias read="/usr/local/bin/simpleread"' >>"$HOME/.bashrc"
 ensure_simplesuite_aliases
 ensure_simplesuite_aliases
+! grep -q '^alias read=' "$HOME/.bashrc"
+printf '%s\n' "alias read='my-personal-reader'" >>"$HOME/.bashrc"
+ensure_simplesuite_aliases
+grep -qx "alias read='my-personal-reader'" "$HOME/.bashrc"
 [[ $(grep -c "^alias vol='simplevol'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias note='simplenote'$" "$HOME/.bashrc") == 1 ]]
@@ -104,6 +109,7 @@ grep -qx "alias save='simplesave'" "$HOME/save-check"
 [[ $(grep -c "^alias burn='simpleburn'$" "$HOME/.bashrc") == 1 ]]
 bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias burn; burn' >"$HOME/burn-check" 2>/dev/null
 grep -qx "alias burn='simpleburn'" "$HOME/burn-check"
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'simplebook' >/dev/null 2>&1
 if [[ $TEST_MODE == preserve ]]; then
     sed -n '/^# BEGIN SimpleOS application aliases$/,/^# END SimpleOS application aliases$/p' \
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"

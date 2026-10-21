@@ -296,10 +296,10 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             ;;
     esac
     case " $SIMPLESUITE_PROGRAM_FILTER " in
-        *' simpleread '*)
+        *' simplebook '*)
             case " $SIMPLESUITE_PROGRAM_FILTER " in
-                *' simpleread-mobi '*) ;;
-                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simpleread-mobi" ;;
+                *' simplebook-mobi '*) ;;
+                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplebook-mobi" ;;
             esac
             ;;
     esac

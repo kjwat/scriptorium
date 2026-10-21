@@ -194,7 +194,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simpleread simpleread-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     remove_system_file "$SYSTEM_BIN_DIR/$bin"
 done
@@ -212,7 +212,7 @@ done
 for alias_mapping in \
     blue:simpleblue browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck \
     change:simplechange clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
-    mail:simplemail net:simplenet news:simplenews note:simplenote read:simpleread pdf:simplepdf \
+    mail:simplemail net:simplenet news:simplenews note:simplenote simplebook:simplebook pdf:simplepdf \
     pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
     ver:simplever vis:simplevis vol:simplevol words:simplewords; do
@@ -311,7 +311,7 @@ rm -f "$HOME/.config/isyncrc"
 rm -rf "$HOME/.links"
 for cache_base in "$HOME/.cache" "$CACHE_HOME"; do
     for app_name in \
-        simplebrowse simplechange simplefiles simplemail simplenews simpleread simplepod \
+        simplebrowse simplechange simplefiles simplemail simplenews simplebook simplepod \
         simplewords; do
         rm -rf "${cache_base:?}/$app_name"
     done
@@ -372,6 +372,7 @@ clean_shell_rc() {
             aliases["search"] = "simplesearch"
             aliases["game"] = "simplegame"
             aliases["read"] = "simpleread"
+            aliases["simplebook"] = "simplebook"
             aliases["pdf"] = "simplepdf"
             aliases["news"] = "simplenews"
             aliases["mail"] = "simplemail"

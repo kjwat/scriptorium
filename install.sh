@@ -541,6 +541,25 @@ ensure_simplesuite_aliases_in_file() {
     local alias_line tmp insert_line short full marker before
     local aliases=()
 
+    # Retire the old reader shortcut without removing a personal read alias.
+    if [[ -f $shell_rc ]]; then
+        tmp="$(mktemp "${shell_rc}.tmp.XXXXXX")"
+        awk '
+            $1 == "alias" && NF == 2 {
+                split($2, pair, "=")
+                value = pair[2]
+                gsub(/[\047\042]/, "", value)
+                if (pair[1] == "read" && value ~ /^(\/usr\/local\/bin\/)?simpleread$/) next
+            }
+            { print }
+        ' "$shell_rc" > "$tmp"
+        if ! cmp -s "$shell_rc" "$tmp"; then
+            cat "$tmp" > "$shell_rc"
+            CHANGES_MADE=1
+        fi
+        rm -f "$tmp"
+    fi
+
     while IFS=: read -r short full; do
         [[ -n $short && -n $full ]] || continue
         command -v "$full" >/dev/null 2>&1 || continue
