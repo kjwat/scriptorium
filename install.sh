@@ -627,7 +627,7 @@ mapfile -t EXPECTED_SIMPLESUITE_COMMANDS \
     < <(scriptorium_suite_programs "$HOST_OS" 0)
 EXPECTED_SIMPLESUITE_COMMANDS+=(simplecheck simpletrident)
 case "$HOST_OS" in
-    Linux | FreeBSD) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleplay simpleterm) ;;
+    Linux | FreeBSD) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleplay simpleterm simplepdf) ;;
     Darwin) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleterm) ;;
 esac
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
@@ -1104,7 +1104,9 @@ case "$HOST_OS" in
         SIMPLEPLAY_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \
             SIMPLEPLAY_HEADLESS_ONLY=0 \
             "$suite_source/install-simpleplay.sh" --no-deps
-        desktop_programs+=(simpleplay simpleplay-core)
+        desktop_programs+=(simpleplay simpleplay-core simplepdf)
+        SIMPLEPDF_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \
+            "$suite_source/install-simplepdf.sh" --no-deps
         ;;
     Darwin)
         SIMPLEPLAY_NONINTERACTIVE="$SCRIPTORIUM_NONINTERACTIVE" \

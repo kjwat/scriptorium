@@ -17,7 +17,7 @@ with open(os.environ['TEST_CALLS'], 'a') as output:
     output.write(json.dumps([app, sys.argv[1:], os.environ[app.upper() + '_NONINTERACTIVE']]) + '\\n')
 if os.environ.get('TEST_FAIL') == app:
     sys.exit(17)
-programs = ['simpleterm'] if app == 'simpleterm' else ['simpleplay-core']
+programs = [app] if app in ('simpleterm', 'simplepdf') else ['simpleplay-core']
 if app == 'simpleplay' and '--headless-only' not in sys.argv:
     assert os.environ['SIMPLEPLAY_HEADLESS_ONLY'] == '0'
     programs.append('simpleplay')
@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-desktop-') as temporary:
     base = Path(temporary)
     suite = base / 'suite with spaces'
     suite.mkdir()
-    for app in ('simpleplay', 'simpleterm'):
+    for app in ('simpleplay', 'simpleterm', 'simplepdf'):
         path = suite / f'install-{app}.sh'
         path.write_text(stub)
         path.chmod(0o755)
@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-desktop-') as temporary:
             binary.mkdir()
             expected = ['simpleterm', 'simpleplay-core']
             if system != 'Darwin':
-                expected.append('simpleplay')
+                expected.extend(('simpleplay', 'simplepdf'))
             for program in expected:
                 (legacy / program).write_text('old user-local copy')
             calls = directory / 'calls.jsonl'
@@ -56,8 +56,11 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-desktop-') as temporary:
             assert result.returncode == 0, result.stderr
             recorded = [json.loads(line) for line in calls.read_text().splitlines()]
             player_args = ['--no-deps', '--headless-only'] if system == 'Darwin' else ['--no-deps']
-            assert recorded == [['simpleplay', player_args, unattended],
-                                ['simpleterm', ['--no-deps'], unattended]], recorded
+            expected_calls = [['simpleplay', player_args, unattended]]
+            if system != 'Darwin':
+                expected_calls.append(['simplepdf', ['--no-deps'], unattended])
+            expected_calls.append(['simpleterm', ['--no-deps'], unattended])
+            assert recorded == expected_calls, recorded
             assert all((binary / name).is_file() and not (legacy / name).exists() for name in expected)
             # A failed player install must stop the full install and retain old copies.
             calls.unlink()

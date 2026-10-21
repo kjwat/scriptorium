@@ -12,10 +12,12 @@ scriptorium_program_aliases() {
     fi
     # These desktop programs have separate installers and are intentionally
     # absent from the command-line Suite manifest.
-    printf '%s\n' 'term:simpleterm'
-    case $1 in
-        Linux | FreeBSD) printf '%s\n' 'play:simpleplay' ;;
-    esac
+    if command -v simplesuite_desktop_aliases >/dev/null 2>&1; then
+        simplesuite_desktop_aliases "$1"
+    else
+        printf '%s\n' 'term:simpleterm'
+        case $1 in Linux | FreeBSD) printf '%s\n' 'play:simpleplay' 'pdf:simplepdf' ;; esac
+    fi
     printf '%s\n' 'check:simplecheck' 'trident:simpletrident'
     } | awk -F: '!seen[$1]++'
 }
@@ -24,7 +26,7 @@ scriptorium_suite_programs() {
     scriptorium_program_aliases "$1" "$2" |
         while IFS=: read -r short full; do
             case $full in
-                simplecheck | simpletrident | simpleterm | simpleplay) ;;
+                simplecheck | simpletrident | simpleterm | simpleplay | simplepdf) ;;
                 *) printf '%s\n' "$full" ;;
             esac
         done

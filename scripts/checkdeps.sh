@@ -127,8 +127,8 @@ dep_hint() {
         pkg-config) echo "provided by pkg-config or pkgconf" ;;
         xdg-open) echo "Linux desktop helper; provided by xdg-utils; used by simplefiles external-open" ;;
         open) echo "macOS built-in external-open helper" ;;
-        pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimplePDF and SimpleChange" ;;
-        pandoc) echo "used by SimplePDF EPUB support and SimpleChange documents/ebooks" ;;
+        pdftotext|pdfinfo|pdftohtml|pdftoppm) echo "provided by Poppler; used by SimpleRead and SimpleChange" ;;
+        pandoc) echo "used by SimpleRead EPUB support and SimpleChange documents/ebooks" ;;
         c44|djvm|djvused|djvutxt|ddjvu) echo "provided by DjVuLibre; used by SimpleChange DjVu conversions" ;;
         simpleplay-core) echo "built by the SimplePlay installer; audio apps and alarms" ;;
         git) echo "used by simplever" ;;
@@ -158,7 +158,7 @@ dep_hint() {
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
-        fzf) echo "used by simpleburn ISO selection and simplepdf fuzzy file selection" ;;
+        fzf) echo "used by simpleburn ISO selection and simpleread fuzzy file selection" ;;
         links) echo "default terminal browser used by simplenews; configurable" ;;
         gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
         wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;
@@ -543,13 +543,13 @@ packages_for_family() {
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
-            PKG_REQUIRED="build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
+            PKG_REQUIRED="libevince-dev poppler-data build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -S --needed"
-            PKG_REQUIRED="base-devel pkgconf ncurses glib2 curl openssl"
+            PKG_REQUIRED="evince base-devel pkgconf ncurses glib2 curl openssl"
             PKG_RUNTIME="git poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
             arch_audio="libpulse"
 
@@ -562,7 +562,7 @@ packages_for_family() {
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
-            PKG_REQUIRED="gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
+            PKG_REQUIRED="evince-devel gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
@@ -586,7 +586,7 @@ packages_for_family() {
             ;;
         freebsd)
             INSTALL="sudo pkg install"
-            PKG_REQUIRED="bash gmake pkgconf ncurses glib curl openssl"
+            PKG_REQUIRED="evince bash gmake pkgconf ncurses glib curl openssl"
             PKG_RUNTIME="git poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3 devel/py-pygobject webkit2-gtk_41"
             ;;
@@ -650,6 +650,10 @@ case "$os" in
         check_pc required gtk+-3.0 "GTK 3" 'gtk+-3.0 >= 3.24'
         check_pc required vte-2.91 "VTE" 'vte-2.91 >= 0.60'
         check_pc required libpcre2-8 "PCRE2"
+        if [ "$os" != Darwin ]; then
+            check_pc required evince-view-3.0 "Evince GTK 3 view"
+            check_pc required evince-document-3.0 "Evince document backends"
+        fi
         for media_library in cairo libavformat libavcodec libavutil libavfilter \
             libswscale libswresample sdl2 libass fluidsynth libsidplayfp json-glib-1.0; do
             check_pc required "$media_library" "$media_library"
