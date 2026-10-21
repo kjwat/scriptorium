@@ -53,7 +53,7 @@ say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn simplebook:simplebook vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn book:simplebook vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -109,7 +109,8 @@ grep -qx "alias save='simplesave'" "$HOME/save-check"
 [[ $(grep -c "^alias burn='simpleburn'$" "$HOME/.bashrc") == 1 ]]
 bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias burn; burn' >"$HOME/burn-check" 2>/dev/null
 grep -qx "alias burn='simpleburn'" "$HOME/burn-check"
-bash --noprofile --rcfile "$HOME/.bashrc" -ic 'simplebook' >/dev/null 2>&1
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias book; book' >"$HOME/book-check" 2>/dev/null
+grep -qx "alias book='simplebook'" "$HOME/book-check"
 if [[ $TEST_MODE == preserve ]]; then
     sed -n '/^# BEGIN SimpleOS application aliases$/,/^# END SimpleOS application aliases$/p' \
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"

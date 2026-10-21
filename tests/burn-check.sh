@@ -45,7 +45,7 @@ printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
 programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote simplebook:simplebook pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote book:simplebook pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"

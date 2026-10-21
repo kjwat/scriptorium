@@ -31,7 +31,7 @@ cat >"$FAKE_REPO/program-manifest.sh" <<'EOF'
 simplesuite_program_aliases() {
     printf '%s\n' browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock \
         files:simplefiles flac:simpleflac game:simplegame mail:simplemail \
-        news:simplenews note:simplenote simplebook:simplebook pod:simplepod radio:simpleradio \
+        news:simplenews note:simplenote book:simplebook pod:simplepod radio:simpleradio \
         save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall \
         ver:simplever vis:simplevis words:simplewords
     case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
@@ -91,7 +91,7 @@ printf '%s\n' "$fixture_bindir" >"$HOME/install-stage"
 [ "${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}" = skip ]
 
 programs='simplebrowse simpleburn simplechange simplecal simpleclock simplefiles simpleflac simplegame simplemail simplenote simplebook simplepod simpleradio simplenews simplesave simplesearch simplestats simplever simplevis simplewords'
-aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote simplebook:simplebook pod:simplepod radio:simpleradio save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
+aliases='browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail news:simplenews note:simplenote book:simplebook pod:simplepod radio:simpleradio save:simplesave search:simplesearch stats:simplestats suite-uninstall:simplesuite-uninstall ver:simplever vis:simplevis words:simplewords'
 case "$(uname -s)" in
     Linux)
         programs="$programs simplenet simpleblue simplevol"

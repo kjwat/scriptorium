@@ -212,7 +212,7 @@ done
 for alias_mapping in \
     blue:simpleblue browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck \
     change:simplechange clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
-    mail:simplemail net:simplenet news:simplenews note:simplenote simplebook:simplebook pdf:simplepdf \
+    mail:simplemail net:simplenet news:simplenews note:simplenote book:simplebook pdf:simplepdf \
     pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats \
     suite-uninstall:simplesuite-uninstall trident:simpletrident \
     ver:simplever vis:simplevis vol:simplevol words:simplewords; do
@@ -372,7 +372,7 @@ clean_shell_rc() {
             aliases["search"] = "simplesearch"
             aliases["game"] = "simplegame"
             aliases["read"] = "simpleread"
-            aliases["simplebook"] = "simplebook"
+            aliases["book"] = "simplebook"
             aliases["pdf"] = "simplepdf"
             aliases["news"] = "simplenews"
             aliases["mail"] = "simplemail"
