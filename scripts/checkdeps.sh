@@ -158,7 +158,7 @@ dep_hint() {
         crontab) echo "cron fallback for SimpleCal/SimpleClock reminders when systemd user services are unavailable" ;;
         file) echo "optional helper for file type detection" ;;
         less) echo "optional pager" ;;
-        fzf) echo "used by simpleburn ISO selection and simplebook fuzzy file selection" ;;
+        fzf) echo "used by simpleburn ISO selection" ;;
         links) echo "default terminal browser used by simplenews; configurable" ;;
         gio) echo "provided by glib; used by simplefiles desktop open/trash/unmount features" ;;
         wl-copy|wl-paste) echo "provided by wl-clipboard; used by simplewords Wayland clipboard" ;;
