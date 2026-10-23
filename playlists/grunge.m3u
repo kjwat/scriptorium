@@ -6,6 +6,8 @@ https://bigrradio.cdnstream1.com/5200_128
 #EXTINF:-1,Big R Radio - Grunge FM
 https://bigrradio.cdnstream1.com/5203_128
 
+#EXTINF:-1,94.3 The Shark - Long Island
+https://playerservices.streamtheworld.com/api/livestream-redirect/WWSKFM_SC
 #EXTINF:-1,Post Grunge Radio
 http://79.111.119.111:8002/postgrunge
 
@@ -83,3 +85,4 @@ https://stream.overdrivelive.net:8000/alternative_128.mp3
 
 #EXTINF:-1,StarStream Radio - Rock 90s and 00s
 https://streaming.live365.com/a65639
+
