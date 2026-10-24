@@ -57,6 +57,16 @@ PC
                 fi
                 ;;
         esac
+        case " $* " in
+            *' libevince-dev '*)
+                if [ "${FAKE_APT_OMIT_EVINCE:-0}" != 1 ]; then
+                    for pdf_library in evince-view-3.0 evince-document-3.0; do
+                        printf 'Name: %s\nDescription: Evince fixture\nVersion: 48.1\n' \
+                            "$pdf_library" >"$FAKE_BIN/pkgconfig/$pdf_library.pc"
+                    done
+                fi
+                ;;
+        esac
         for runtime_command in less ebook-convert calibre-debug soffice pdfinfo pdftohtml pdftoppm \
             c44 djvm djvused djvutxt ddjvu ntfsfix blkid avahi-daemon avahi-browse \
             avahi-publish-service exportfs mount.nfs mount.cifs smbd testparm \
@@ -95,7 +105,7 @@ EOF
 cat >"$fake_bin/pkg-config" <<'EOF'
 #!/bin/sh
 case "$*" in
-    *libnm*)
+    *libnm*|*evince-*)
         PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="$FAKE_BIN/pkgconfig" \
             "$TEST_PKG_CONFIG" "$@"
         ;;
@@ -124,7 +134,7 @@ grep -q '^install -y ' "$apt_log"
 for package_name in \
     calibre libreoffice-writer libreoffice-calc djvulibre-bin libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
     openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2 \
-    libgtk-3-dev libvte-2.91-dev libpcre2-dev libavformat-dev libavcodec-dev \
+    libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev libavformat-dev libavcodec-dev \
     libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev \
     libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
@@ -162,6 +172,36 @@ PATH="$fake_bin" \
     exit 1
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
+
+# Missing either Evince development module must trigger repair even when the
+# rest of the desktop is complete. APT success must not hide missing headers.
+for pdf_library in evince-view-3.0 evince-document-3.0; do
+    rm "$fake_bin/pkgconfig/$pdf_library.pc"
+    : >"$apt_log"
+    install_status=0
+    HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+    FAKE_APT_OMIT_EVINCE=1 PATH="$fake_bin" \
+    SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
+        "$fixture/scripts/install-packages.sh" >"$tmp/evince-incomplete.log" 2>&1 \
+        || install_status=$?
+    [ "$install_status" -eq 1 ] || {
+        echo "linux-package-bootstrap-check: missing $pdf_library was accepted" >&2
+        exit 1
+    }
+    grep -Eq '^install -y .* libevince-dev( |$)' "$apt_log"
+    grep -q 'expected dependencies are still unavailable' "$tmp/evince-incomplete.log"
+    grep -q "^MISSING: Evince .*pkg-config: $pdf_library;.*libevince-dev" \
+        "$tmp/evince-incomplete.log"
+
+    : >"$apt_log"
+    HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+    SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" PATH="$fake_bin" \
+        "$fixture/scripts/install-packages.sh" >"$tmp/evince-repair.log" 2>&1
+    grep -Eq '^install -y .* libevince-dev( |$)' "$apt_log"
+    PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="$fake_bin/pkgconfig" \
+        "$TEST_PKG_CONFIG" --exists evince-view-3.0 evince-document-3.0
+    grep -q 'Package dependency installation verified' "$tmp/evince-repair.log"
+done
 
 # A missing converter helper must repair its package even when the rest of
 # the desktop and runtime stack is complete.
@@ -340,4 +380,4 @@ fi
 grep -q 'Trident server package installation verified' \
     "$tmp/install-promotion.log"
 
-echo 'OK Scriptorium repairs libnm build dependencies and splits Trident packages'
+echo 'OK Scriptorium repairs Evince and libnm build dependencies and splits Trident packages'

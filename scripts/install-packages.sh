@@ -299,6 +299,12 @@ dependencies_already_present() {
     have_pkgconfig 'vte-2.91 >= 0.60' || return 1
     have_pkgconfig libpcre2-8 || return 1
     case "$(uname -s 2>/dev/null || true)" in
+        Linux | FreeBSD)
+            have_pkgconfig evince-view-3.0 || return 1
+            have_pkgconfig evince-document-3.0 || return 1
+            ;;
+    esac
+    case "$(uname -s 2>/dev/null || true)" in
         Linux | FreeBSD | Darwin)
             have_cmd c++ || return 1
             if [ "$family" != macos ]; then have_cmd update-desktop-database || return 1; fi
@@ -979,31 +985,31 @@ if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
     esac
 fi
 
-# Shared player and terminal build/runtime dependencies.
+# Shared player, PDF reader and terminal build/runtime dependencies.
 desktop_packages=
 case "$family" in
     debian)
-        desktop_packages='libgtk-3-dev libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont'
+        desktop_packages='libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont'
         ;;
     arch)
-        desktop_packages='gtk3 vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid'
+        desktop_packages='gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid'
         ;;
     void)
-        desktop_packages='gtk+3-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid'
+        desktop_packages='gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid'
         ;;
     alpine)
         # Alpine does not package libsidplayfp; provision it before installing
         # SimplePlay. Do not request a nonexistent package or enable testing.
-        desktop_packages='gtk+3.0-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm'
+        desktop_packages='gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm'
         ;;
     fedora)
-        desktop_packages='gcc-c++ gtk3-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        desktop_packages='gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
         ;;
     suse)
-        desktop_packages='gcc-c++ gtk3-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel libSDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        desktop_packages='gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel libSDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
         ;;
     freebsd)
-        desktop_packages='gtk3 vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
+        desktop_packages='gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
         ;;
     macos)
         desktop_packages='gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib'

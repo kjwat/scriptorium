@@ -88,7 +88,7 @@ PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=server \
 
 grep -q '^update$' "$pkg_log"
 for package_name in calibre libreoffice djvulibre devel/py-pygobject webkit2-gtk_41 avahi-app e2fsprogs sudo fzf \
-    gtk3 vte3 pcre2 ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont; do
+    gtk3 evince vte3 pcre2 ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \
         "$pkg_log" || {
         echo "freebsd-package-bootstrap-check: pkg transaction omitted $package_name" >&2

@@ -4,5 +4,5 @@ nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-l
 python3 py3-gobject3 webkit2gtk-4.1
 isync msmtp calcurse links curl ca-certificates rsync dcron
 pipewire pipewire-tools pipewire-pulse wireplumber lsp-plugins-lv2
-gtk+3.0-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm
+gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm
 # Provision libsidplayfp separately; it is not in Alpine's stable repositories.

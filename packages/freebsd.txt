@@ -3,4 +3,4 @@ sudo git poppler-utils hs-pandoc calibre libreoffice djvulibre
 nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs e2fsprogs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad avahi-app
 python3 devel/py-pygobject webkit2-gtk_41
 isync msmtp calcurse links ca_root_nss rsync
-gtk3 vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont
+gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont

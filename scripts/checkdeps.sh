@@ -184,6 +184,7 @@ pc_hint() {
         gio-2.0) echo "provided by GLib/GIO development package; used by simplefiles removable-volume discovery" ;;
         libcurl) echo "provided by libcurl/curl development package; used by simplebrowse, simplepod, and simplenews" ;;
         openssl) echo "provided by OpenSSL development package; used by simplepod PodcastIndex authentication" ;;
+        evince-view-3.0|evince-document-3.0) echo "provided by $(pkg_for_dep "$1"); used by SimplePDF" ;;
         libnm) echo "provided by $(pkg_for_dep libnm); used by the default SimpleNet Linux build" ;;
         avahi-client) echo "native SimpleServe discovery; provided by Avahi client development headers and libraries" ;;
     esac
@@ -393,6 +394,15 @@ detect_platform() {
 
 pkg_for_dep() {
     case "$family:$1" in
+        *:evince-view-3.0|*:evince-document-3.0)
+            case "$family" in
+                debian) echo "libevince-dev" ;;
+                arch | freebsd) echo "evince" ;;
+                alpine) echo "evince-dev" ;;
+                void | fedora | suse) echo "evince-devel" ;;
+                *) echo "Evince 3 development files" ;;
+            esac
+            ;;
         *:"SimpleVol effects"|*:pipewire|*:pipewire-pulse|*:pw-cli|*:pw-dump|*:wireplumber) simplevol_pkg_hint ;;
         debian:libnm) echo "libnm-dev" ;;
         void:libnm|suse:libnm) echo "NetworkManager-devel" ;;
@@ -537,7 +547,7 @@ packages_for_family() {
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
-            PKG_REQUIRED="base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
+            PKG_REQUIRED="evince-devel base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
@@ -568,13 +578,13 @@ packages_for_family() {
             ;;
         alpine)
             INSTALL="sudo apk add"
-            PKG_REQUIRED="build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
+            PKG_REQUIRED="evince-dev build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
-            PKG_REQUIRED="gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
+            PKG_REQUIRED="evince-devel gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;

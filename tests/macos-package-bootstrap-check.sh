@@ -39,6 +39,7 @@ EOF
 
 cat >"$fake_bin/pkg-config" <<'EOF'
 #!/bin/sh
+case "$*" in *evince-*) exit 1 ;; esac
 [ "${1-}" = --exists ]
 EOF
 

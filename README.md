@@ -756,3 +756,6 @@ SimpleBook is the terminal PDF/EPUB/Kindle reader (`simplebook`); SimplePDF is t
 GTK PDF reader (`pdf`). Full installation invokes SimpleSuite's
 `install-simplepdf.sh` alongside the Simpleterm and Simpleplay installers on
 Linux/FreeBSD. You can run that script separately for installation or removal.
+The package phase installs Evince's development files and verifies both
+`evince-view-3.0` and `evince-document-3.0` before building SimplePDF. On
+SimpleOS/Debian/Ubuntu this includes `libevince-dev` and `poppler-data`.

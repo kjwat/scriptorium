@@ -4,4 +4,4 @@ nano zip unzip tar xdg-utils file less fzf libpulse pipewire-jack glib2 util-lin
 python python-gobject webkit2gtk-4.1
 isync msmtp calcurse links ca-certificates rsync cronie
 pipewire pipewire-audio pipewire-pulse wireplumber lsp-plugins-lv2
-gtk3 vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid
+gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid
