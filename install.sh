@@ -1,4 +1,5 @@
 #!/bin/sh
+sh "$(dirname -- "$0")/require-platform.sh" "$(dirname -- "$0")" scriptorium || exit $?
 # shellcheck shell=bash
 
 # Alpine and FreeBSD base installations do not include Bash. Keep this bootstrap in

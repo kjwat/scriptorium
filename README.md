@@ -1,5 +1,7 @@
 # Scriptorium
 
+Linux/macOS upstream. FreeBSD uses [scriptorium-freebsd](https://github.com/kjwat/scriptorium-freebsd); do not install this source tree on FreeBSD.
+
 A reproducible command-line writing environment for SimpleSuite and related
 terminal tools.
 

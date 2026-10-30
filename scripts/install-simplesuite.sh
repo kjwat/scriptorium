@@ -2,7 +2,11 @@
 set -eu
 
 SCRIPTORIUM_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
-REPO_URL="${SIMPLESUITE_REPO_URL:-https://github.com/kjwat/simplesuite.git}"
+case $(uname -s) in
+    FreeBSD) default_suite_repository=https://github.com/kjwat/simplesuite-freebsd.git ;;
+    *) default_suite_repository=https://github.com/kjwat/simplesuite.git ;;
+esac
+REPO_URL="${SIMPLESUITE_REPO_URL:-$default_suite_repository}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
 SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
@@ -236,6 +240,12 @@ SIMPLESUITE_RESOLVED_SHA=$(git -C "$DEST" rev-parse --verify HEAD^{commit}) || {
 if [ -n "$(git -C "$DEST" status --porcelain --untracked-files=normal)" ]; then
     echo "SimpleSuite release checkout is dirty after update: $DEST" >&2
     echo "Review or remove local changes before building an installable image." >&2
+    exit 1
+fi
+if [ -f "$DEST/SIMPLEOS-PLATFORM" ]; then
+    sh "$DEST/require-platform.sh" "$DEST" simplesuite
+elif [ "$SIMPLESUITE_HOST_OS" = FreeBSD ] && [ -z "${SIMPLESUITE_REPO_URL+x}" ]; then
+    echo 'FreeBSD requires the separate kjwat/simplesuite-freebsd source tree.' >&2
     exit 1
 fi
 if [ ! -r "$DEST/program-manifest.sh" ]; then
