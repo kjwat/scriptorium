@@ -1,3 +1,10 @@
+EVENT_ID=2026-10-13-0000-call-progressive-to-renew-your-policy
+OCCURRENCE_ID=2026-10-13-0000-call-progressive-to-renew-your-policy
+DUE=2026-10-13T09:59:00
+STATUS=fired
+FIRED_AT=2026-11-02T19:13:00
+FIRED_ON=thetyper
+
 EVENT_ID=2026-10-01-1200-allergy-shot
 OCCURRENCE_ID=2026-10-01-1200-allergy-shot
 DUE=2026-10-01T12:00:00
