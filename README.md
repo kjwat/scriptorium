@@ -67,6 +67,10 @@ cd scriptorium
 ./install.sh
 ```
 
+At either GitHub credential prompt, press Enter to skip setup and keep existing
+credentials and credential-helper settings. A new PAT is stored only when you
+explicitly supply one; entering a username does not require replacing a token.
+
 Run this from an interactive shell. `install.sh` detects Linux distributions,
 FreeBSD, and macOS automatically. Linux and FreeBSD package installation needs
 either a root shell or working `sudo`; macOS needs Homebrew and Apple Command

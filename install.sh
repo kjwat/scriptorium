@@ -975,7 +975,6 @@ printf 'Git identity: %s <%s>\n' "$saved_git_name" "$saved_git_email"
 
 say "Configuring Git"
 CHANGES_MADE=1
-git config --global credential.helper store
 git config --global pull.rebase true
 git config --global rebase.autoStash true
 printf 'Git pull mode: rebase with autostash\n'
@@ -985,7 +984,7 @@ say "Configuring GitHub credentials"
 github_user=
 if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
     while :; do
-        IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user
+        IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user || github_user=
         github_user="${github_user#"${github_user%%[![:space:]]*}"}"
         github_user="${github_user%"${github_user##*[![:space:]]}"}"
 
@@ -1003,66 +1002,64 @@ if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
 fi
 
 if [[ -z "$github_user" ]]; then
-    printf 'GitHub credential setup skipped. Public clones still work; configure authentication before pushing.\n'
+    printf 'GitHub credential setup skipped; existing credentials and authentication settings are unchanged.\n'
 else
-    while :; do
-        IFS= read -r -s -p "Paste your GitHub PAT: " github_pat
-        printf '\n'
-        github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
+    github_pat=
+    IFS= read -r -s -p "Paste your GitHub PAT (leave blank to keep existing credentials): " github_pat || github_pat=
+    printf '\n'
+    github_pat="$(printf '%s' "$github_pat" | tr -d '\r\n')"
 
-        if [[ -z "$github_pat" ]]; then
-            warn "GitHub PAT cannot be blank after choosing a GitHub username."
-            continue
-        fi
+    if [[ -z "${github_pat//[[:space:]]/}" ]]; then
+        printf 'GitHub credential setup skipped; existing credentials and authentication settings are unchanged.\n'
+    else
 
-        break
-    done
+        github_response="$(mktemp "${TMPDIR:-/tmp}/scriptorium-github.XXXXXX")"
+        github_http_code="$(
+            curl --connect-timeout 5 --max-time 10 -sS -o "$github_response" -w '%{http_code}' \
+                -H "Authorization: Bearer $github_pat" \
+                -H "Accept: application/vnd.github+json" \
+                https://api.github.com/user 2>/dev/null || true
+        )"
+        github_login="$(
+            sed -n 's/^[[:space:]]*"login":[[:space:]]*"\([^"]*\)".*/\1/p' "$github_response" |
+            head -n 1
+        )"
+        rm -f "$github_response"
 
-    github_response="$(mktemp "${TMPDIR:-/tmp}/scriptorium-github.XXXXXX")"
-    github_http_code="$(
-        curl --connect-timeout 5 --max-time 10 -sS -o "$github_response" -w '%{http_code}' \
-            -H "Authorization: Bearer $github_pat" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/user 2>/dev/null || true
-    )"
-    github_login="$(
-        sed -n 's/^[[:space:]]*"login":[[:space:]]*"\([^"]*\)".*/\1/p' "$github_response" |
-        head -n 1
-    )"
-    rm -f "$github_response"
-
-    case "$github_http_code" in
-        200)
-            if [[ -z "$github_login" ]]; then
+        case "$github_http_code" in
+            200)
+                if [[ -z "$github_login" ]]; then
+                    unset github_pat
+                    warn "GitHub returned an unexpected authentication response."
+                    exit 1
+                fi
+                if [[ "$github_login" != "$github_user" ]]; then
+                    unset github_pat
+                    warn "That PAT belongs to '$github_login', not '$github_user'."
+                    exit 1
+                fi
+                printf 'Authenticated with GitHub as %s.\n' "$github_login"
+                ;;
+            401 | 403)
                 unset github_pat
-                warn "GitHub returned an unexpected authentication response."
+                warn "GitHub rejected that PAT (HTTP $github_http_code)."
                 exit 1
-            fi
-            if [[ "$github_login" != "$github_user" ]]; then
-                unset github_pat
-                warn "That PAT belongs to '$github_login', not '$github_user'."
-                exit 1
-            fi
-            printf 'Authenticated with GitHub as %s.\n' "$github_login"
-            ;;
-        401 | 403)
-            unset github_pat
-            warn "GitHub rejected that PAT (HTTP $github_http_code)."
-            exit 1
-            ;;
-        *)
-            warn "GitHub credential validation was unavailable (HTTP ${github_http_code:-000})."
-            warn "Storing the credential as entered; Git will verify it on first use."
-            ;;
-    esac
+                ;;
+            *)
+                warn "GitHub credential validation was unavailable (HTTP ${github_http_code:-000})."
+                warn "Storing the credential as entered; Git will verify it on first use."
+                ;;
+        esac
 
-    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' \
-        "$github_user" "$github_pat" |
-    git credential-store --file "$HOME/.git-credentials" store
-    chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
-    mkdir -p "$HOME/.config/scriptorium"
-    printf '%s\n' "$github_user" > "$HOME/.config/scriptorium/github-credential-user"
-    chmod 600 "$HOME/.config/scriptorium/github-credential-user"
+        git config --global credential.helper store
+        printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n\n' \
+            "$github_user" "$github_pat" |
+        git credential-store --file "$HOME/.git-credentials" store
+        chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+        mkdir -p "$HOME/.config/scriptorium"
+        printf '%s\n' "$github_user" > "$HOME/.config/scriptorium/github-credential-user"
+        chmod 600 "$HOME/.config/scriptorium/github-credential-user"
+    fi
     unset github_pat
 fi
 setup_gmail=n
