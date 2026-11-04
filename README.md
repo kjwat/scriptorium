@@ -331,7 +331,8 @@ SimplePlay checks its required codecs after building. Where the distribution's
 FFmpeg lacks required formats, the Suite builds a checksum-pinned private
 FFmpeg and installs its libraries under
 `/usr/local/share/simplesuite/simpleplay/lib`. System FFmpeg stays managed by
-the distribution. Source builds take longer on the first installation.
+the distribution. Source builds take longer on the first installation. See
+[PORTABILITY-CHECK.md](PORTABILITY-CHECK.md) for the tested platforms and limits.
 
 On macOS 14.2 or newer, the same `./install.sh` path validates the selected SDK,
 installs the Homebrew package set once, and hands the checkout to SimpleSuite's
