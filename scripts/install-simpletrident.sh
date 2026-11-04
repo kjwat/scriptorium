@@ -66,12 +66,8 @@ remove_legacy_commands() {
     done
 }
 
-if [ -x "$DEST" ]; then
-    remove_legacy_commands
-    printf 'Reusing existing %s; Bash installs alias trident=%s\n' "$DEST" "$DEST"
-    exit 0
-fi
-temporary="$(mktemp "${TMPDIR:-/tmp}/simpletrident.XXXXXX")"
+mkdir -p "$ROOT/build"
+temporary="$(mktemp "$ROOT/build/.simpletrident.XXXXXX")"
 system_tmp=
 
 cleanup() {
@@ -108,5 +104,7 @@ system_tmp=$(run_install_command mktemp "$SYSTEM_BIN_DIR/.simpletrident.XXXXXX")
 run_install_command install -m 0755 "$temporary" "$system_tmp"
 run_install_command mv -f "$system_tmp" "$DEST"
 system_tmp=
+cmp "$temporary" "$DEST"
+mv -f "$temporary" "$ROOT/build/simpletrident"
 remove_legacy_commands
 printf 'Installed %s (shell alias: trident)\n' "$DEST"

@@ -400,11 +400,21 @@ SIMPLESUITE_INSTALL_REMINDERS=0 \
 [ ! -e "$HOME/simpleserve-system-verified" ]
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 
-# An unavailable update source must reuse the clean checkout and keep its SHA.
+# An unavailable update source must stop; cached installs require an explicit opt-in.
 offline_sha=$(git -C "$HOME/simplesuite" rev-parse HEAD)
 git -C "$HOME/simplesuite" remote set-url origin "$TMP/unavailable-source"
+cp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/before-offline"
+if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+   FAKE_UNAME=Linux SIMPLESUITE_DIR="$HOME/simplesuite" SIMPLESUITE_INSTALL_REMINDERS=0 \
+       "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/failed-fetch.log" 2>&1; then
+    echo 'install-simplesuite-check: failed upstream fetch was accepted' >&2
+    exit 1
+fi
+cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/before-offline"
+grep -q 'Cannot refresh SimpleSuite' "$TMP/failed-fetch.log"
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 FAKE_UNAME=Linux SIMPLESUITE_DIR="$HOME/simplesuite" SIMPLESUITE_INSTALL_REMINDERS=0 \
+SCRIPTORIUM_OFFLINE=1 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/offline.log" 2>&1
 grep -q 'building the existing local checkout' "$TMP/offline.log"
 [ "$(git -C "$HOME/simplesuite" rev-parse HEAD)" = "$offline_sha" ]

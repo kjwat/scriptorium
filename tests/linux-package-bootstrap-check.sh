@@ -131,6 +131,7 @@ PATH="$fake_bin" \
     "$fixture/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
 grep -q '^install -y ' "$apt_log"
+grep -q -- '--no-upgrade --no-remove --no-install-recommends' "$apt_log"
 for package_name in \
     calibre libreoffice-writer libreoffice-calc djvulibre-bin libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
     openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2 \

@@ -365,8 +365,17 @@ SIMPLESUITE_DIR=/path/to/simplesuite ./install.sh
 SIMPLESUITE_REPO_URL=https://example/repo.git ./install.sh
 ```
 
-If the checkout already exists, Scriptorium updates it with `git pull
---ff-only`. Scriptorium resolves that moving `main` checkout to an exact commit,
+On startup, the installer fetches its own tracked upstream and fast-forwards
+the Scriptorium checkout. If its instructions changed, it restarts the updated
+installer before selecting packages or installing programs. Local changes are
+preserved; an update that needs to modify a dirty checkout stops with an error.
+Source archives continue to work without a Git self-update.
+
+The SimpleSuite checkout is then fetched and fast-forwarded separately.
+A failed fetch stops installation instead of silently installing old source.
+For a deliberate offline installation using both cached checkouts, run
+`SCRIPTORIUM_OFFLINE=1 ./install.sh`; this does not claim to refresh upstream.
+Scriptorium resolves the SimpleSuite checkout to an exact commit,
 requires a clean tree, and refuses installation unless that commit passes the
 SimpleWords release gate. It verifies the installed `simplewords --version`
 and `/usr/local/share/simplesuite/install-manifest` against the resolved commit,
@@ -378,7 +387,13 @@ unrelated user commands, and keeps the existing SimpleOS daemon at
 `/usr/local/sbin/simpleserved`. Helper scripts such as `simplesuite-uninstall`
 and `setup-server` are also installed in the system bin directory. SimpleCheck and SimpleTrident
 use that same directory and remove their legacy user-local copies after a
-successful install. `~/.local/bin` remains available for personal utilities.
+successful install. Both dashboards are rebuilt on each install; the presence
+or timestamp of an old executable is not proof that it is current. Before
+reporting success, `scripts/verify-installed-programs.sh` compares all installed
+programs with their current build outputs, including the desktop programs and
+audio engine, and checks the installed revision records. It can also be run
+separately to audit an existing installation.
+`~/.local/bin` remains available for personal utilities.
 
 On SimpleOS, development builds must also replace the corresponding commands
 in `/usr/local/bin`. Standalone SimpleSuite's `make install` uses the same

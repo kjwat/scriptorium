@@ -49,7 +49,14 @@ PY
 snapshot "$suite" "$work/simplesuite"
 snapshot "$repo" "$work/scriptorium"
 git -C "$work/simplesuite" remote set-url origin http://192.0.2.1/unreachable.git
-mkdir -p "$work/home" "$work/bin" "$work/etc" "$work/system/run/systemd/system"
+mkdir -p "$work/home" "$work/bin" "$work/etc" "$work/system/run/systemd/system" \
+    "$work/local/bin" "$work/local/sbin" "$work/local/share/simplesuite" \
+    "$work/applications"
+# Namespace root cannot write host-owned /usr/local. Give the real installers
+# writable, private system prefixes, including desktop launchers and assets.
+if [ -d /usr/local/share/simplesuite/lv2 ]; then
+    cp -a /usr/local/share/simplesuite/lv2 "$work/local/share/simplesuite/"
+fi
 # A private /etc prevents even optional installer setup from touching the host.
 for file in passwd group nsswitch.conf os-release ld.so.cache; do
     [ ! -r "/etc/$file" ] || cp -L "/etc/$file" "$work/etc/$file"
@@ -72,6 +79,8 @@ cat >"$work/run.sh" <<'RUN'
 #!/bin/bash
 set -euo pipefail
 mount --bind "$OFFLINE_WORK/etc" /etc
+mount --bind "$OFFLINE_WORK/local" /usr/local
+mount --bind "$OFFLINE_WORK/applications" /usr/share/applications
 export HOME="$OFFLINE_WORK/home"
 export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
 export XDG_CONFIG_HOME="$HOME/.config" XDG_DATA_HOME="$HOME/.local/share"
@@ -82,12 +91,14 @@ export SIMPLESERVE_SYSTEM_INIT=systemd SIMPLESUITE_NETWORK_ROLE=client
 export SIMPLESUITE_ROLE_FILE="$OFFLINE_WORK/system/etc/simpleserve-role"
 export SIMPLESUITE_NONINTERACTIVE=1 SIMPLESUITE_JOBS=4
 export SCRIPTORIUM_NONINTERACTIVE=1 SCRIPTORIUM_NETWORK_ROLE=client
+export SCRIPTORIUM_OFFLINE=1
 export SCRIPTORIUM_INSTALL_TAILSCALE=1 SCRIPTORIUM_TAILSCALE_TEST_MODE=1
 export SCRIPTORIUM_TAILSCALE_SYSTEM_ROOT="$OFFLINE_WORK/system"
 export SCRIPTORIUM_TAILSCALE_INIT=systemd
 export SCRIPTORIUM_GIT_NAME=OfflineTest SCRIPTORIUM_GIT_EMAIL=offline@example.invalid
 export SIMPLESUITE_DIR="$OFFLINE_WORK/simplesuite"
-export SIMPLESUITE_SYSTEM_BIN_DIR="$OFFLINE_WORK/system/usr/local/bin"
+export SIMPLESUITE_SYSTEM_BIN_DIR=/usr/local/bin
+export SIMPLESUITE_SYSTEM_DATA_DIR=/usr/local/share/simplesuite
 export SIMPLESERVE_DAEMON_BINARY="$OFFLINE_WORK/system/usr/local/sbin/simpleserved"
 python3 - <<'PY'
 import socket
@@ -99,11 +110,11 @@ else:
     raise AssertionError("test unexpectedly has network access")
 PY
 cd "$SIMPLESUITE_DIR"
-timeout -k 2 180 ./build.sh >"$OFFLINE_WORK/build.log" 2>&1
+timeout -k 2 300 ./build.sh >"$OFFLINE_WORK/build.log" 2>&1
 printf '%s\n' 'OK ./build.sh completed without network access'
 python3 tests/simpleserve-offline-check.py
 cd "$OFFLINE_WORK/scriptorium"
-timeout -k 2 180 ./install.sh >"$OFFLINE_WORK/install.log" 2>&1
+timeout -k 2 300 ./install.sh >"$OFFLINE_WORK/install.log" 2>&1
 grep -q 'building the existing local checkout' "$OFFLINE_WORK/install.log"
 grep -q 'preserving enrollment and deferring connection' "$OFFLINE_WORK/install.log"
 grep -q 'Done. The Scriptorium is installed.' "$OFFLINE_WORK/install.log"

@@ -86,6 +86,11 @@ TAILSCALE_AUTH_KEY_VALUE=${TAILSCALE_AUTH_KEY:-}
 unset TAILSCALE_AUTH_KEY
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+. "$ROOT/scripts/bounded-command.sh"
+. "$ROOT/scripts/refresh-scriptorium.sh"
+# Update the installation instructions before selecting packages or programs.
+# A changed installer re-execs here, before any machine state is modified.
+refresh_scriptorium "$@"
 HOST_OS="$(uname -s 2>/dev/null || true)"
 SIMPLESUITE_SYSTEM_BIN_DIR=${SIMPLESUITE_SYSTEM_BIN_DIR:-/usr/local/bin}
 SIMPLESUITE_SYSTEM_DATA_DIR=${SIMPLESUITE_SYSTEM_DATA_DIR:-/usr/local/share/simplesuite}
@@ -896,6 +901,8 @@ say "Installing package dependencies"
 CHANGES_MADE=1
 disable_stale_apt_cdrom_sources
 "$ROOT/scripts/install-packages.sh"
+# Fresh hosts may only acquire Git during the package bootstrap.
+refresh_scriptorium "$@"
 
 configure_mbsync_apparmor
 
@@ -1248,6 +1255,9 @@ if ! "$SIMPLESUITE_SYSTEM_BIN_DIR/simplecal" --install-reminders; then
 fi
 
 offer_server_promotion
+
+say "Verifying installed programs against the current builds"
+"$ROOT/scripts/verify-installed-programs.sh"
 
 say "Installed SimpleSuite tools"
 for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do

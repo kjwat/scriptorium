@@ -990,6 +990,12 @@ desktop_packages=
 case "$family" in
     debian)
         desktop_packages='libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont'
+        # FluidSynth accepts either JACK development provider. Keep an existing
+        # JACK 2 runtime instead of letting APT replace it with JACK 1.
+        if command -v dpkg-query >/dev/null 2>&1 &&
+           [ "$(dpkg-query -W -f='${db:Status-Status}' libjack-jackd2-0 2>/dev/null || true)" = installed ]; then
+            desktop_packages="$desktop_packages libjack-jackd2-dev"
+        fi
         ;;
     arch)
         desktop_packages='gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid'
@@ -1042,6 +1048,7 @@ case "$family" in
 
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get update
         run_package_command debian as_root env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get install -y \
+            --no-upgrade --no-remove --no-install-recommends \
             build-essential pkg-config libncurses-dev libcurl4-openssl-dev libssl-dev libglib2.0-dev $simplenet_packages \
             sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre-bin \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel \

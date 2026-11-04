@@ -209,17 +209,33 @@ mkdir -p "$(dirname "$DEST")"
 
 if [ -e "$DEST/.git" ]; then
     echo "SimpleSuite already cloned at $DEST"
-    if scriptorium_bounded 10 env GIT_TERMINAL_PROMPT=0 \
+    case ${SCRIPTORIUM_OFFLINE:-0} in
+    1) echo 'Offline installation requested; building the existing local checkout.' ;;
+    0)
+    if scriptorium_bounded 30 env GIT_TERMINAL_PROMPT=0 \
         GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1}" \
         git -C "$DEST" -c http.lowSpeedLimit=1 -c http.lowSpeedTime=5 fetch; then
         if ! git -C "$DEST" merge --ff-only '@{upstream}'; then
             echo "Cannot fast-forward SimpleSuite at $DEST; resolve the checkout state." >&2
             exit 1
         fi
+        if [ "$(git -C "$DEST" rev-parse HEAD)" != "$(git -C "$DEST" rev-parse '@{upstream}')" ]; then
+            echo 'SimpleSuite has unpublished local commits; refusing to call this an upstream installation.' >&2
+            exit 1
+        fi
     else
-        echo "SimpleSuite update unavailable; building the existing local checkout."
+        echo 'Cannot refresh SimpleSuite; the installed programs have not been replaced.' >&2
+        echo 'For an intentional cached installation, set SCRIPTORIUM_OFFLINE=1.' >&2
+        exit 1
     fi
+    ;;
+    *) echo 'SCRIPTORIUM_OFFLINE must be 0 or 1.' >&2; exit 2 ;;
+    esac
 else
+    [ "${SCRIPTORIUM_OFFLINE:-0}" != 1 ] || {
+        echo "Offline installation needs an existing checkout at $DEST." >&2
+        exit 1
+    }
     if [ -d "$DEST" ] && directory_has_entries "$DEST"; then
         echo "SimpleSuite destination exists and is not a Git checkout: $DEST" >&2
         echo "Move it aside or set SIMPLESUITE_DIR to a different path." >&2
@@ -376,7 +392,8 @@ else
 fi
 
 run_as_root() {
-    if [ "$(id -u)" -eq 0 ]; then
+    if [ "$(id -u)" -eq 0 ] ||
+       { [ -w "$SYSTEM_BIN_DIR" ] && [ -w "$SYSTEM_DATA_DIR" ]; }; then
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
         sudo "$@"
@@ -441,6 +458,10 @@ install_definitive_program() {
     run_as_root rm -f "$target_tmp"
     run_as_root install -m 0755 "$source_path" "$target_tmp"
     run_as_root mv -f "$target_tmp" "$target_path"
+    cmp "$source_path" "$target_path" || {
+        echo "Installed program differs from the verified build: $target_path" >&2
+        exit 1
+    }
 
     # Older Scriptorium installs shadowed /usr/local/bin from ~/.local/bin.
     # Remove that second copy so the systemwide install is definitive.
@@ -456,6 +477,10 @@ install_shared_asset() {
     run_as_root mkdir -p "$asset_dir"
     run_as_root install -m 0644 "$source_path" "$target_tmp"
     run_as_root mv -f "$target_tmp" "$target_path"
+    cmp "$source_path" "$target_path" || {
+        echo "Installed asset differs from its source: $target_path" >&2
+        exit 1
+    }
 }
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then

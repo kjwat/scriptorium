@@ -66,12 +66,8 @@ remove_legacy_commands() {
     done
 }
 
-if [ -x "$DEST" ] && [ "$DEST" -nt "$SOURCE" ]; then
-    remove_legacy_commands
-    printf 'Reusing existing %s; Bash installs alias check=%s\n' "$DEST" "$DEST"
-    exit 0
-fi
-tmp="$(mktemp "${TMPDIR:-/tmp}/simplecheck.XXXXXX")"
+mkdir -p "$ROOT/build"
+tmp="$(mktemp "$ROOT/build/.simplecheck.XXXXXX")"
 system_tmp=
 
 cleanup() {
@@ -108,5 +104,7 @@ system_tmp=$(run_install_command mktemp "$SYSTEM_BIN_DIR/.simplecheck.XXXXXX")
 run_install_command install -m 0755 "$tmp" "$system_tmp"
 run_install_command mv -f "$system_tmp" "$DEST"
 system_tmp=
+cmp "$tmp" "$DEST"
+mv -f "$tmp" "$ROOT/build/simplecheck"
 remove_legacy_commands
 printf 'Installed %s (shell alias: check)\n' "$DEST"

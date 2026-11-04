@@ -43,15 +43,19 @@ for short in check trident; do
     [ ! -e "$system_bin/$short" ]
     [ "$(cat "$legacy_bin/ytmp3")" = personal ]
 
-    # Reusing a system command must also remove copies left by older installers.
+    # An existing executable, even with a future timestamp, must be refreshed.
     cp "$system_bin/$program" "$legacy_bin/$program"
+    printf '%s\n' '#!/bin/sh' 'echo obsolete-dashboard' >"$system_bin/$program"
+    touch -t 203001010000 "$system_bin/$program"
     ln -s "$program" "$legacy_bin/$short"
     ln -s "$system_bin/$program" "$system_bin/$short"
     run_installer >"$TMP/$short-second-install.log"
     [ ! -e "$legacy_bin/$program" ]
     [ ! -L "$legacy_bin/$short" ]
     [ ! -L "$system_bin/$short" ]
-    grep -q 'Reusing existing' "$TMP/$short-second-install.log"
+    grep -q '^Installed ' "$TMP/$short-second-install.log"
+    cmp "$ROOT/build/$program" "$system_bin/$program"
+    ! grep -q obsolete-dashboard "$system_bin/$program"
 
     # Never silently overwrite an unrelated user command.
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$legacy_bin/$short"
