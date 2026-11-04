@@ -88,10 +88,16 @@ have_cmd() {
 }
 
 have_calibre() {
-    if have_cmd ebook-convert && have_cmd calibre-debug; then return 0; fi
+    if have_cmd ebook-convert && have_cmd calibre-debug; then
+        if [ "$family" != alpine ] || calibre-debug -c 'from calibre_extensions import podofo' >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
     for calibre_dir in /opt/calibre /Applications/calibre.app/Contents/MacOS; do
         if [ -x "$calibre_dir/ebook-convert" ] && [ -x "$calibre_dir/calibre-debug" ]; then
-            return 0
+            if [ "$family" != alpine ] || "$calibre_dir/calibre-debug" -c 'from calibre_extensions import podofo' >/dev/null 2>&1; then
+                return 0
+            fi
         fi
     done
     return 1
@@ -315,6 +321,16 @@ dependencies_already_present() {
             done
             ;;
     esac
+    if [ "$(uname -s 2>/dev/null || true)" = Linux ]; then
+        # An existing desktop SDK may still have a restricted FFmpeg. Keep the
+        # private playback build dependencies available before --no-deps runs.
+        for media_library in libgme libopenmpt dav1d zlib; do
+            have_pkgconfig "$media_library" || return 1
+        done
+        case $(uname -m 2>/dev/null || true) in
+            x86_64|i?86) have_cmd nasm || return 1 ;;
+        esac
+    fi
     if [ "$(uname -s 2>/dev/null || echo unknown)" = Linux ] &&
        [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
         have_pkgconfig 'libnm >= 1.24' || return 1
@@ -989,7 +1005,7 @@ fi
 desktop_packages=
 case "$family" in
     debian)
-        desktop_packages='libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont'
+        desktop_packages='libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont libgme-dev libopenmpt-dev libdav1d-dev nasm'
         # FluidSynth accepts either JACK development provider. Keep an existing
         # JACK 2 runtime instead of letting APT replace it with JACK 1.
         if command -v dpkg-query >/dev/null 2>&1 &&
@@ -998,21 +1014,25 @@ case "$family" in
         fi
         ;;
     arch)
-        desktop_packages='gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid'
+        desktop_packages='gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid libgme libopenmpt dav1d nasm'
         ;;
     void)
-        desktop_packages='gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid'
+        desktop_packages='gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid libgme-devel libopenmpt-devel libdav1d-devel nasm'
         ;;
     alpine)
-        # Alpine does not package libsidplayfp; provision it before installing
-        # SimplePlay. Do not request a nonexistent package or enable testing.
-        desktop_packages='gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm'
+        # Missing stable dependencies are built below; do not enable testing.
+        desktop_packages='gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm libgme-dev libopenmpt-dev dav1d-dev nasm'
         ;;
     fedora)
-        desktop_packages='gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        fedora_ffmpeg_devel=ffmpeg-free-devel
+        # Respect a complete FFmpeg provider already installed from RPM Fusion.
+        if command -v rpm >/dev/null 2>&1 && rpm -q ffmpeg-devel >/dev/null 2>&1; then
+            fedora_ffmpeg_devel=ffmpeg-devel
+        fi
+        desktop_packages="gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils $fedora_ffmpeg_devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm"
         ;;
     suse)
-        desktop_packages='gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel libSDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm'
+        desktop_packages='gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel pkgconfig(sdl2) libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm'
         ;;
     freebsd)
         desktop_packages='gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
@@ -1089,20 +1109,28 @@ case "$family" in
             $pacman_confirmation \
             base-devel pkgconf ncurses curl openssl $simplenet_packages \
             sudo git poppler pandoc-cli calibre libreoffice-fresh djvulibre \
-            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
+            nano zip unzip tar xdg-utils file less fzf libpulse $arch_jack_provider glib2 glib2-devel util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python python-gobject webkit2gtk-4.1 \
             isync msmtp calcurse links ca-certificates rsync cronie $desktop_packages $simplevol_packages \
             $simpleserve_packages
         ;;
     alpine)
         check_repository_configuration alpine
+        run_package_command alpine as_root env LC_ALL=C apk update
+        alpine_calibre_package=
+        if ! have_calibre && [ -n "$(apk search -x calibre 2>/dev/null)" ]; then
+            alpine_calibre_package=calibre
+        fi
         run_package_command alpine as_root env LC_ALL=C apk add \
             build-base bash pkgconf ncurses-dev curl-dev openssl-dev $simplenet_packages \
-            sudo git poppler-utils pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
+            sudo git poppler-utils pandoc $alpine_calibre_package libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib glib-dev util-linux udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel \
             python3 py3-gobject3 webkit2gtk-4.1 \
             isync msmtp calcurse links curl ca-certificates rsync dcron $desktop_packages $simplevol_packages \
             $simpleserve_packages
+        if ! have_calibre || ! have_pkgconfig libsidplayfp; then
+            as_root "$ROOT/scripts/install-alpine-source-deps.sh"
+        fi
         ;;
     fedora)
         run_package_command fedora as_root env LC_ALL=C dnf install -y \
@@ -1115,7 +1143,7 @@ case "$family" in
         ;;
     suse)
         run_package_command suse as_root env LC_ALL=C zypper install -y \
-            gcc make pkg-config ncurses-devel libcurl-devel libopenssl-devel $simplenet_packages \
+            gcc make gawk pkg-config ncurses-devel libcurl-devel libopenssl-devel $simplenet_packages \
             sudo git poppler-tools pandoc calibre libreoffice-writer libreoffice-calc djvulibre \
             nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools glib2-devel util-linux udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel \
             python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 \

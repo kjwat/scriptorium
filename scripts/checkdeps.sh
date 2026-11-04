@@ -670,6 +670,14 @@ case "$os" in
         done
         ;;
 esac
+if [ "$os" = Linux ]; then
+    for media_library in libgme libopenmpt dav1d zlib; do
+        check_pc required "$media_library" "$media_library (private FFmpeg build)"
+    done
+    case $(uname -m 2>/dev/null || true) in
+        x86_64|i?86) check_cmd required nasm "x86 assembler" ;;
+    esac
+fi
 if [ "$os" = Linux ] && [ "${SIMPLENET_WITH_NM:-1}" != 0 ]; then
     check_pc required libnm "NetworkManager client" 'libnm >= 1.24'
 fi

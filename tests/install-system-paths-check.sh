@@ -65,7 +65,7 @@ else
     unset SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM
 fi
 eval "$(awk '
-    /^# The SimpleOS daemon/ { copying=1 }
+    /^simpleserve_service_mode=/ { copying=1 }
     /^SIMPLESUITE_INSTALL_PACKAGES=0/ { exit }
     copying { print }
 ' "$ROOT/install.sh")"

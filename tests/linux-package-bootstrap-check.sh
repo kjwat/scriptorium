@@ -46,6 +46,10 @@ case "${1-}" in
         ;;
     install)
         printf '%s\n' "$*" >>"$FAKE_APT_LOG"
+        if [ "${FAKE_APT_OMIT_PLAYBACK_SDK:-0}" != 1 ]; then
+            printf 'Name: libgme\nDescription: Game audio SDK fixture\nVersion: 0.6.3\n' \
+                >"$FAKE_BIN/pkgconfig/libgme.pc"
+        fi
         case " $* " in
             *' libnm-dev '*)
                 if [ "${FAKE_APT_OMIT_LIBNM:-0}" != 1 ]; then
@@ -105,7 +109,7 @@ EOF
 cat >"$fake_bin/pkg-config" <<'EOF'
 #!/bin/sh
 case "$*" in
-    *libnm*|*evince-*)
+    *libnm*|*evince-*|*libgme*)
         PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="$FAKE_BIN/pkgconfig" \
             "$TEST_PKG_CONFIG" "$@"
         ;;
@@ -173,6 +177,23 @@ PATH="$fake_bin" \
     exit 1
 }
 grep -q 'Package dependencies already present' "$tmp/recheck.log"
+
+# A complete desktop can still lack the SDK needed to repair restricted codecs.
+rm "$fake_bin/pkgconfig/libgme.pc"
+: >"$apt_log"
+install_status=0
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+FAKE_APT_OMIT_PLAYBACK_SDK=1 PATH="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
+    "$fixture/scripts/install-packages.sh" >"$tmp/playback-incomplete.log" 2>&1 \
+    || install_status=$?
+[ "$install_status" -eq 1 ]
+grep -Eq '^install -y .* libgme-dev( |$)' "$apt_log"
+grep -q '^MISSING: libgme (private FFmpeg build)' "$tmp/playback-incomplete.log"
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" PATH="$fake_bin" \
+SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
+    "$fixture/scripts/install-packages.sh" >"$tmp/playback-repair.log" 2>&1
+grep -q 'Package dependency installation verified' "$tmp/playback-repair.log"
 
 # Missing either Evince development module must trigger repair even when the
 # rest of the desktop is complete. APT success must not hide missing headers.

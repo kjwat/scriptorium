@@ -31,7 +31,11 @@ case "$SIMPLESUITE_NETWORK_ROLE" in
     client | server) SIMPLESUITE_INSTALL_SIMPLESERVE=1 ;;
 esac
 SIMPLESUITE_INSTALL_FREEBSD_HELPER="${SIMPLESUITE_INSTALL_FREEBSD_HELPER:-auto}"
-SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-preserve}"
+default_service_mode=preserve
+if [ ! -e "$SYSTEM_DAEMON" ] && [ ! -L "$SYSTEM_DAEMON" ]; then
+    default_service_mode=require
+fi
+SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-$default_service_mode}"
 FREEBSD_UNMOUNT_HELPER="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
 export SIMPLESUITE_INSTALL_SIMPLESERVE SIMPLESUITE_NETWORK_ROLE \
     SIMPLESUITE_INSTALL_FREEBSD_HELPER \
@@ -437,7 +441,11 @@ install_definitive_program() {
     # Scriptorium must never replace it with the newly fetched upstream build.
     if [ "$program" = simpleserved ]; then
         rm -f "$HOME/.local/bin/simpleserved"
-        printf '  preserved: %s\n' "$SYSTEM_DAEMON"
+        if [ -e "$SYSTEM_DAEMON" ] || [ -L "$SYSTEM_DAEMON" ]; then
+            printf '  preserved: %s\n' "$SYSTEM_DAEMON"
+        else
+            printf '  pending first service installation: %s\n' "$SYSTEM_DAEMON"
+        fi
         return 0
     fi
 
@@ -668,6 +676,18 @@ case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL
         fi
         ;;
     Darwin:1:*|FreeBSD:1:*|Linux:1:*)
+        if [ ! -e "$SYSTEM_DAEMON" ] && [ ! -L "$SYSTEM_DAEMON" ]; then
+            [ -x "$DEST/install-simpleserve-system.sh" ] || {
+                echo "Missing first-install service installer: $DEST/install-simpleserve-system.sh" >&2
+                exit 1
+            }
+            echo "Installing the first SimpleServe $SIMPLESUITE_NETWORK_ROLE service."
+            run_as_root env SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
+                SIMPLESERVE_SYSTEM_TEST_MODE="${SIMPLESERVE_SYSTEM_TEST_MODE:-0}" \
+                SIMPLESERVE_SYSTEM_ROOT="${SIMPLESERVE_SYSTEM_ROOT:-}" \
+                SIMPLESERVE_SYSTEM_INIT="${SIMPLESERVE_SYSTEM_INIT:-}" \
+                "$DEST/install-simpleserve-system.sh" "$DEST/build/simpleserved"
+        fi
         if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
            "$DEST/verify-simpleserve-system.sh" \
                "$SYSTEM_DAEMON" "$SYSTEM_BIN_DIR/simpleserve"; then

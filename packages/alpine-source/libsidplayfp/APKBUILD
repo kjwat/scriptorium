@@ -1,0 +1,24 @@
+pkgname=libsidplayfp
+pkgver=2.6.0
+pkgrel=0
+pkgdesc="Commodore 64 SID playback library"
+url="https://github.com/libsidplayfp/libsidplayfp"
+arch="all"
+license="GPL-2.0-or-later"
+makedepends="g++ make"
+subpackages="$pkgname-dev"
+source="libsidplayfp-$pkgver.tar.gz::https://archive.ubuntu.com/ubuntu/pool/universe/libs/libsidplayfp/libsidplayfp_$pkgver.orig.tar.gz"
+options="!check" # UnitTest++ is optional upstream; SimplePlay tests real decoding.
+
+build() {
+	./configure --prefix=/usr --disable-static --without-gcrypt --without-exsid --without-hardsid
+	make
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+}
+
+sha512sums="
+f3022cfbf57cd18059aad359f10402638cf9aed72643da75361382949cd547213e550a34fa18b36c56eee62df96509ca676f3bd46db8b3bbe75a470ff94e95d5  libsidplayfp-2.6.0.tar.gz
+"

@@ -238,12 +238,25 @@ printf '%s\n' "${SIMPLESUITE_NETWORK_ROLE:-unset}" \
     >"$HOME/simpleserve-system-role-verified"
 EOF
 chmod 755 "$FAKE_REPO/verify-simpleserve-system.sh"
+cat >"$FAKE_REPO/install-simpleserve-system.sh" <<'EOF'
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ]
+[ -x "$1" ]
+[ "${SIMPLESUITE_NETWORK_ROLE:-}" = client ]
+[ ! -e "$SIMPLESERVE_DAEMON_BINARY" ]
+mkdir -p "${SIMPLESERVE_DAEMON_BINARY%/*}"
+printf '%s\n' '#!/bin/sh' '# frozen SimpleOS daemon' 'exit 99' >"$SIMPLESERVE_DAEMON_BINARY"
+chmod 755 "$SIMPLESERVE_DAEMON_BINARY"
+printf '%s\n' installed >"$HOME/first-service-installed"
+EOF
+chmod 755 "$FAKE_REPO/install-simpleserve-system.sh"
 
 git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
 git -C "$FAKE_REPO" add build.sh Makefile program-manifest.sh .gitignore \
-    verify-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump
+    verify-simpleserve-system.sh install-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump
 git -C "$FAKE_REPO" commit -qm fixture
 
 SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$TMP/no-existing-role
@@ -437,13 +450,25 @@ mv "$SIMPLESERVE_DAEMON_BINARY" "$TMP/frozen-daemon"
 if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
    FAKE_UNAME=Linux \
    SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
-   SIMPLESUITE_INSTALL_REMINDERS=0 \
+   SIMPLESUITE_INSTALL_REMINDERS=0 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=preserve \
        "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
        >"$TMP/missing-daemon.log" 2>&1; then
     echo 'install-simplesuite-check: missing preserved daemon was accepted' >&2
     exit 1
 fi
 grep -q 'Preserved SimpleServe daemon is missing' "$TMP/missing-daemon.log"
+# A normal fresh install must bootstrap the service instead of preserving nothing.
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+FAKE_UNAME=Linux SIMPLESUITE_NETWORK_ROLE=client \
+SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
+SIMPLESUITE_INSTALL_REMINDERS=0 \
+    "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/first-service.log" 2>&1 || {
+        tail -20 "$TMP/first-service.log" >&2
+        exit 1
+    }
+[ -x "$SIMPLESERVE_DAEMON_BINARY" ]
+grep -qx installed "$HOME/first-service-installed"
+rm "$SIMPLESERVE_DAEMON_BINARY"
 mv "$TMP/frozen-daemon" "$SIMPLESERVE_DAEMON_BINARY"
 
 HOME="$TMP/linux-without-simpleserve-home"

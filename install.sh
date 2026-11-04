@@ -648,8 +648,10 @@ KEEP_ROLLBACK_BACKUP=0
 declare -a ROLLBACK_PATHS=()
 declare -a ROLLBACK_EXISTED=()
 declare -a CREATED_DIRS=()
-mapfile -t EXPECTED_SIMPLESUITE_COMMANDS \
-    < <(scriptorium_suite_programs "$HOST_OS" 0)
+EXPECTED_SIMPLESUITE_COMMANDS=()
+while IFS= read -r expected_program; do
+    EXPECTED_SIMPLESUITE_COMMANDS+=("$expected_program")
+done < <(scriptorium_suite_programs "$HOST_OS" 0)
 EXPECTED_SIMPLESUITE_COMMANDS+=(simplecheck simpletrident)
 case "$HOST_OS" in
     Linux | FreeBSD) EXPECTED_SIMPLESUITE_COMMANDS+=(simpleplay simpleterm simplepdf) ;;
@@ -982,6 +984,7 @@ printf 'Git pull mode: rebase with autostash\n'
 say "Configuring GitHub credentials"
 
 github_user=
+github_user_pattern='^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
 if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
     while :; do
         IFS= read -r -p "Enter your GitHub username (leave blank to skip): " github_user || github_user=
@@ -992,7 +995,7 @@ if [[ $SCRIPTORIUM_NONINTERACTIVE == 0 ]]; then
             break
         fi
 
-        if [[ ! "$github_user" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]; then
+        if [[ ! "$github_user" =~ $github_user_pattern ]]; then
             warn "That is not a valid GitHub username."
             continue
         fi
@@ -1107,9 +1110,15 @@ if [[ "$HOST_OS" == FreeBSD &&
     # root-owned mount/recovery helper missing or stale.
     simplesuite_helper_mode=require
 fi
-# The SimpleOS daemon is deliberately frozen by install-simplesuite.sh.
-# Application updates check its file without requiring a live network session.
-simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-preserve}"
+# Preserve an existing daemon; a fresh Linux/macOS host needs its first install.
+simpleserve_service_mode="${SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM:-}"
+if [[ -z $simpleserve_service_mode ]]; then
+    if [[ -e $SIMPLESERVE_DAEMON_BINARY || -L $SIMPLESERVE_DAEMON_BINARY ]]; then
+        simpleserve_service_mode=preserve
+    else
+        simpleserve_service_mode=require
+    fi
+fi
 if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 0 ]]; then
     simpleserve_service_mode=skip
 fi

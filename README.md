@@ -324,6 +324,15 @@ enabled. In particular, full SimpleBrowse JavaScript mode needs WebKitGTK 4.1;
 if an older release does not provide a required package, installation stops
 with repository/release guidance instead of leaving a partially working build.
 
+On Alpine stable, missing Calibre and libsidplayfp dependencies are built as
+native APKs from the checksum-pinned recipes in `packages/alpine-source/`.
+The installer keeps `main` and `community`; it does not enable edge/testing.
+SimplePlay checks its required codecs after building. Where the distribution's
+FFmpeg lacks required formats, the Suite builds a checksum-pinned private
+FFmpeg and installs its libraries under
+`/usr/local/share/simplesuite/simpleplay/lib`. System FFmpeg stays managed by
+the distribution. Source builds take longer on the first installation.
+
 On macOS 14.2 or newer, the same `./install.sh` path validates the selected SDK,
 installs the Homebrew package set once, and hands the checkout to SimpleSuite's
 native Darwin build without repeating the package transaction. SimpleBrowse
@@ -420,9 +429,11 @@ Shared audio assets are installed under:
 The same directory also carries the sound-provenance notice and the internal
 source-checkout record used by destructive uninstallation.
 
-SimpleOS owns the installed SimpleServe daemon. Scriptorium defaults to
-`SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=preserve`: it verifies that the daemon
-file exists and is executable while leaving the service unchanged. Application
+SimpleOS owns an existing SimpleServe daemon. Scriptorium preserves that file
+and verifies it is executable while leaving the service unchanged. A fresh
+machine without a daemon receives its first service installation for the chosen
+client/server role. Explicit `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=preserve`
+still requires an existing daemon. Application
 updates can finish when the existing service or a network share is unavailable.
 Set `SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require` to explicitly make live
 service verification a condition of installation, or `skip` to omit that check.

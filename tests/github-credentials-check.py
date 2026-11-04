@@ -47,7 +47,7 @@ print(os.environ.get('TEST_HTTP_CODE', '200'), end='')
                        env=env, check=True)
         before = [(p.read_bytes(), p.stat().st_mode, p.stat().st_mtime_ns) if p.exists() else None
                   for p in files]
-        result = subprocess.run(['bash', '-c', script], input=answers, env=env,
+        result = subprocess.run([os.environ.get('SCRIPTORIUM_TEST_SHELL', 'bash'), '-c', script], input=answers, env=env,
                                 text=True, capture_output=True, timeout=5)
         helper = subprocess.check_output(['git', 'config', '--global', '--get', 'credential.helper'],
                                          env=env, text=True).strip()

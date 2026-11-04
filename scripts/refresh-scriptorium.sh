@@ -47,6 +47,12 @@ refresh_scriptorium() {
         printf 'Restarting the updated Scriptorium installer (%s).\n' "$refresh_upstream"
         SCRIPTORIUM_REFRESHED_SHA=$refresh_upstream
         export SCRIPTORIUM_REFRESHED_SHA
+        # The main installer keeps a supplied key in a shell variable until the
+        # Tailscale phase. Carry it across this bootstrap restart as well.
+        if [ -n "${TAILSCALE_AUTH_KEY_VALUE:-}" ]; then
+            TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY_VALUE
+            export TAILSCALE_AUTH_KEY
+        fi
         exec bash "$ROOT/install.sh" "$@"
     fi
     SCRIPTORIUM_REFRESHED_SHA=$refresh_before

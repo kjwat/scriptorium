@@ -27,7 +27,9 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-refresh-') as tmp:
     # Extract the actual entrypoint, so deleting/bypassing its call breaks this test.
     installer = (root / 'install.sh').read_text()
     bootstrap = installer.split('ROOT="$(CDPATH=', 1)[1].split('HOST_OS=', 1)[0]
-    bootstrap = '#!/bin/bash\nset -eu\nROOT="$(CDPATH=' + bootstrap
+    bootstrap = ('#!/bin/bash\nset -eu\n'
+                 'TAILSCALE_AUTH_KEY_VALUE=${TAILSCALE_AUTH_KEY:-}\nunset TAILSCALE_AUTH_KEY\n'
+                 'ROOT="$(CDPATH=' + bootstrap)
     (source / 'install.sh').write_text(bootstrap + 'echo old > "$TEST_RESULT"\n')
     git(source, 'add', '.')
     git(source, 'commit', '-qm', 'old installer')
@@ -35,13 +37,14 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-refresh-') as tmp:
     git(source, 'remote', 'add', 'origin', str(origin))
     git(source, 'push', '-qu', 'origin', 'main')
     subprocess.run(['git', 'clone', '-q', '-b', 'main', str(origin), str(checkout)], check=True)
-    (source / 'install.sh').write_text(bootstrap + 'echo new > "$TEST_RESULT"\n')
+    (source / 'install.sh').write_text(bootstrap +
+        '[ "$TAILSCALE_AUTH_KEY_VALUE" = fixture-bootstrap-key ]\necho new > "$TEST_RESULT"\n')
     git(source, 'add', '.')
     git(source, 'commit', '-qm', 'new installer')
     git(source, 'push', '-q')
     current = git(source, 'rev-parse', 'HEAD')
     result = base / 'result'
-    env = dict(os.environ, TEST_RESULT=str(result))
+    env = dict(os.environ, TEST_RESULT=str(result), TAILSCALE_AUTH_KEY='fixture-bootstrap-key')
     for key in ('SCRIPTORIUM_OFFLINE', 'SCRIPTORIUM_REFRESHED_SHA'):
         env.pop(key, None)
 
