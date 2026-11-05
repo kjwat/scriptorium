@@ -278,6 +278,9 @@ SIMPLESUITE_PROGRAMS=$(simplesuite_programs "$SIMPLESUITE_HOST_OS" \
 SIMPLESUITE_COMMAND_ALIASES=$(simplesuite_program_aliases \
     "$SIMPLESUITE_HOST_OS" "$SIMPLESUITE_INSTALL_SIMPLESERVE")
 for suite_program in $SIMPLESUITE_PROGRAMS; do
+    if [ "$suite_program" = simplebright ]; then
+        SIMPLESUITE_ASSETS="$SIMPLESUITE_ASSETS SIMPLEBRIGHT.md wlr-gamma-control-NOTICE"
+    fi
     if [ "$suite_program" = simplechange ]; then
         case " $SIMPLESUITE_SCRIPTS " in
             *' simplechange-engine '*) ;;
@@ -551,6 +554,9 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
     printf '%s\n' "$SIMPLESUITE_COMMAND_ALIASES" | tr ':' ' ' >"$DEST/build/command-abbreviations"
     filtered_assets='program-manifest.sh command-abbreviations'
     case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplebright '*) filtered_assets="$filtered_assets SIMPLEBRIGHT.md wlr-gamma-control-NOTICE" ;;
+    esac
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplechange '*)
             filtered_assets="$filtered_assets SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png"
             ;;
@@ -564,6 +570,7 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
     for asset in $filtered_assets; do
         case $asset in
             *.so | command-abbreviations) source_path=$DEST/build/$asset ;;
+            wlr-gamma-control-NOTICE) source_path=$DEST/protocols/$asset ;;
             *) source_path=$DEST/$asset ;;
         esac
         install_shared_asset "$source_path" "$asset"

@@ -194,7 +194,7 @@ remove_freebsd_unmount_helper
 rm -rf "$SIMPLESUITE_DEST" "$HOME/src/simplesuite"
 rm -rf "$HOME/.writing-clone-tmp"
 
-for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
+for bin in simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simplesuite-uninstall simpleflac simpleradio simplepod simplevis simplebright simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server; do
     rm -f "$HOME/.local/bin/$bin"
     remove_system_file "$SYSTEM_BIN_DIR/$bin"
 done
@@ -203,14 +203,14 @@ done
 for asset in simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav \
     simplewords-typewriter-space.wav simplewords-typewriter-enter.wav \
     simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md \
-    simplevol-meter.so SIMPLEVOL.md SIMPLECHANGE.md screenshots/simplechange.png \
+    simplevol-meter.so SIMPLEVOL.md SIMPLEBRIGHT.md wlr-gamma-control-NOTICE SIMPLECHANGE.md screenshots/simplechange.png \
     screenshots/simplechange-document.png screenshots/simplechange-ebook.png install-source install-manifest \
     command-abbreviations program-manifest.sh; do
     remove_system_file "$SYSTEM_DATA_DIR/$asset"
 done
 
 for alias_mapping in \
-    blue:simpleblue browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck \
+    blue:simpleblue bright:simplebright browse:simplebrowse burn:simpleburn cal:simplecal check:simplecheck \
     change:simplechange clock:simpleclock files:simplefiles flac:simpleflac game:simplegame \
     mail:simplemail net:simplenet news:simplenews note:simplenote book:simplebook pdf:simplepdf \
     pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats \
@@ -249,7 +249,7 @@ rm -rf "$HOME/.config/calcurse"
 for config_base in "$HOME/.config" "$CONFIG_HOME"; do
     for app_name in \
         simplebrowse simplecal simplefiles simplemail simplenews simplepod \
-        simplevol simplewords; do
+        simplebright simplevol simplewords; do
         rm -rf "${config_base:?}/$app_name"
     done
 done
@@ -351,6 +351,7 @@ clean_shell_rc() {
     awk '
         BEGIN {
             aliases["blue"] = "simpleblue"
+            aliases["bright"] = "simplebright"
             aliases["words"] = "simplewords"
             aliases["note"] = "simplenote"
             aliases["files"] = "simplefiles"

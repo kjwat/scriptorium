@@ -845,6 +845,11 @@ fi
 
 if [ "$os" = Linux ]; then
     check_simplevol optional
+    check_pc required x11 "Simplebright X11"
+    check_pc required xrandr "Simplebright XRandR"
+    check_pc required wayland-client "Simplebright Wayland"
+    check_cmd optional brightnessctl "Simplebright backlight permissions"
+    check_cmd optional ddcutil "Simplebright external monitors"
 fi
 
 if [ "$family" = macos ]; then

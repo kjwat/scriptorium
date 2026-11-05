@@ -263,6 +263,7 @@ SimpleSuite programs:
 - `simplesave` — one date-named ZIP of writing, source, and intact Git repositories from writing, scriptorium, simplesuite, and optional website/simplewm in `~/backups`; excludes build output and caches
 - `simplevis`
 - `simplevol` (Linux volume/routing and FOSS audio effects)
+- `simplebright` (`bright`) — brightness and night-warmth bars with runtime X11/Wayland/desktop capability detection
 
 When selected on FreeBSD, Linux, or macOS, the installer also updates `simpleserve`
 and requires the existing `simpleserved` system daemon.
@@ -566,6 +567,7 @@ shell's native PATH setup:
 alias words='simplewords'
 alias note='simplenote'
 alias blue='simpleblue'
+alias bright='simplebright'
 alias files='simplefiles'
 alias browse='simplebrowse'
 alias burn='simpleburn'

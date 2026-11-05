@@ -44,8 +44,8 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > checkdeps.sh
 printf '%s\n' '#!/bin/sh' 'exit 0' > uninstall.sh
 chmod 755 checkdeps.sh uninstall.sh
 cat >program-manifest.sh <<'EOF'
-simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol change:simplechange; }
-simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simplesearch simpleburn simplevol simplechange; }
+simplesuite_program_aliases() { printf '%s\n' clock:simpleclock note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol change:simplechange bright:simplebright; }
+simplesuite_programs() { printf '%s\n' simpleclock simplenote simplesave simplesearch simpleburn simplevol simplechange simplebright; }
 EOF
 printf '%s\n' \
     'BUILD_DIR := build' \
@@ -98,7 +98,15 @@ simplechange:
 	mkdir -p $(BUILD_DIR)
 	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplechange
 	chmod 755 $(BUILD_DIR)/simplechange
+
+simplebright:
+	mkdir -p $(BUILD_DIR)
+	printf '%s\n' '#!/bin/sh' 'exit 0' > $(BUILD_DIR)/simplebright
+	chmod 755 $(BUILD_DIR)/simplebright
 EOF
+mkdir -p protocols
+printf '%s\n' brightness-fixture >SIMPLEBRIGHT.md
+printf '%s\n' protocol-notice-fixture >protocols/wlr-gamma-control-NOTICE
 printf '%s\n' /build/ >.gitignore
 git add .
 git commit -qm fixture
@@ -251,4 +259,18 @@ grep -qx 'change simplechange' "$TMP/system-data/command-abbreviations"
 [ "$(cat "$HOME/.local/bin/simplecal")" = preserved ]
 [ ! -e "$TMP/system-bin/simplewords" ]
 
-echo 'OK Scriptorium builds and installs only a missing master-list program'
+SIMPLESUITE_REPO_URL="$ORIGIN" \
+SIMPLESUITE_DIR="$TMP/checkout" \
+SIMPLESUITE_NETWORK_ROLE=none \
+SIMPLESUITE_PROGRAM_FILTER=simplebright \
+SIMPLESUITE_INSTALL_PACKAGES=0 \
+SIMPLESUITE_SYSTEM_BIN_DIR="$TMP/system-bin" \
+SIMPLESUITE_SYSTEM_DATA_DIR="$TMP/system-data" \
+PATH="$TMP/test-bin:$PATH" \
+    "$ROOT/scripts/install-simplesuite.sh" >"$TMP/bright-install.log"
+[ -x "$TMP/system-bin/simplebright" ]
+grep -qx 'bright simplebright' "$TMP/system-data/command-abbreviations"
+cmp "$SOURCE/SIMPLEBRIGHT.md" "$TMP/system-data/SIMPLEBRIGHT.md"
+cmp "$SOURCE/protocols/wlr-gamma-control-NOTICE" "$TMP/system-data/wlr-gamma-control-NOTICE"
+
+echo 'OK Scriptorium builds and installs missing master-list programs including Simplebright'

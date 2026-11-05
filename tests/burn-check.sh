@@ -44,8 +44,8 @@ chmod 755 "$SYSTEM_BIN/simplesuite-uninstall"
 printf '%s\n' '#!/bin/sh' 'exit 1' >"$HOME/.local/bin/simplesuite-uninstall"
 chmod 755 "$HOME/.local/bin/simplesuite-uninstall"
 
-programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
-aliases='blue:simpleblue browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote book:simplebook pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
+programs='simplewords simplenote simplecheck simpletrident simplefiles simplebrowse simpleburn simplechange simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplefiles-macos-helper simplevis-macos-capture simpleflac simpleradio simplepod simplevis simplebright simplevol simplevol-audio simplepdf simplebook simplebook-mobi simpleclock simplecal simplestats simplever simplesave simplesearch simplegame simplenews simplemail simplenet simpleblue simpleserve simpleserved setup-server'
+aliases='blue:simpleblue bright:simplebright browse:simplebrowse burn:simpleburn change:simplechange cal:simplecal check:simplecheck clock:simpleclock files:simplefiles flac:simpleflac game:simplegame mail:simplemail net:simplenet news:simplenews note:simplenote book:simplebook pdf:simplepdf pod:simplepod radio:simpleradio save:simplesave search:simplesearch serve:simpleserve stats:simplestats suite-uninstall:simplesuite-uninstall trident:simpletrident ver:simplever vis:simplevis vol:simplevol words:simplewords'
 for program in $programs; do
     printf '%s\n' '#!/bin/sh' >"$HOME/.local/bin/$program"
     chmod 755 "$HOME/.local/bin/$program"
@@ -121,7 +121,7 @@ mkdir -p "$SYSTEM_DATA/source" "$HOME/.config/simplevol" "$HOME/.config/systemd/
 printf '%s\n' keep >"$SYSTEM_DATA/source/README.md"
 printf '%s\n' keep >"$SYSTEM_DATA/unrelated-file"
 printf '%s\n' fixture >"$HOME/.config/systemd/user/simplevol.service"
-assets='SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplevol-meter.so SIMPLEVOL.md command-abbreviations program-manifest.sh'
+assets='SIMPLECHANGE.md screenshots/simplechange.png screenshots/simplechange-document.png screenshots/simplechange-ebook.png simplecal-alarm.mp3 simplewords-typewriter.wav simplewords-typewriter-alt.wav simplewords-typewriter-space.wav simplewords-typewriter-enter.wav simplewords-typewriter-delete.wav simplewords-typewriter-NOTICE.md install-source install-manifest simplevol-meter.so SIMPLEVOL.md SIMPLEBRIGHT.md wlr-gamma-control-NOTICE command-abbreviations program-manifest.sh'
 for asset in $assets; do
     mkdir -p "$(dirname "$HOME/.local/share/simplesuite/$asset")" "$(dirname "$SYSTEM_DATA/$asset")"
     printf '%s\n' keep >"$HOME/.local/share/simplesuite/$asset"
