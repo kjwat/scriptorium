@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplenote simplesave simplesearch simpleburn simplebook simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplesave simplesearch simpleburn simplebook simplebright simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -47,13 +47,13 @@ SIMPLESUITE_NETWORK_ROLE=client
 SCRIPTORIUM_INSTALL_TAILSCALE=1
 CHANGES_MADE=0
 SHELL_RC_FILES=("$HOME/.bashrc")
-EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplenote simplesave simplesearch simpleburn simplevol simplecal simpleserve simpleserved simplecheck)
+EXPECTED_SIMPLESUITE_COMMANDS=(simplewords simplenote simplesave simplesearch simpleburn simplebright simplevol simplecal simpleserve simpleserved simplecheck)
 EXPECTED_SIMPLESUITE_HELPERS=(simplesuite-uninstall)
 say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn book:simplebook vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn book:simplebook bright:simplebright vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -98,6 +98,9 @@ printf '%s\n' "alias read='my-personal-reader'" >>"$HOME/.bashrc"
 ensure_simplesuite_aliases
 grep -qx "alias read='my-personal-reader'" "$HOME/.bashrc"
 [[ $(grep -c "^alias vol='simplevol'$" "$HOME/.bashrc") == 1 ]]
+[[ $(grep -c "^alias bright='simplebright'$" "$HOME/.bashrc") == 1 ]]
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias bright; bright' >"$HOME/bright-check" 2>/dev/null
+grep -qx "alias bright='simplebright'" "$HOME/bright-check"
 [[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias note='simplenote'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias save='simplesave'$" "$HOME/.bashrc") == 1 ]]
@@ -116,7 +119,7 @@ if [[ $TEST_MODE == preserve ]]; then
         "$HOME/.bashrc" | grep -qx "alias vol='simplevol'"
     ! grep -q '^# SimpleSuite aliases$' "$HOME/.bashrc"
 fi
-for mapping in words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck; do
+for mapping in words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn bright:simplebright vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck; do
     grep -qx "alias ${mapping%%:*}='${mapping#*:}'" "$HOME/.bashrc"
 done
 bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias play; play; alias term; term' >"$HOME/desktop-check" 2>/dev/null
