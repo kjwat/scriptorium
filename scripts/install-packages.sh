@@ -241,7 +241,7 @@ configure_homebrew_pkgconfig() {
     [ "$family" = macos ] || return 0
     have_cmd brew || return 0
 
-    for formula in ncurses glib curl openssl@3 gtk+3 vte3 pcre2 fontconfig cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib; do
+    for formula in ncurses glib gdk-pixbuf curl openssl@3 gtk+3 vte3 pcre2 fontconfig cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib; do
         formula_prefix=$(brew --prefix "$formula" 2>/dev/null) || continue
         for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
                              "$formula_prefix/share/pkgconfig"; do
@@ -299,6 +299,7 @@ dependencies_already_present() {
     have_pkgconfig libcurl || return 1
     have_pkgconfig openssl || return 1
     have_pkgconfig gio-2.0 || return 1
+    have_pkgconfig gdk-pixbuf-2.0 || return 1
     have_cmd glib-compile-resources || return 1
     have_cmd fc-match || return 1
     have_pkgconfig 'gtk+-3.0 >= 3.24' || return 1
@@ -1011,7 +1012,7 @@ desktop_packages=
 case "$family" in
     debian)
         ubuntu_media_packages=$("$ROOT/scripts/ubuntu-media-packages.sh" "${SCRIPTORIUM_OS_RELEASE_FILE:-/etc/os-release}")
-        desktop_packages="libgtk-3-dev $ubuntu_media_packages poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont libgme-dev libopenmpt-dev libdav1d-dev nasm"
+        desktop_packages="libgdk-pixbuf-2.0-dev libgtk-3-dev $ubuntu_media_packages poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont libgme-dev libopenmpt-dev libdav1d-dev nasm"
         # FluidSynth accepts either JACK development provider. Keep an existing
         # JACK 2 runtime instead of letting APT replace it with JACK 1.
         if command -v dpkg-query >/dev/null 2>&1 &&
@@ -1020,14 +1021,14 @@ case "$family" in
         fi
         ;;
     arch)
-        desktop_packages='gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid libgme libopenmpt dav1d nasm'
+        desktop_packages='gdk-pixbuf2 gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid libgme libopenmpt dav1d nasm'
         ;;
     void)
-        desktop_packages='gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid libgme-devel libopenmpt-devel libdav1d-devel nasm'
+        desktop_packages='gdk-pixbuf-devel gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid libgme-devel libopenmpt-devel libdav1d-devel nasm'
         ;;
     alpine)
         # Missing stable dependencies are built below; do not enable testing.
-        desktop_packages='gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm libgme-dev libopenmpt-dev dav1d-dev nasm'
+        desktop_packages='gdk-pixbuf-dev gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm libgme-dev libopenmpt-dev dav1d-dev nasm'
         ;;
     fedora)
         fedora_ffmpeg_devel=ffmpeg-free-devel
@@ -1035,16 +1036,16 @@ case "$family" in
         if command -v rpm >/dev/null 2>&1 && rpm -q ffmpeg-devel >/dev/null 2>&1; then
             fedora_ffmpeg_devel=ffmpeg-devel
         fi
-        desktop_packages="gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils $fedora_ffmpeg_devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm"
+        desktop_packages="gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils $fedora_ffmpeg_devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm"
         ;;
     suse)
-        desktop_packages='gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel pkgconfig(sdl2) libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm'
+        desktop_packages='gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel pkgconfig(sdl2) libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm'
         ;;
     freebsd)
-        desktop_packages='gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
+        desktop_packages='gdk-pixbuf2 gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'
         ;;
     macos)
-        desktop_packages='gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib'
+        desktop_packages='gdk-pixbuf gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib'
         ;;
 esac
 

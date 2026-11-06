@@ -346,7 +346,7 @@ configure_homebrew_pkgconfig() {
     fi
     have_cmd brew || return 0
 
-    for formula in ncurses glib curl openssl@3; do
+    for formula in ncurses glib gdk-pixbuf curl openssl@3; do
         formula_prefix="$(brew --prefix "$formula" 2>/dev/null)" || continue
         for pkgconfig_dir in "$formula_prefix/lib/pkgconfig" \
                              "$formula_prefix/share/pkgconfig"; do
@@ -547,19 +547,19 @@ packages_for_family() {
     case "$family" in
         void)
             INSTALL="sudo xbps-install -Sy"
-            PKG_REQUIRED="evince-devel base-devel pkg-config ncurses-devel glib-devel libcurl-devel openssl-devel"
+            PKG_REQUIRED="evince-devel base-devel pkg-config ncurses-devel glib-devel gdk-pixbuf-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gobject libwebkit2gtk41 cronie"
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
-            PKG_REQUIRED="libevince-dev poppler-data build-essential pkg-config libncurses-dev libglib2.0-dev libcurl4-openssl-dev libssl-dev"
+            PKG_REQUIRED="libevince-dev poppler-data build-essential pkg-config libncurses-dev libglib2.0-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;
         arch)
             INSTALL="sudo pacman -S --needed"
-            PKG_REQUIRED="evince base-devel pkgconf ncurses glib2 curl openssl"
+            PKG_REQUIRED="evince base-devel pkgconf ncurses glib2 gdk-pixbuf2 curl openssl"
             PKG_RUNTIME="git poppler pandoc-cli isync msmtp calcurse links ca-certificates rsync util-linux $simpleserve_packages"
             arch_audio="libpulse"
 
@@ -572,31 +572,31 @@ packages_for_family() {
             ;;
         fedora)
             INSTALL="sudo dnf install -y"
-            PKG_REQUIRED="evince-devel gcc make pkgconf-pkg-config ncurses-devel glib2-devel libcurl-devel openssl-devel"
+            PKG_REQUIRED="evince-devel gcc make pkgconf-pkg-config ncurses-devel glib2-devel gdk-pixbuf2-devel libcurl-devel openssl-devel"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2 udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject webkit2gtk4.1 cronie"
             ;;
         alpine)
             INSTALL="sudo apk add"
-            PKG_REQUIRED="evince-dev build-base bash pkgconf ncurses-dev glib-dev curl-dev openssl-dev"
+            PKG_REQUIRED="evince-dev build-base bash pkgconf ncurses-dev glib-dev gdk-pixbuf-dev curl-dev openssl-dev"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib udisks2 gvfs e2fsprogs dosfstools exfatprogs ntfs-3g ntfs-3g-progs wl-clipboard xclip xsel python3 py3-gobject3 webkit2gtk-4.1 dcron"
             ;;
         suse)
             INSTALL="sudo zypper install"
-            PKG_REQUIRED="evince-devel gcc make pkg-config ncurses-devel glib2-devel libcurl-devel libopenssl-devel"
+            PKG_REQUIRED="evince-devel gcc make pkg-config ncurses-devel glib2-devel gdk-pixbuf2-devel libcurl-devel libopenssl-devel"
             PKG_RUNTIME="git poppler-tools pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils glib2-tools udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g ntfsprogs wl-clipboard xclip xsel python3 python3-gobject typelib-1_0-Gtk-3_0 typelib-1_0-WebKit2-4_1 cron"
             ;;
         macos)
             INSTALL="brew install"
-            PKG_REQUIRED="pkgconf ncurses curl make openssl@3 glib"
+            PKG_REQUIRED="pkgconf ncurses curl make openssl@3 glib gdk-pixbuf"
             PKG_RUNTIME="git poppler pandoc isync msmtp calcurse links rsync"
             PKG_OPTIONAL="nano zip unzip libmagic less fzf"
             ;;
         freebsd)
             INSTALL="sudo pkg install"
-            PKG_REQUIRED="evince bash gmake pkgconf ncurses glib curl openssl"
+            PKG_REQUIRED="evince bash gmake pkgconf ncurses glib gdk-pixbuf2 curl openssl"
             PKG_RUNTIME="git poppler-utils hs-pandoc isync msmtp calcurse links ca_root_nss rsync e2fsprogs $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip gtar xdg-utils file less fzf pulseaudio bsdisks gvfs exfat-utils fusefs-exfat fusefs-ntfs wl-clipboard xclip xsel-conrad python3 devel/py-pygobject webkit2-gtk_41"
             ;;
@@ -651,6 +651,7 @@ check_make
 check_cmd required pkg-config "pkg-config"
 check_pc  required ncursesw "ncursesw"
 check_pc  required gio-2.0 "GIO"
+check_pc  required gdk-pixbuf-2.0 "Wallpaper image decoder"
 check_pc  required libcurl "libcurl"
 check_pc  required openssl "OpenSSL"
 case "$os" in

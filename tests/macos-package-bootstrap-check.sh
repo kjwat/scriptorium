@@ -100,7 +100,7 @@ SCRIPTORIUM_SIMPLESERVE_ROLE_FILE="$tmp/no-existing-role" \
 PATH="$fake_bin" \
     "$repo/scripts/install-packages.sh" >"$tmp/install.log" 2>&1
 
-grep -q '^pkgconf ncurses curl make openssl@3 glib git poppler pandoc python djvulibre nano zip unzip libmagic less fzf isync msmtp calcurse links rsync gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib$' \
+grep -q '^pkgconf ncurses curl make openssl@3 glib git poppler pandoc python djvulibre nano zip unzip libmagic less fzf isync msmtp calcurse links rsync gdk-pixbuf gtk+3 vte3 pcre2 fontconfig adwaita-icon-theme cairo ffmpeg sdl2 libass fluid-synth libsidplayfp json-glib$' \
     "$brew_log"
 grep -qx -- '--cask calibre' "$brew_log"
 grep -qx -- '--cask libreoffice' "$brew_log"

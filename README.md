@@ -341,6 +341,8 @@ SimplePDF requires. SimplePlay rebuilds its cached binaries when its library
 versions change after an OS upgrade.
 Dependency audits and installed-file verification remain manual tools; the
 normal installer does not run those audit phases or a test suite.
+GdkPixbuf's development/runtime package is included for SimpleVis wallpaper
+colors across desktop environments; this adds no installer audit phase.
 
 On macOS 14.2 or newer, the same `./install.sh` path validates the selected SDK,
 installs the Homebrew package set once, and hands the checkout to SimpleSuite's
