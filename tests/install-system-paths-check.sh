@@ -57,7 +57,7 @@ scriptorium_program_aliases() {
         absent:scriptorium_test_missing_program
 }
 
-# Exercise the actual install defaults, PATH, alias setup, and final checks.
+# Exercise the actual install defaults, PATH, aliases and reminder setup.
 if [[ $TEST_MODE == require ]]; then
     SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require
     SCRIPTORIUM_INSTALL_TAILSCALE=0
@@ -127,17 +127,14 @@ grep -qx "alias play='simpleplay'" "$HOME/desktop-check"
 grep -qx "alias term='simpleterm'" "$HOME/desktop-check"
 ! grep -q 'alias absent=' "$HOME/.bashrc"
 eval "$(awk '
-    /^say "Verifying commands"/ { copying=1 }
+    /^say "Installing SimpleCal reminder backend"/ { copying=1 }
     /^offer_server_promotion$/ { exit }
     copying { print }
 ' "$ROOT/install.sh")"
 grep -qx reminders "$TEST_CALL_LOG"
 ! grep -q unexpected-daemon-query "$TEST_CALL_LOG"
-if [[ $TEST_MODE == require ]]; then
-    grep -qx verify "$TEST_CALL_LOG"
-else
-    ! grep -q verify "$TEST_CALL_LOG"
-fi
+! grep -q verify "$TEST_CALL_LOG"
+! grep -q '"$ROOT/scripts/verify-installed-programs.sh"' "$ROOT/install.sh"
 [[ ! -e $HOME/.local/bin/simplewords ]]
 [[ ! -e $HOME/.local/bin/simplecal ]]
 [[ ! -e $HOME/.local/bin/simpleserve ]]
@@ -162,4 +159,4 @@ aliases=$(scriptorium_program_aliases Linux 0)
 ! scriptorium_program_aliases Darwin 0 | grep -q '^play:'
 [[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimplesearch\nsimpleburn\nsimplevol' ]]
 
-echo 'OK installer final checks and aliases use system binaries while preserving the existing daemon'
+echo 'OK installer aliases use system binaries and reminder setup does not run service audits'

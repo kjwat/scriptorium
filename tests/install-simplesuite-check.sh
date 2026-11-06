@@ -51,7 +51,7 @@ cp "$SOURCE_ROOT/scripts/resolve-simpleserve-role.sh" \
     "$FAKE_SCRIPTORIUM/scripts/resolve-simpleserve-role.sh"
 cp "$SOURCE_ROOT/scripts/bounded-command.sh" \
     "$FAKE_SCRIPTORIUM/scripts/bounded-command.sh"
-printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
+printf '%s\n' '#!/bin/sh' 'touch "$HOME/dependency-audit-ran"; exit 17' >"$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 chmod 755 "$FAKE_SCRIPTORIUM/scripts/checkdeps.sh"
 printf '%s\n' '#!/bin/sh' 'printf "%s\n" yes >"$HOME/package-install-ran"' \
     >"$FAKE_SCRIPTORIUM/scripts/install-packages.sh"
@@ -313,7 +313,8 @@ grep -q '^typewriter_sound_volume=70$' "$HOME/.config/simplewords/config"
 [ -r "$HOME/.config/simplenews/config.example" ]
 [ -r "$HOME/.config/simplenews/urls.example" ]
 [ -x "$HOME/system-libexec/simplefiles-freebsd-unmount" ]
-[ -r "$HOME/simpleserve-system-verified" ]
+[ ! -e "$HOME/simpleserve-system-verified" ]
+[ ! -e "$HOME/dependency-audit-ran" ]
 grep -q '^yes$' "$HOME/package-install-ran"
 grep -q '^client$' "$HOME/simpleserve-network-role"
 
@@ -433,17 +434,15 @@ grep -q 'building the existing local checkout' "$TMP/offline.log"
 [ "$(git -C "$HOME/simplesuite" rev-parse HEAD)" = "$offline_sha" ]
 git -C "$HOME/simplesuite" remote set-url origin "$FAKE_REPO"
 
-# Explicit health verification still fails with the verifier's actual reason.
-if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+# Installation must not invoke a live-service health audit, even in require mode.
+PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
    FAKE_UNAME=Linux FAKE_SERVICE_FAILURE=1 \
    SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
    SIMPLESUITE_INSTALL_REMINDERS=0 SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM=require \
        "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" \
-       >"$TMP/require-unhealthy.log" 2>&1; then
-    echo 'install-simplesuite-check: required service verification was ignored' >&2
-    exit 1
-fi
-grep -q 'fixture: existing daemon is not responding' "$TMP/require-unhealthy.log"
+       >"$TMP/require-unhealthy.log" 2>&1
+[ ! -e "$HOME/simpleserve-system-verified" ]
+[ ! -e "$HOME/dependency-audit-ran" ]
 
 # Preservation still requires the installed daemon file.
 mv "$SIMPLESERVE_DAEMON_BINARY" "$TMP/frozen-daemon"

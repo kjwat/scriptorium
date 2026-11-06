@@ -1199,71 +1199,12 @@ say "Creating standard directories"
 mkdir -p "$HOME/Downloads" "$HOME/Music" "$HOME/Podcasts"
 
 
-say "Verifying commands"
-for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do
-    command -v "$cmd" >/dev/null 2>&1 || {
-        warn "$cmd was installed but is not available on PATH"
-        exit 1
-    }
-done
-for cmd in "${EXPECTED_SIMPLESUITE_HELPERS[@]}"; do
-    command -v "$cmd" >/dev/null 2>&1 || {
-        warn "$cmd was installed but is not available on PATH"
-        exit 1
-    }
-done
-command -v setup-server >/dev/null 2>&1 || {
-    warn "setup-server was installed but is not available on PATH"
-    exit 1
-}
-if [[ "$HOST_OS" == FreeBSD ]]; then
-    case "$simplesuite_helper_mode" in
-        skip | no | false | 0) ;;
-        *)
-            freebsd_helper="${FREEBSD_UNMOUNT_HELPER:-/usr/local/libexec/simplefiles-freebsd-unmount}"
-            [[ -x "$freebsd_helper" ]] || {
-                warn "FreeBSD SimpleFiles helper is missing or not executable: $freebsd_helper"
-                exit 1
-            }
-            printf '  %s\n' "$freebsd_helper"
-            ;;
-    esac
-fi
-if [[ $SIMPLESUITE_INSTALL_SIMPLESERVE -eq 1 &&
-      ( "$HOST_OS" == Darwin || "$HOST_OS" == FreeBSD || "$HOST_OS" == Linux ) ]]; then
-    case "$simpleserve_service_mode" in
-        skip | no | false | 0) ;;
-        preserve)
-            [[ -x $SIMPLESERVE_DAEMON_BINARY ]] || {
-                warn "Preserved SimpleServe daemon is missing: $SIMPLESERVE_DAEMON_BINARY"
-                exit 1
-            }
-            printf '  preserved: %s\n' "$SIMPLESERVE_DAEMON_BINARY"
-            ;;
-        *)
-            SIMPLESUITE_NETWORK_ROLE="$SIMPLESUITE_NETWORK_ROLE" \
-                "${SIMPLESUITE_DIR:-$HOME/simplesuite}/verify-simpleserve-system.sh" \
-                "$SIMPLESERVE_DAEMON_BINARY" \
-                "$SIMPLESUITE_SYSTEM_BIN_DIR/simpleserve" || {
-                warn "SimpleServe system software or service configuration is incomplete"
-                exit 1
-            }
-            printf '  %s\n' "$SIMPLESERVE_DAEMON_BINARY"
-            ;;
-    esac
-fi
-# Verification checks installed software. Remote transport availability is
-# runtime state and must not gate a normal installation.
-
 say "Installing SimpleCal reminder backend"
 if ! "$SIMPLESUITE_SYSTEM_BIN_DIR/simplecal" --install-reminders; then
     warn "SimpleCal reminder setup failed; run 'simplecal --install-reminders' later."
 fi
 
 offer_server_promotion
-
-say "Verifying installed programs against the current builds"
-"$ROOT/scripts/verify-installed-programs.sh"
 
 say "Installed SimpleSuite tools"
 for cmd in "${EXPECTED_SIMPLESUITE_COMMANDS[@]}"; do

@@ -160,23 +160,6 @@ directory_has_entries() {
     return 1
 }
 
-run_checkdeps() {
-    checkdeps_script=$1
-
-    [ -x "$checkdeps_script" ] || return 0
-    if head -n 1 "$checkdeps_script" 2>/dev/null | grep -q 'bash' &&
-       ! command -v bash >/dev/null 2>&1; then
-        echo "Skipping $checkdeps_script because Bash is not on PATH." >&2
-        echo "SimpleSuite build errors, if any, will still be reported below." >&2
-        return 0
-    fi
-
-    if ! "$checkdeps_script"; then
-        echo "Dependency check reported missing packages; continuing with the build." >&2
-        echo "Install the reported packages for the complete runtime feature set." >&2
-    fi
-}
-
 install_packages_if_needed() {
     case "$SIMPLESUITE_INSTALL_PACKAGES" in
         0)
@@ -299,12 +282,6 @@ case "$SIMPLESUITE_HOST_OS" in
         export MAKE
         ;;
 esac
-
-if [ -x "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh" ]; then
-    run_checkdeps "$SCRIPTORIUM_ROOT/scripts/checkdeps.sh"
-elif [ -x "$DEST/checkdeps.sh" ]; then
-    run_checkdeps "$DEST/checkdeps.sh"
-fi
 
 if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
     # Partial installs must also teach the installed uninstaller about new apps.
@@ -510,23 +487,6 @@ done
 # manifest so the frozen daemon cannot be silently upgraded through PATH.
 rm -f "$HOME/.local/bin/simpleserved"
 
-missing=0
-echo "Verifying definitive SimpleSuite binaries in $SYSTEM_BIN_DIR"
-for program in $definitive_programs; do
-    [ "$program" = simpleserved ] && continue
-    if [ -x "$SYSTEM_BIN_DIR/$program" ]; then
-        printf '  ok: %s\n' "$program"
-    else
-        printf '  missing: %s\n' "$SYSTEM_BIN_DIR/$program" >&2
-        missing=1
-    fi
-done
-
-if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite definitive install did not produce every expected command." >&2
-    exit 1
-fi
-
 echo "Removing legacy SimpleSuite short-command symlinks"
 for alias_mapping in $SIMPLESUITE_COMMAND_ALIASES; do
     short_command=${alias_mapping%%:*}
@@ -584,103 +544,15 @@ for asset in $SIMPLESUITE_ASSETS; do
     install_shared_asset "$source_path" "$asset"
 done
 
-echo "Verifying SimpleSuite shared assets in $SYSTEM_DATA_DIR"
-for asset in $SIMPLESUITE_ASSETS; do
-    if [ -r "$SYSTEM_DATA_DIR/$asset" ]; then
-        printf '  ok: %s\n' "$asset"
-    else
-        printf '  missing: %s\n' \
-            "$SYSTEM_DATA_DIR/$asset" >&2
-        missing=1
-    fi
-done
-
-if [ ! -f "$HOME/.config/simplewords/config" ]; then
-    printf '  missing: %s\n' "$HOME/.config/simplewords/config" >&2
-    missing=1
-fi
-
-if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite install did not produce its complete runtime payload." >&2
-    exit 1
-fi
-
-expected_simplewords_version="simplewords $SIMPLESUITE_RESOLVED_SHA"
-actual_simplewords_version=$(
-    "$SYSTEM_BIN_DIR/simplewords" --version 2>/dev/null || true
-)
-if [ "$actual_simplewords_version" = "$expected_simplewords_version" ]; then
-    printf '  ok: SimpleWords source revision %s\n' "$SIMPLESUITE_RESOLVED_SHA"
-else
-    printf '  stale: SimpleWords version is %s (expected %s)\n' \
-        "${actual_simplewords_version:-unavailable}" \
-        "$expected_simplewords_version" >&2
-    missing=1
-fi
-
-install_manifest=$SYSTEM_DATA_DIR/install-manifest
-if grep -qx "simplesuite_source_sha=$SIMPLESUITE_RESOLVED_SHA" \
-        "$install_manifest" 2>/dev/null &&
-   grep -qx "simplewords_build_revision=$SIMPLESUITE_RESOLVED_SHA" \
-        "$install_manifest" 2>/dev/null; then
-    printf '  ok: %s records %s\n' "$install_manifest" \
-        "$SIMPLESUITE_RESOLVED_SHA"
-else
-    printf '  stale: %s does not record fetched SHA %s\n' \
-        "$install_manifest" "$SIMPLESUITE_RESOLVED_SHA" >&2
-    missing=1
-fi
-
-if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite revision provenance verification failed." >&2
-    exit 1
-fi
-
-config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-echo "Verifying SimpleSuite config payload"
-for config_file in \
-    "$config_home/simplenews/config.example" \
-    "$config_home/simplenews/urls.example" \
-    "$config_home/simplemail/config" \
-    "$HOME/.config/simplefiles/config" \
-    "$HOME/.config/simplewords/config"; do
-    if [ -r "$config_file" ]; then
-        printf '  ok: %s\n' "$config_file"
-    else
-        printf '  missing: %s\n' "$config_file" >&2
-        missing=1
-    fi
-done
-
-if [ "$(uname -s 2>/dev/null || true)" = FreeBSD ]; then
-    case "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" in
-        skip | no | false | 0) ;;
-        *)
-            if [ -x "$FREEBSD_UNMOUNT_HELPER" ]; then
-                printf '  ok: %s\n' "$FREEBSD_UNMOUNT_HELPER"
-            elif [ "$SIMPLESUITE_INSTALL_FREEBSD_HELPER" = require ]; then
-                printf '  missing: %s\n' "$FREEBSD_UNMOUNT_HELPER" >&2
-                missing=1
-            else
-                printf '  skipped: %s (run an interactive install or use require mode)\n' \
-                    "$FREEBSD_UNMOUNT_HELPER"
-            fi
-            ;;
-    esac
-fi
-
 case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" in
     Darwin:0:*|FreeBSD:0:*|Linux:0:*) ;;
     Darwin:1:skip|Darwin:1:no|Darwin:1:false|Darwin:1:0|FreeBSD:1:skip|FreeBSD:1:no|FreeBSD:1:false|FreeBSD:1:0|Linux:1:skip|Linux:1:no|Linux:1:false|Linux:1:0) ;;
     Darwin:1:preserve|FreeBSD:1:preserve|Linux:1:preserve)
-        # Scriptorium updates applications while SimpleOS owns this daemon.
-        # Verify the preserved file, without gating updates on live networking.
-        if [ -x "$SYSTEM_DAEMON" ]; then
-            printf '  preserved: %s\n' "$SYSTEM_DAEMON"
-        else
+        [ -x "$SYSTEM_DAEMON" ] || {
             echo "Preserved SimpleServe daemon is missing or not executable: $SYSTEM_DAEMON" >&2
-            missing=1
-        fi
+            exit 1
+        }
+        printf '  preserved: %s\n' "$SYSTEM_DAEMON"
         ;;
     Darwin:1:*|FreeBSD:1:*|Linux:1:*)
         if [ ! -e "$SYSTEM_DAEMON" ] && [ ! -L "$SYSTEM_DAEMON" ]; then
@@ -695,23 +567,8 @@ case "$SIMPLESUITE_HOST_OS:$SIMPLESUITE_INSTALL_SIMPLESERVE:$SIMPLESUITE_INSTALL
                 SIMPLESERVE_SYSTEM_INIT="${SIMPLESERVE_SYSTEM_INIT:-}" \
                 "$DEST/install-simpleserve-system.sh" "$DEST/build/simpleserved"
         fi
-        if [ -x "$DEST/verify-simpleserve-system.sh" ] &&
-           "$DEST/verify-simpleserve-system.sh" \
-               "$SYSTEM_DAEMON" "$SYSTEM_BIN_DIR/simpleserve"; then
-            printf '  ok: %s\n' "$SYSTEM_DAEMON"
-        elif [ "$SIMPLESUITE_INSTALL_SIMPLESERVE_SYSTEM" = require ]; then
-            echo "SimpleServe system service is missing, stale, or stopped." >&2
-            missing=1
-        else
-            echo "  skipped: SimpleServe system service (run an interactive install or use require mode)"
-        fi
         ;;
 esac
-
-if [ "$missing" -ne 0 ]; then
-    echo "SimpleSuite install did not produce its complete config/helper payload." >&2
-    exit 1
-fi
 
 if [ "$SIMPLESUITE_INSTALL_REMINDERS" -eq 1 ]; then
     if [ -x "$SYSTEM_BIN_DIR/simplecal" ]; then

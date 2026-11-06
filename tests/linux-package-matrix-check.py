@@ -2,6 +2,7 @@
 """Exercise each real Linux package transaction and provider choice safely."""
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -51,6 +52,9 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-linux-matrix-') as tmp:
     commands.mkdir()
     scripts = directory / 'scripts'
     scripts.mkdir()
+    shutil.copy(root / 'scripts/ubuntu-media-packages.sh', scripts)
+    release = directory / 'os-release'
+    release.write_text('ID=debian\nVERSION_ID="13"\n')
     for name in ('apt-get', 'apk', 'dnf', 'zypper', 'pacman', 'xbps-install',
                  'rpm', 'uname', 'dpkg-query', 'debconf-set-selections'):
         p = commands / name
@@ -66,6 +70,7 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-linux-matrix-') as tmp:
         built.unlink(missing_ok=True)
         env = dict(os.environ, PATH=str(commands) + ':' + os.environ['PATH'],
                    TEST_FAMILY=family, TEST_ROOT=str(directory), TEST_CALLS=str(calls),
+                   SCRIPTORIUM_OS_RELEASE_FILE=str(release),
                    TEST_BUILT=str(built), TEST_CALIBRE='0', TEST_SID='0',
                    TEST_CALIBRE_APK='0', TEST_FULL_FFMPEG='0', TEST_JACK2='0')
         env.update(options)
@@ -96,6 +101,19 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-linux-matrix-') as tmp:
                for name, args in calls)
     calls, built = run('debian', TEST_JACK2='1')
     assert any(name == 'apt-get' and 'libjack-jackd2-dev' in args for name, args in calls)
+    release.write_text('ID=ubuntu\nVERSION_ID="26.04"\nUBUNTU_CODENAME=resolute\n')
+    calls, built = run('debian')
+    ubuntu_packages = next(args for name, args in calls if name == 'apt-get' and args[0] == 'install')
+    for package in ('libevince-gtk3-dev', 'libevdocument3-4t64', 'libevview3-3t64',
+                    'libavformat62', 'libavcodec62', 'libavutil60', 'libavfilter11',
+                    'libswscale9', 'libswresample6'):
+        assert package in ubuntu_packages, package
+    assert 'libevince-dev' not in ubuntu_packages
+    print('OK Ubuntu 26.04 GTK 3 and FFmpeg 8 libraries')
+    release.write_text('ID=ubuntu\nVERSION_ID="24.04"\nUBUNTU_CODENAME=noble\n')
+    calls, built = run('debian')
+    assert any(name == 'apt-get' and 'libevince-dev' in args and 'libavformat62' not in args
+               for name, args in calls)
     calls, built = run('arch', TEST_JACK2='1')
     assert all('pipewire-jack' not in args for name, args in calls
                if name == 'pacman' and args[0] == '-Syu')

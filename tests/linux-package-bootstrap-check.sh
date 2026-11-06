@@ -14,8 +14,11 @@ home=$tmp/home
 apt_log=$tmp/apt.log
 mkdir -p "$fixture/scripts" "$fake_bin/pkgconfig" "$home"
 cp "$repo/scripts/install-packages.sh" \
+    "$repo/scripts/ubuntu-media-packages.sh" \
     "$repo/scripts/resolve-simpleserve-role.sh" \
     "$repo/scripts/checkdeps.sh" "$fixture/scripts/"
+printf 'ID=debian\nVERSION_ID="13"\n' >"$fixture/os-release"
+export SCRIPTORIUM_OS_RELEASE_FILE="$fixture/os-release"
 
 cat >"$fixture/scripts/detect-platform.sh" <<'EOF'
 #!/bin/sh
@@ -62,7 +65,7 @@ PC
                 ;;
         esac
         case " $* " in
-            *' libevince-dev '*)
+            *' libevince-dev '*|*' libevince-gtk3-dev '*)
                 if [ "${FAKE_APT_OMIT_EVINCE:-0}" != 1 ]; then
                     for pdf_library in evince-view-3.0 evince-document-3.0; do
                         printf 'Name: %s\nDescription: Evince fixture\nVersion: 48.1\n' \
@@ -93,7 +96,7 @@ for dependency_command in \
     cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
-    pactl parec xclip; do
+    pactl parec xclip nasm brightnessctl ddcutil; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$dependency_command"
 done
 
@@ -125,7 +128,7 @@ for dependency_command in \
     cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
-    pactl parec xclip; do
+    pactl parec xclip nasm brightnessctl ddcutil; do
     chmod 755 "$fake_bin/$dependency_command"
 done
 

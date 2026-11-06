@@ -1010,7 +1010,8 @@ fi
 desktop_packages=
 case "$family" in
     debian)
-        desktop_packages='libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont libgme-dev libopenmpt-dev libdav1d-dev nasm'
+        ubuntu_media_packages=$("$ROOT/scripts/ubuntu-media-packages.sh" "${SCRIPTORIUM_OS_RELEASE_FILE:-/etc/os-release}")
+        desktop_packages="libgtk-3-dev $ubuntu_media_packages poppler-data libvte-2.91-dev libpcre2-dev fontconfig fonts-dejavu-core adwaita-icon-theme desktop-file-utils ffmpeg libcairo2-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont libgme-dev libopenmpt-dev libdav1d-dev nasm"
         # FluidSynth accepts either JACK development provider. Keep an existing
         # JACK 2 runtime instead of letting APT replace it with JACK 1.
         if command -v dpkg-query >/dev/null 2>&1 &&

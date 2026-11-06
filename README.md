@@ -335,6 +335,13 @@ FFmpeg and installs its libraries under
 the distribution. Source builds take longer on the first installation. See
 [PORTABILITY-CHECK.md](PORTABILITY-CHECK.md) for the tested platforms and limits.
 
+Ubuntu 26.04 (Resolute) installations explicitly include the FFmpeg 8 runtime
+libraries and the retained GTK 3 Evince libraries (`libevince-gtk3-dev`), which
+SimplePDF requires. SimplePlay rebuilds its cached binaries when its library
+versions change after an OS upgrade.
+Dependency audits and installed-file verification remain manual tools; the
+normal installer does not run those audit phases or a test suite.
+
 On macOS 14.2 or newer, the same `./install.sh` path validates the selected SDK,
 installs the Homebrew package set once, and hands the checkout to SimpleSuite's
 native Darwin build without repeating the package transaction. SimpleBrowse
