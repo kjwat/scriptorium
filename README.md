@@ -567,6 +567,22 @@ when their target is installed, and installers preserve unrelated commands.
 On Linux, `simpleblue` and its shell alias `blue` are available without forcing the
 optional BlueZ system stack onto machines whose owners do not want Bluetooth;
 `simpleblue --setup-help` shows the opt-in setup for each supported platform.
+If a Linux software radio block hides the controller, `blue` opens with
+Bluetooth off. Press `p` to unblock Bluetooth, wait for the controller to
+return, and scan. This recovery is built into Simpleblue and delivered by the
+same Scriptorium installer and alias; it needs no startup service or additional
+package. Opening `blue` leaves disabled radios off, and recovery leaves Wi-Fi
+alone. Hardware blocks and missing permission to `/dev/rfkill` receive specific
+instructions in the panel.
+Rejected saved pairing keys are shown as `re-pair needed`, with instructions to
+forget that pairing using `x` and `y`, put the device in pairing mode, and select
+it and press Enter to pair again. The existing confirmation protects other
+saved pairings.
+The isolated integration check is
+`python3 tests/simpleblue-recovery-check.py ../simplesuite`; it builds the real
+program through Scriptorium, verifies the `blue` alias, and exercises blocked
+startup, rejected keys, cancellation, and confirmed re-pairing against a
+simulated radio without touching host radios.
 SimpleOS images may include BlueZ as an explicit distribution feature. When
 zsh or Fish is the login shell, the installer writes the same
 shell setup to `~/.zshrc` or `~/.config/fish/conf.d/scriptorium.fish`, using the
