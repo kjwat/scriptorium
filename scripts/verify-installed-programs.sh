@@ -20,7 +20,7 @@ verify_file() {
     printf '  verified: %s\n' "$2"
 }
 
-scripts=${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}
+scripts=${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplemail-fetch simplesuite-uninstall}
 case $host in
     Linux) scripts="$scripts simplevol-audio" ;;
     Darwin) scripts="$scripts simplefiles-macos-helper simplevis-macos-capture" ;;
@@ -32,7 +32,7 @@ for program in $programs; do
         simplesuite-uninstall) source=$suite/uninstall.sh ;;
         simplebrowse-webkitd)
             case $host in Darwin) source=$suite/build/$program ;; *) source=$suite/$program ;; esac ;;
-        simplebrowse-jsdump|simplevol-audio|simplechange-engine|simplefiles-macos-helper|simplevis-macos-capture)
+        simplebrowse-jsdump|simplemail-fetch|simplevol-audio|simplechange-engine|simplefiles-macos-helper|simplevis-macos-capture)
             source=$suite/$program ;;
         *) source=$suite/build/$program ;;
     esac

@@ -8,7 +8,7 @@ case $(uname -s) in
 esac
 REPO_URL="${SIMPLESUITE_REPO_URL:-$default_suite_repository}"
 DEST="${SIMPLESUITE_DIR:-$HOME/simplesuite}"
-SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplesuite-uninstall}"
+SIMPLESUITE_SCRIPTS="${SIMPLESUITE_SCRIPTS:-simplebrowse-webkitd simplebrowse-jsdump simplemail-fetch simplesuite-uninstall}"
 SIMPLESUITE_INSTALL_REMINDERS="${SIMPLESUITE_INSTALL_REMINDERS:-1}"
 SIMPLESUITE_INSTALL_PACKAGES="${SIMPLESUITE_INSTALL_PACKAGES:-auto}"
 SIMPLESUITE_PROGRAM_FILTER="${SIMPLESUITE_PROGRAM_FILTER:-}"
@@ -290,6 +290,14 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
         *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplesuite-uninstall" ;;
     esac
     case " $SIMPLESUITE_PROGRAM_FILTER " in
+        *' simplemail '*)
+            case " $SIMPLESUITE_PROGRAM_FILTER " in
+                *' simplemail-fetch '*) ;;
+                *) SIMPLESUITE_PROGRAM_FILTER="$SIMPLESUITE_PROGRAM_FILTER simplemail-fetch" ;;
+            esac
+            ;;
+    esac
+    case " $SIMPLESUITE_PROGRAM_FILTER " in
         *' simplevol '*)
             case " $SIMPLESUITE_PROGRAM_FILTER " in
                 *' simplevol-audio '*) ;;
@@ -327,7 +335,7 @@ if [ -n "$SIMPLESUITE_PROGRAM_FILTER" ]; then
             exit 2
         fi
         case $program in
-            simplesuite-uninstall | simplebrowse-jsdump | simplevol-audio | simplechange-engine)
+            simplesuite-uninstall | simplebrowse-jsdump | simplemail-fetch | simplevol-audio | simplechange-engine)
                 ;;
             simplebrowse-webkitd)
                 if [ "$SIMPLESUITE_HOST_OS" = Darwin ]; then
@@ -405,7 +413,7 @@ simplesuite_program_source() {
                 printf '%s\n' "$DEST/$1"
             fi
             ;;
-        simplebrowse-jsdump | simplevol-audio | simplechange-engine)
+        simplebrowse-jsdump | simplemail-fetch | simplevol-audio | simplechange-engine)
             printf '%s\n' "$DEST/$1"
             ;;
         *)

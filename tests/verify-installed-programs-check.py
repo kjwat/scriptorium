@@ -33,7 +33,7 @@ simplesuite_desktop_aliases() { printf '%s\\n' term:simpleterm play:simpleplay p
                         else '#!/bin/sh\n# ' + name + '\nexit 0\n')
         path.chmod(0o755)
         shutil.copy(path, binary / name)
-    for name in ('simplechange-engine', 'simplebrowse-webkitd', 'simplebrowse-jsdump', 'simplevol-audio', 'uninstall.sh'):
+    for name in ('simplechange-engine', 'simplebrowse-webkitd', 'simplebrowse-jsdump', 'simplemail-fetch', 'simplevol-audio', 'uninstall.sh'):
         path = suite / name
         path.write_text('# source ' + name)
         shutil.copy(path, binary / ('simplesuite-uninstall' if name == 'uninstall.sh' else name))
@@ -54,7 +54,7 @@ simplesuite_desktop_aliases() { printf '%s\\n' term:simpleterm play:simpleplay p
 
     valid = run()
     assert valid.returncode == 0, valid.stderr
-    for name in ('simplepdf', 'simpletrident', 'simpleplay-core', 'setup-server'):
+    for name in ('simplepdf', 'simpletrident', 'simpleplay-core', 'simplemail-fetch', 'setup-server'):
         target = binary / name
         good = target.read_bytes()
         target.write_text('old executable')

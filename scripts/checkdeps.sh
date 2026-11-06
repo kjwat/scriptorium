@@ -396,7 +396,7 @@ pkg_for_dep() {
     case "$family:$1" in
         *:evince-view-3.0|*:evince-document-3.0)
             case "$family" in
-                debian) echo "libevince-dev" ;;
+                debian) "$ROOT/scripts/ubuntu-media-packages.sh" "${SCRIPTORIUM_OS_RELEASE_FILE:-/etc/os-release}" | sed -n '1p' ;;
                 arch | freebsd) echo "evince" ;;
                 alpine) echo "evince-dev" ;;
                 void | fedora | suse) echo "evince-devel" ;;
@@ -553,7 +553,9 @@ packages_for_family() {
             ;;
         debian)
             INSTALL="sudo apt-get update && sudo apt-get install -y"
-            PKG_REQUIRED="libevince-dev poppler-data build-essential pkg-config libncurses-dev libglib2.0-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev libssl-dev"
+            ubuntu_media_packages=$("$ROOT/scripts/ubuntu-media-packages.sh" "${SCRIPTORIUM_OS_RELEASE_FILE:-/etc/os-release}")
+            ubuntu_media_packages=${ubuntu_media_packages//$'\n'/ }
+            PKG_REQUIRED="$ubuntu_media_packages poppler-data build-essential pkg-config libncurses-dev libglib2.0-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev libssl-dev"
             PKG_RUNTIME="git poppler-utils pandoc isync msmtp calcurse links curl ca-certificates rsync util-linux $simpleserve_packages"
             PKG_OPTIONAL="nano zip unzip tar xdg-utils file less fzf pulseaudio-utils libglib2.0-bin udisks2 gvfs-backends e2fsprogs dosfstools exfatprogs ntfs-3g wl-clipboard xclip xsel python3 python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 cron"
             ;;

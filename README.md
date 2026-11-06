@@ -337,8 +337,13 @@ the distribution. Source builds take longer on the first installation. See
 
 Ubuntu 26.04 (Resolute) installations explicitly include the FFmpeg 8 runtime
 libraries and the retained GTK 3 Evince libraries (`libevince-gtk3-dev`), which
-SimplePDF requires. SimplePlay rebuilds its cached binaries when its library
-versions change after an OS upgrade.
+SimplePDF requires. Ubuntu 24.04 keeps its `libevince-dev` package selection.
+Dependency diagnostics use the same release selection as package installation.
+SimpleSuite rebuilds cached native programs and linked objects when the host
+release, compiler, build flags or library SDK changes, even when source timestamps
+survive an upgrade. The installer also refreshes SimpleMail's Python helper,
+including during mail-only installs; it supports both legacy IMAP buffering and
+Python 3.14's buffering used by Ubuntu 26.04.
 Dependency audits and installed-file verification remain manual tools; the
 normal installer does not run those audit phases or a test suite.
 GdkPixbuf's development/runtime package is included for SimpleVis wallpaper
@@ -818,4 +823,5 @@ GTK PDF reader (`pdf`). Full installation invokes SimpleSuite's
 Linux/FreeBSD. You can run that script separately for installation or removal.
 The package phase installs Evince's development files and verifies both
 `evince-view-3.0` and `evince-document-3.0` before building SimplePDF. On
-SimpleOS/Debian/Ubuntu this includes `libevince-dev` and `poppler-data`.
+SimpleOS/Debian/Ubuntu this includes `libevince-dev` (`libevince-gtk3-dev` on
+Ubuntu 26.04) and `poppler-data`.

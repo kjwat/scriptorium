@@ -120,7 +120,7 @@ case "$*" in
 esac
 EOF
 
-for utility in awk bash cat chmod dirname env grep id mktemp rm tee; do
+for utility in awk bash cat chmod dirname env grep id mktemp rm sed tee; do
     ln -s "$(command -v "$utility")" "$fake_bin/$utility"
 done
 chmod 755 "$fake_bin/uname" "$fake_bin/sudo" "$fake_bin/apt-get"
@@ -404,5 +404,24 @@ if grep -Eq 'build-essential|mpv|pandoc|isync|calcurse' "$apt_log"; then
 fi
 grep -q 'Trident server package installation verified' \
     "$tmp/install-promotion.log"
+
+# The dependency report must name the same GTK 3 package selected by the
+# installer on Ubuntu 26, rather than recommending the GTK 4 development API.
+printf 'ID=ubuntu\nVERSION_ID="26.04"\nUBUNTU_CODENAME=resolute\n' >"$fixture/os-release"
+rm "$fake_bin/pkgconfig/evince-view-3.0.pc"
+: >"$apt_log"
+install_status=0
+HOME="$home" FAKE_APT_LOG="$apt_log" FAKE_BIN="$fake_bin" \
+FAKE_APT_OMIT_EVINCE=1 PATH="$fake_bin" SIMPLESUITE_NETWORK_ROLE=none \
+    "$fixture/scripts/install-packages.sh" >"$tmp/ubuntu26-missing.log" 2>&1 \
+    || install_status=$?
+[ "$install_status" -eq 1 ]
+grep -Eq '^install -y .* libevince-gtk3-dev( |$)' "$apt_log"
+grep -q '^MISSING: Evince .*pkg-config: evince-view-3.0;.*libevince-gtk3-dev' \
+    "$tmp/ubuntu26-missing.log"
+if grep -Eq '(^|[[:space:]])libevince-dev([[:space:]]|$)' "$tmp/ubuntu26-missing.log"; then
+    echo 'linux-package-bootstrap-check: Ubuntu 26 report recommends the wrong Evince SDK' >&2
+    exit 1
+fi
 
 echo 'OK Scriptorium repairs Evince and libnm build dependencies and splits Trident packages'

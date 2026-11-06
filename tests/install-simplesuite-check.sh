@@ -110,7 +110,7 @@ case "$(uname -s)" in
         fi
         ;;
 esac
-helpers='simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplebook-mobi simplesuite-uninstall'
+helpers='simplechange-engine simplebrowse-webkitd simplebrowse-jsdump simplemail-fetch simplebook-mobi simplesuite-uninstall'
 if [ "$(uname -s)" = Linux ]; then helpers="$helpers simplevol-audio"; fi
 if [ "$(uname -s)" = Darwin ]; then
     helpers="$helpers simplefiles-macos-helper simplevis-macos-capture"
@@ -215,7 +215,7 @@ simplebook simplebook-mobi:
 	chmod 755 build/$@
 EOF
 
-for helper in uninstall.sh simplebrowse-webkitd simplebrowse-jsdump; do
+for helper in uninstall.sh simplebrowse-webkitd simplebrowse-jsdump simplemail-fetch; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_REPO/$helper"
     chmod 755 "$FAKE_REPO/$helper"
 done
@@ -256,7 +256,7 @@ git -C "$FAKE_REPO" init -q
 git -C "$FAKE_REPO" config user.name 'Scriptorium test'
 git -C "$FAKE_REPO" config user.email 'test@example.invalid'
 git -C "$FAKE_REPO" add build.sh Makefile program-manifest.sh .gitignore \
-    verify-simpleserve-system.sh install-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump
+    verify-simpleserve-system.sh install-simpleserve-system.sh uninstall.sh simplebrowse-webkitd simplebrowse-jsdump simplemail-fetch
 git -C "$FAKE_REPO" commit -qm fixture
 
 SCRIPTORIUM_SIMPLESERVE_ROLE_FILE=$TMP/no-existing-role
@@ -508,6 +508,7 @@ export HOME
 mkdir -p "$HOME/.local/bin"
 printf '%s\n' personal >"$HOME/.local/bin/ytmp3"
 cp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
+cp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemail-fetch" "$TMP/mail-helper-before-failure"
 if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
    FAKE_UNAME=Linux FAKE_FAIL_BUILD=1 \
    SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" \
@@ -521,6 +522,7 @@ fi
 [ "$(ls -A "$HOME/.local/bin")" = ytmp3 ]
 [ "$(cat "$HOME/.local/bin/ytmp3")" = personal ]
 cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/words-before-failure"
+cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemail-fetch" "$TMP/mail-helper-before-failure"
 grep -q '^# frozen SimpleOS daemon$' "$SIMPLESERVE_DAEMON_BINARY"
 
 # A SimpleBook-only update must publish its converter and new uninstaller too.

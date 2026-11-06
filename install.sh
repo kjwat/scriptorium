@@ -659,6 +659,7 @@ case "$HOST_OS" in
 esac
 declare -a EXPECTED_SIMPLESUITE_HELPERS=(
     simplesuite-uninstall
+    simplemail-fetch
 )
 case "$HOST_OS" in
     Linux | FreeBSD | Darwin) EXPECTED_SIMPLESUITE_HELPERS+=(simpleplay-core) ;;
