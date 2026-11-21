@@ -485,6 +485,20 @@ else
     definitive_programs="$SIMPLESUITE_PROGRAMS $SIMPLESUITE_SCRIPTS"
 fi
 
+for program in $definitive_programs; do
+    [ "$program" = simplemp3 ] || continue
+    echo "Preparing SimpleMP3 dependencies"
+    simplemp3_source=$(simplesuite_program_source "$program")
+    if [ "${SCRIPTORIUM_OFFLINE:-0}" = 1 ]; then
+        if ! "$simplemp3_source" --prepare --no-update; then
+            echo "SimpleMP3 will recheck dependencies at launch." >&2
+        fi
+    else
+        "$simplemp3_source" --prepare
+    fi
+    break
+done
+
 echo "Installing definitive SimpleSuite in $SYSTEM_BIN_DIR"
 for program in $definitive_programs; do
     install_definitive_program "$program"

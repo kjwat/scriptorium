@@ -6,7 +6,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/scriptorium-system-paths.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/home/.local/bin" "$tmp/system/bin" "$tmp/system/sbin" "$tmp/suite"
 
-for program in simplewords simplenote simplesave simplesearch simpleburn simplebook simplebright simplevol simplevol-audio simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
+for program in simplewords simplenote simplesave simplesearch simpleburn simplebook simplebright simplevol simplevol-audio simplemp3 simpleplay simpleterm simplesuite-uninstall simplecheck simpletrident setup-server; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$tmp/system/bin/$program"
 done
 cat >"$tmp/system/bin/simplecal" <<'EOF'
@@ -53,7 +53,7 @@ say() { :; }
 warn() { printf '%s\n' "$*" >&2; }
 run_as_root() { "$@"; }
 scriptorium_program_aliases() {
-    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn book:simplebook bright:simplebright vol:simplevol play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
+    printf '%s\n' words:simplewords note:simplenote save:simplesave search:simplesearch burn:simpleburn book:simplebook bright:simplebright vol:simplevol mp3:simplemp3 play:simpleplay term:simpleterm cal:simplecal serve:simpleserve check:simplecheck \
         absent:scriptorium_test_missing_program
 }
 
@@ -101,6 +101,9 @@ grep -qx "alias read='my-personal-reader'" "$HOME/.bashrc"
 [[ $(grep -c "^alias bright='simplebright'$" "$HOME/.bashrc") == 1 ]]
 bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias bright; bright' >"$HOME/bright-check" 2>/dev/null
 grep -qx "alias bright='simplebright'" "$HOME/bright-check"
+[[ $(grep -c "^alias mp3='simplemp3'$" "$HOME/.bashrc") == 1 ]]
+bash --noprofile --rcfile "$HOME/.bashrc" -ic 'alias mp3; mp3' >"$HOME/mp3-check" 2>/dev/null
+grep -qx "alias mp3='simplemp3'" "$HOME/mp3-check"
 [[ $(grep -c "^alias words='simplewords'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias note='simplenote'$" "$HOME/.bashrc") == 1 ]]
 [[ $(grep -c "^alias save='simplesave'$" "$HOME/.bashrc") == 1 ]]
@@ -144,11 +147,12 @@ done
 # The installed manifest uses whitespace; the alias consumer uses colons.
 SIMPLESUITE_MANIFEST_FILE=$tmp/absent-manifest
 SIMPLESUITE_INSTALLED_MANIFEST=$tmp/installed-abbreviations
-printf '%s\n' '# installed commands' 'words simplewords' 'note simplenote' 'save simplesave' 'search simplesearch' 'burn simpleburn' 'vol simplevol' \
+printf '%s\n' '# installed commands' 'words simplewords' 'note simplenote' 'save simplesave' 'search simplesearch' 'burn simpleburn' 'vol simplevol' 'mp3 simplemp3' \
     >"$SIMPLESUITE_INSTALLED_MANIFEST"
 . "$repo/scripts/simple-programs.sh"
 aliases=$(scriptorium_program_aliases Linux 0)
 [[ $(printf '%s\n' "$aliases" | grep -cx 'vol:simplevol') == 1 ]]
+[[ $(printf '%s\n' "$aliases" | grep -cx 'mp3:simplemp3') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'note:simplenote') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'save:simplesave') == 1 ]]
 [[ $(printf '%s\n' "$aliases" | grep -cx 'search:simplesearch') == 1 ]]
@@ -157,6 +161,6 @@ aliases=$(scriptorium_program_aliases Linux 0)
 [[ $(printf '%s\n' "$aliases" | grep -cx 'play:simpleplay') == 1 ]]
 [[ $(scriptorium_program_aliases FreeBSD 0 | grep -cx 'play:simpleplay') == 1 ]]
 ! scriptorium_program_aliases Darwin 0 | grep -q '^play:'
-[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimplesearch\nsimpleburn\nsimplevol' ]]
+[[ $(scriptorium_suite_programs Linux 0) == $'simplewords\nsimplenote\nsimplesave\nsimplesearch\nsimpleburn\nsimplevol\nsimplemp3' ]]
 
 echo 'OK installer aliases use system binaries and reminder setup does not run service audits'

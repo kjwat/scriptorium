@@ -284,6 +284,9 @@ on platform availability:
 - `git`, `links`, `fzf`, `calcurse`
 - GTK 3, VTE, PCRE2, FFmpeg, SDL 2, libass, FluidSynth, libsidplayfp and
   JSON-GLib for SimpleTerm and SimplePlay; Linux/BSD include a MIDI SoundFont
+- Python 3.10+ with curses and FFmpeg with ffprobe and the LAME encoder for
+  SimpleMP3 on Linux and macOS. Setup provisions yt-dlp and Deno in the user's
+  cache as needed. Alpine and Void get Node.js from their package manager.
 - `isync`/`mbsync` and `msmtp` for SimpleMail
 - NetworkManager, iwd, or wpa_supplicant plus `iw`, `ip`, and `ping` for
   SimpleNet Wi-Fi management and adapter diagnostics
@@ -569,6 +572,10 @@ symlinks from both bin directories, and reconciles shell aliases for installed
 programs. Every short name becomes available after starting a new shell or sourcing
 `~/.bashrc`. Platform- or role-specific aliases exist only
 when their target is installed, and installers preserve unrelated commands.
+Run `mp3` to open SimpleMP3. Scriptorium prepares its downloader and JavaScript
+runtime during installation. Offline installations reuse installed or cached
+components and leave any missing downloader components for the first online
+launch.
 On Linux, `simpleblue` and its shell alias `blue` are available without forcing the
 optional BlueZ system stack onto machines whose owners do not want Bluetooth;
 `simpleblue --setup-help` shows the opt-in setup for each supported platform.
@@ -602,6 +609,7 @@ alias files='simplefiles'
 alias browse='simplebrowse'
 alias burn='simpleburn'
 alias flac='simpleflac'
+alias mp3='simplemp3'
 alias radio='simpleradio'
 alias pod='simplepod'
 alias vis='simplevis'

@@ -96,10 +96,11 @@ for dependency_command in \
     cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
-    pactl parec xclip nasm brightnessctl ddcutil; do
+    pactl parec xclip nasm brightnessctl ddcutil ffprobe; do
     printf '%s\n' '#!/bin/sh' 'exit 0' >"$fake_bin/$dependency_command"
 done
 
+printf '%s\n' '#!/bin/sh' 'echo " A....D libmp3lame MP3"' >"$fake_bin/ffmpeg"
 cat >"$fake_bin/python3" <<'EOF'
 #!/bin/sh
 code=$(cat)
@@ -128,7 +129,7 @@ for dependency_command in \
     cc c++ simpleplay-core glib-compile-resources fc-match update-desktop-database pkg-config git pdftotext pandoc zip unzip tar file less fzf dd lsblk links \
     mbsync msmtp calcurse curl rsync make nano crontab python3 xdg-open gio \
     findmnt udisksctl e2fsck fsck.fat fsck.exfat ntfsfix wl-copy wl-paste \
-    pactl parec xclip nasm brightnessctl ddcutil; do
+    pactl parec xclip nasm brightnessctl ddcutil ffmpeg ffprobe; do
     chmod 755 "$fake_bin/$dependency_command"
 done
 
@@ -142,7 +143,7 @@ grep -q -- '--no-upgrade --no-remove --no-install-recommends' "$apt_log"
 for package_name in \
     calibre libreoffice-writer libreoffice-calc djvulibre-bin libnm-dev libavahi-client-dev nfs-common avahi-daemon avahi-utils cifs-utils \
     openssh-client openssh-server pipewire-bin pipewire-pulse wireplumber lsp-plugins-lv2 \
-    libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev libavformat-dev libavcodec-dev \
+    libgtk-3-dev libevince-dev poppler-data libvte-2.91-dev libpcre2-dev ffmpeg libavformat-dev libavcodec-dev \
     libavutil-dev libavfilter-dev libswscale-dev libswresample-dev libsdl2-dev \
     libass-dev libfluidsynth-dev libsidplayfp-dev libjson-glib-dev timgm6mb-soundfont; do
     grep -Eq "^install -y .*(^|[[:space:]])${package_name}([[:space:]]|$)" \

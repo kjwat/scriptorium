@@ -66,7 +66,10 @@ case "${1-}" in
         case " $* " in
             *' --cask calibre '*) commands='ebook-convert calibre-debug' ;;
             *' --cask libreoffice '*) commands=soffice ;;
-            *) commands='python3 pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu' ;;
+            *) commands='python3 pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu ffprobe'
+                printf '%s\n' '#!/bin/sh' 'echo " A....D libmp3lame MP3"' >"$FAKE_BIN/ffmpeg"
+                chmod 755 "$FAKE_BIN/ffmpeg"
+                ;;
         esac
         for command_name in $commands; do
             printf '%s\n' '#!/bin/sh' 'exit 0' >"$FAKE_BIN/$command_name"

@@ -266,6 +266,17 @@ from gi.repository import Gtk, WebKit2
 PY
 }
 
+have_simplemp3_system_tools() {
+    python3 -c 'import curses, ssl, sys; sys.exit(sys.version_info < (3, 10))' || return 1
+    have_cmd ffprobe || return 1
+    ffmpeg -hide_banner -encoders 2>/dev/null | grep -q ' libmp3lame ' || return 1
+    case "$family" in
+        alpine | void)
+            node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 22 ? 1 : 0)'
+            ;;
+    esac
+}
+
 dependencies_already_present() {
     for dependency_command in \
         cc pkg-config git python3 pdftotext pdfinfo pdftohtml pdftoppm pandoc \
@@ -276,6 +287,9 @@ dependencies_already_present() {
     done
     have_calibre || return 1
     have_libreoffice || return 1
+    case "$(uname -s 2>/dev/null || true)" in
+        Linux | Darwin) have_simplemp3_system_tools || return 1 ;;
+    esac
 
     case "$family" in
         macos | freebsd)
@@ -1024,22 +1038,23 @@ case "$family" in
         desktop_packages='gdk-pixbuf2 gtk3 evince vte3 pcre2 fontconfig ttf-dejavu adwaita-icon-theme desktop-file-utils ffmpeg cairo sdl2 libass fluidsynth libsidplayfp json-glib soundfont-fluid libgme libopenmpt dav1d nasm'
         ;;
     void)
-        desktop_packages='gdk-pixbuf-devel gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6-devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid libgme-devel libopenmpt-devel libdav1d-devel nasm'
+        desktop_packages='gdk-pixbuf-devel gtk+3-devel evince-devel vte3-devel pcre2-devel fontconfig dejavu-fonts-ttf adwaita-icon-theme desktop-file-utils ffmpeg6 ffmpeg6-devel nodejs cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel soundfont-fluid libgme-devel libopenmpt-devel libdav1d-devel nasm'
         ;;
     alpine)
         # Missing stable dependencies are built below; do not enable testing.
-        desktop_packages='gdk-pixbuf-dev gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg-dev cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm libgme-dev libopenmpt-dev dav1d-dev nasm'
+        desktop_packages='gdk-pixbuf-dev gtk+3.0-dev evince-dev vte3-dev pcre2-dev fontconfig font-dejavu adwaita-icon-theme desktop-file-utils ffmpeg ffmpeg-dev nodejs cairo-dev sdl2-dev libass-dev fluidsynth-dev json-glib-dev soundfont-timgm libgme-dev libopenmpt-dev dav1d-dev nasm'
         ;;
     fedora)
         fedora_ffmpeg_devel=ffmpeg-free-devel
         # Respect a complete FFmpeg provider already installed from RPM Fusion.
-        if command -v rpm >/dev/null 2>&1 && rpm -q ffmpeg-devel >/dev/null 2>&1; then
+        if command -v rpm >/dev/null 2>&1 &&
+           { rpm -q ffmpeg >/dev/null 2>&1 || rpm -q ffmpeg-devel >/dev/null 2>&1; }; then
             fedora_ffmpeg_devel=ffmpeg-devel
         fi
-        desktop_packages="gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils $fedora_ffmpeg_devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm"
+        desktop_packages="gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte291-devel pcre2-devel fontconfig dejavu-sans-mono-fonts adwaita-icon-theme desktop-file-utils ${fedora_ffmpeg_devel%-devel} $fedora_ffmpeg_devel cairo-devel SDL2-devel libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm"
         ;;
     suse)
-        desktop_packages='gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg-devel cairo-devel pkgconfig(sdl2) libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm'
+        desktop_packages='gdk-pixbuf2-devel gcc-c++ gtk3-devel evince-devel vte-devel pcre2-devel fontconfig dejavu-fonts adwaita-icon-theme desktop-file-utils ffmpeg ffmpeg-devel cairo-devel pkgconfig(sdl2) libass-devel fluidsynth-devel libsidplayfp-devel json-glib-devel fluid-soundfont-gm pkgconfig(libgme) pkgconfig(libopenmpt) pkgconfig(dav1d) pkgconfig(zlib) nasm'
         ;;
     freebsd)
         desktop_packages='gdk-pixbuf2 gtk3 evince vte3 pcre2 fontconfig dejavu adwaita-icon-theme desktop-file-utils ffmpeg sdl2 libass fluidsynth libsidplayfp json-glib fluid-soundfont'

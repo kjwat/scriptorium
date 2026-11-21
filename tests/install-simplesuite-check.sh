@@ -36,6 +36,7 @@ simplesuite_program_aliases() {
         ver:simplever vis:simplevis words:simplewords
     case $1 in Linux) printf '%s\n' net:simplenet blue:simpleblue vol:simplevol ;; \
         FreeBSD) printf '%s\n' net:simplenet ;; esac
+    case $1 in Linux|Darwin) printf '%s\n' mp3:simplemp3 ;; esac
     [ "$2" = 1 ] && printf '%s\n' serve:simpleserve || :
 }
 simplesuite_programs() {
@@ -103,6 +104,12 @@ case "$(uname -s)" in
         ;;
 esac
 case "$(uname -s)" in
+    Linux | Darwin)
+        programs="$programs simplemp3"
+        aliases="$aliases mp3:simplemp3"
+        ;;
+esac
+case "$(uname -s)" in
     Darwin | FreeBSD | Linux)
         if [ "${SIMPLESUITE_INSTALL_SIMPLESERVE:-1}" -eq 1 ]; then
             programs="$programs simpleserve simpleserved"
@@ -132,6 +139,16 @@ for name in $programs $helpers; do
             ;;
     esac
 done
+if [ -x "$fixture_bindir/simplemp3" ]; then
+    cat >"$fixture_bindir/simplemp3" <<'SIMPLEMP3_EOF'
+#!/bin/sh
+set -eu
+[ "${1-}" = --prepare ]
+printf '%s\n' "$*" >>"$HOME/simplemp3-prepare.calls"
+[ "${FAKE_FAIL_MP3_PREPARE:-0}" != 1 ] || exit 21
+SIMPLEMP3_EOF
+    cp "$fixture_bindir/simplemp3" "$PWD/build/simplemp3"
+fi
 # Simulate failure after install has already written executable payload.
 [ "${FAKE_FAIL_BUILD:-0}" != 1 ] || exit 19
 cat >"$fixture_bindir/simplewords" <<SIMPLEWORDS_EOF
@@ -403,7 +420,25 @@ SIMPLESUITE_NETWORK_ROLE=client \
 [ ! -e "$HOME/.local/bin/simpleserved" ]
 [ ! -e "$HOME/.local/bin/serve" ]
 grep -q '^client$' "$HOME/simpleserve-network-role"
+cmp "$HOME/simplesuite/build/simplemp3" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3"
+grep -qx -- '--prepare' "$HOME/simplemp3-prepare.calls"
+grep -qx 'mp3 simplemp3' "$SIMPLESUITE_SYSTEM_DATA_DIR/command-abbreviations"
+[ ! -e "$SIMPLESUITE_SYSTEM_BIN_DIR/mp3" ]
 [ ! -e "$HOME/simpleserve-system-role-verified" ]
+
+# A failed dependency preparation must leave the installed suite intact.
+cp -p "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3" "$TMP/working-simplemp3"
+printf '%s\n' '# previous SimpleMP3' >>"$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3"
+cp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3" "$TMP/previous-simplemp3"
+if PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
+   FAKE_UNAME=Linux FAKE_FAIL_MP3_PREPARE=1 \
+   SIMPLESUITE_REPO_URL="$FAKE_REPO" SIMPLESUITE_DIR="$HOME/simplesuite" SIMPLESUITE_INSTALL_REMINDERS=0 \
+       "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/mp3-prepare-failure.log" 2>&1; then
+    echo 'install-simplesuite-check: failed SimpleMP3 preparation was accepted' >&2
+    exit 1
+fi
+cmp "$TMP/previous-simplemp3" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3"
+cp -p "$TMP/working-simplemp3" "$SIMPLESUITE_SYSTEM_BIN_DIR/simplemp3"
 
 # Repeated application updates also preserve the daemon when it is unhealthy.
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
@@ -428,9 +463,11 @@ cmp "$SIMPLESUITE_SYSTEM_BIN_DIR/simplewords" "$TMP/before-offline"
 grep -q 'Cannot refresh SimpleSuite' "$TMP/failed-fetch.log"
 PATH="$FAKE_BIN:$REAL_GIT_DIR:/usr/local/bin:/usr/bin:/bin" \
 FAKE_UNAME=Linux SIMPLESUITE_DIR="$HOME/simplesuite" SIMPLESUITE_INSTALL_REMINDERS=0 \
-SCRIPTORIUM_OFFLINE=1 \
+SCRIPTORIUM_OFFLINE=1 FAKE_FAIL_MP3_PREPARE=1 \
     "$FAKE_SCRIPTORIUM/scripts/install-simplesuite.sh" >"$TMP/offline.log" 2>&1
 grep -q 'building the existing local checkout' "$TMP/offline.log"
+grep -qx -- '--prepare --no-update' "$HOME/simplemp3-prepare.calls"
+grep -q 'SimpleMP3 will recheck dependencies at launch' "$TMP/offline.log"
 [ "$(git -C "$HOME/simplesuite" rev-parse HEAD)" = "$offline_sha" ]
 git -C "$HOME/simplesuite" remote set-url origin "$FAKE_REPO"
 

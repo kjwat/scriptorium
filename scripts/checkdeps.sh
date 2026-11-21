@@ -123,7 +123,8 @@ dep_hint() {
     case "$1" in
         cc) echo "provided by gcc or clang" ;;
         make) echo "provided by make/build tools" ;;
-        python3) echo "used by SimpleChange and SimpleBrowse helpers" ;;
+        python3) echo "used by SimpleMP3, SimpleChange and SimpleBrowse helpers" ;;
+        ffmpeg|ffprobe) echo "provided by FFmpeg; SimpleMP3 requires the libmp3lame encoder" ;;
         pkg-config) echo "provided by pkg-config or pkgconf" ;;
         xdg-open) echo "Linux desktop helper; provided by xdg-utils; used by simplefiles external-open" ;;
         open) echo "macOS built-in external-open helper" ;;
@@ -696,6 +697,23 @@ check_cmd runtime simpleplay-core "SimplePlay engine"
 check_cmd runtime pdftotext "pdftotext"
 check_cmd runtime pandoc "pandoc"
 check_cmd runtime python3 "python3"
+case "$os" in
+    Linux | Darwin)
+        check_cmd runtime ffmpeg "SimpleMP3 FFmpeg"
+        check_cmd runtime ffprobe "SimpleMP3 ffprobe"
+        if have_cmd ffmpeg && ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q ' libmp3lame '; then
+            echo "MISSING: SimpleMP3 LAME encoder (libmp3lame in FFmpeg)"
+            add_missing runtime "SimpleMP3 LAME encoder"
+        fi
+        if have_cmd python3 && ! python3 -c 'import curses, ssl, sys; sys.exit(sys.version_info < (3, 10))'; then
+            echo "MISSING: SimpleMP3 Python 3.10+ with curses and SSL"
+            add_missing runtime "SimpleMP3 Python"
+        fi
+        ;;
+esac
+case "$family" in
+    alpine | void) check_cmd runtime node "SimpleMP3 Node.js" ;;
+esac
 for conversion_tool in pdfinfo pdftohtml pdftoppm c44 djvm djvused djvutxt ddjvu; do
     check_cmd runtime "$conversion_tool" "$conversion_tool"
 done

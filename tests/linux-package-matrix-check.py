@@ -86,6 +86,10 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-linux-matrix-') as tmp:
                         args[0] in ('install', 'add', '-Syu', '-Sy')]
         args = transactions[-1]
         assert any('evince' in a for a in args), family
+        ffmpeg_package = {'fedora': 'ffmpeg-free', 'void': 'ffmpeg6'}.get(family, 'ffmpeg')
+        assert ffmpeg_package in args, family
+        if family in ('alpine', 'void'):
+            assert 'nodejs' in args, family
         if family == 'fedora': assert 'ffmpeg-free-devel' in args and 'ffmpeg-devel' not in args
         if family == 'suse': assert 'pkgconfig(sdl2)' in args and 'libSDL2-devel' not in args
         if family == 'arch':
@@ -97,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix='scriptorium-linux-matrix-') as tmp:
         print('OK', family, 'package transaction')
 
     calls, built = run('fedora', TEST_FULL_FFMPEG='1')
-    assert any(name == 'dnf' and 'ffmpeg-devel' in args and 'ffmpeg-free-devel' not in args
+    assert any(name == 'dnf' and {'ffmpeg', 'ffmpeg-devel'} <= set(args) and 'ffmpeg-free' not in args
                for name, args in calls)
     calls, built = run('debian', TEST_JACK2='1')
     assert any(name == 'apt-get' and 'libjack-jackd2-dev' in args for name, args in calls)
